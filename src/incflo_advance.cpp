@@ -149,7 +149,7 @@ void incflo::ApplyPredictor(bool incremental_projection)
 
     // if ( use_godunov) Compute the explicit advective terms R_u^(n+1/2), R_s^(n+1/2) and R_t^(n+1/2)
     // if (!use_godunov) Compute the explicit advective terms R_u^n      , R_s^n       and R_t^n
-    incflo_compute_convective_term( conv_u_old, conv_r_old, conv_t_old, vel_o, density_o, tracer_o, cur_time );
+    incflo_compute_convective_term(conv_u_old, conv_r_old, conv_t_old, vel_o, density_o, tracer_o, cur_time );
 
     // This fills the eta_old array (if non-Newtonian, then using strain-rate of velocity at time "cur_time")
     ComputeViscosity(eta_old, cur_time);
@@ -174,6 +174,7 @@ void incflo::ApplyPredictor(bool incremental_projection)
        }
     }
 
+		//> GD --  This does the convective step (for all levels)
     for (int lev = 0; lev <= finest_level; lev++)
     {
         // First add the convective term to the velocity
@@ -231,6 +232,7 @@ void incflo::ApplyPredictor(bool incremental_projection)
         incflo_set_density_bcs(new_time, density);
     if (advect_tracer)
         incflo_set_tracer_bcs(new_time, tracer);
+    
     incflo_set_velocity_bcs(new_time, vel, 0);
 
     // Solve diffusion equation for u* but using eta_old at old time

@@ -56,8 +56,9 @@ public:
     //  - reads in parameters from inputs file
     //  - sizes multilevel arrays and datastructures
     //  - makes EB geometry if AMREX_USE_EB = TRUE
-	incflo();
-	~incflo();
+		incflo();
+		// Destructor
+    ~incflo();
 
     // Initialize multilevel AMR data
     void InitData();
@@ -193,6 +194,15 @@ public:
     void set_average_quantities(FArrayBox& avg_fab, int s, int b, int axis);
 
     Real volWgtSum (int lev, const MultiFab & mf, int comp, bool local=false);
+
+
+		//////////////////////////////////////////////////////////////////////////////////////////////
+    //
+    // Multiphase Physics
+    //
+    //////////////////////////////////////////////////////////////////////////////////////////////
+
+    void init_level_set(MultiFab& den, MultiFab& vel, MultiFab& level_set, Real dx, Real dy, Real dz);
 
     //////////////////////////////////////////////////////////////////////////////////////////////
     //
@@ -583,7 +593,7 @@ private:
     //////////////////////////////////////////////////////////////////////////////////////////////
 
     void WriteHeader(const std::string& name, bool is_checkpoint) const;
-	void WriteJobInfo(const std::string& dir) const;
+		void WriteJobInfo(const std::string& dir) const;
     void WriteCheckPointFile() const;
     void WritePlotFile();
     void ReadCheckpointFile();
@@ -673,6 +683,13 @@ private:
     Vector<std::unique_ptr<MultiFab>> p;
     Vector<std::unique_ptr<MultiFab>> p0;
     Vector<std::unique_ptr<MultiFab>> gp;
+    
+    // free-surface/multiphase functions for clsvof
+    Vector<std::unique_ptr<MultiFab>> vof; 
+    Vector<std::unique_ptr<MultiFab>> vof_o;
+    Vector<std::unique_ptr<MultiFab>> levelset; 
+    Vector<std::unique_ptr<MultiFab>> levelset_o;
+ 
 
     // Derived variables TODO: to save memory, would only need to have 2 temporary variables
     Vector<std::unique_ptr<MultiFab>> eta;

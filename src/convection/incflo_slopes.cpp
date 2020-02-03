@@ -54,7 +54,11 @@ incflo::incflo_compute_slopes (int lev, Real time, MultiFab& Sborder,
 #ifdef AMREX_USE_EB
            // No cut cells in tile + 1-cell witdh halo -> use non-eb routine
            if (flags.getType(amrex::grow(bx,1)) == FabType::regular )
-#endif
+#endif  
+					 /*#######################################################
+            THIS ARE THE SLOPES ACCORDING TO COLLELA 1985
+						-- Monotonicity-limited fourth-order slope approximation	
+           /#######################################################*/
            {
                amrex::ParallelFor(bx,ncomp,
                  [slopes_comp,xs_fab,ys_fab,zs_fab,state_fab] AMREX_GPU_DEVICE (int i, int j, int k, int n) noexcept
