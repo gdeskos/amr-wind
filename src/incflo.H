@@ -487,21 +487,24 @@ private:
     std::string m_restart_file{""};
 
     // Flags for saving fluid data in plot files
-    int m_plt_velx        = 1;
-    int m_plt_vely        = 1;
-    int m_plt_velz        = 1;
-    int m_plt_gpx         = 1;
-    int m_plt_gpy         = 1;
-    int m_plt_gpz         = 1;
-    int m_plt_rho         = 1;
-    int m_plt_tracer      = 1;
-    int m_plt_p           = 0;
-    int m_plt_eta         = 0;
-    int m_plt_vort        = 1;
-    int m_plt_strainrate  = 0;
-    int m_plt_stress      = 0;
-    int m_plt_divu        = 0;
-    int m_plt_vfrac       = 1;
+    int m_plt_phys_coord_x = 1;
+    int m_plt_phys_coord_y = 1;
+    int m_plt_phys_coord_z = 1;
+    int m_plt_velx         = 1;
+    int m_plt_vely         = 1;
+    int m_plt_velz         = 1;
+    int m_plt_gpx          = 1;
+    int m_plt_gpy          = 1;
+    int m_plt_gpz          = 1;
+    int m_plt_rho          = 1;
+    int m_plt_tracer       = 1;
+    int m_plt_p            = 0;
+    int m_plt_eta          = 0;
+    int m_plt_vort         = 1;
+    int m_plt_strainrate   = 0;
+    int m_plt_stress       = 0;
+    int m_plt_divu         = 0;
+    int m_plt_vfrac        = 1;
 
     struct LevelData {
         LevelData () = default;

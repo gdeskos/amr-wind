@@ -347,20 +347,20 @@ void incflo::WritePlotFile()
     // Tracers
     if (m_plt_tracer) ncomp += m_ntrac;
     // Pressure
-    if(m_plt_p) ++ncomp;
+    if (m_plt_p) ++ncomp;
     // Apparent viscosity
-    if(m_plt_eta) ++ncomp;
+    if (m_plt_eta) ++ncomp;
     // Vorticity
-    if(m_plt_vort) ++ncomp;
+    if (m_plt_vort) ++ncomp;
     // Magnitude of the rate-of-strain tensor 
-    if(m_plt_strainrate) ++ncomp;
+    if (m_plt_strainrate) ++ncomp;
     // Magnitude of the stress tensor 
-    if(m_plt_stress) ++ncomp;
+    if (m_plt_stress) ++ncomp;
     // Divergence of velocity field
-    if(m_plt_divu) ++ncomp;
+    if (m_plt_divu) ++ncomp;
 #ifdef AMREX_USE_EB
     // Cut cell volume fraction
-    if(m_plt_vfrac) ++ncomp;
+    if (m_plt_vfrac) ++ncomp;
 #endif
 
     Vector<MultiFab> mf(finest_level + 1);
