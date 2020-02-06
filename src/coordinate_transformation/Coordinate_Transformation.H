@@ -39,3 +39,4 @@ private:
 		// Coordinate transformation verbosity 
 		int verbose = 0;
 }
+#endif

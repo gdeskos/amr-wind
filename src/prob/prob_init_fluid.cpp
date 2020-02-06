@@ -119,9 +119,11 @@ void incflo::init_taylor_green (Box const& vbx, Box const& gbx,
     {
         Real x = (i+0.5)*dx[0];
         Real y = (j+0.5)*dx[1];
+				Real Lx = probhi[0] - problo[0]; 
+				Real Ly = probhi[1] - problo[1]; 
         constexpr Real twopi = 2.*3.1415926535897932;
-        vel(i,j,k,0) =  std::sin(twopi*x) * std::cos(twopi*y);
-        vel(i,j,k,1) = -std::cos(twopi*x) * std::sin(twopi*y);
+        vel(i,j,k,0) =  std::sin(twopi*x/Lx) * std::cos(twopi*y/Ly);
+        vel(i,j,k,1) = -std::cos(twopi*x/Lx) * std::sin(twopi*y/Ly);
         vel(i,j,k,2) = 0.0;
     });
 }
@@ -138,12 +140,17 @@ void incflo::init_taylor_green3d (Box const& vbx, Box const& gbx,
 {
     amrex::ParallelFor(vbx, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
     {
+				//Compute coordinates
         Real x = (i+0.5)*dx[0];
         Real y = (j+0.5)*dx[1];
         Real z = (k+0.5)*dx[2];
+        //Compute the domain dimensions
+				Real Lx = probhi[0] - problo[0]; 
+				Real Ly = probhi[1] - problo[1]; 
+				Real Lz = probhi[2] - problo[2];
         constexpr Real twopi = 2.*3.1415926535897932;
-        vel(i,j,k,0) =  std::sin(twopi*x) * std::cos(twopi*y) * cos(twopi*z);
-        vel(i,j,k,1) = -std::cos(twopi*x) * std::sin(twopi*y) * cos(twopi*z);
+        vel(i,j,k,0) =  std::sin(twopi*x/Lx) * std::cos(twopi*y/Ly) * cos(twopi*z/Lz);
+        vel(i,j,k,1) = -std::cos(twopi*x/Lx) * std::sin(twopi*y/Ly) * cos(twopi*z/Lz);
         vel(i,j,k,2) = 0.0;
     });
 }
