@@ -1,3 +1,4 @@
+*~
 exec/*.ex
 exec/tmp_build_dir/
 exec/Backtrace.*
