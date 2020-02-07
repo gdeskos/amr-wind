@@ -129,11 +129,8 @@ void incflo::init_taylor_green (Box const& vbx, Box const& gbx,
     {
         Real x = (i+0.5)*dx[0];
         Real y = (j+0.5)*dx[1];
-				Real Lx = probhi[0] - problo[0]; 
-				Real Ly = probhi[1] - problo[1]; 
-        constexpr Real pi = 3.1415926535897932;
-        vel(i,j,k,0) =  std::sin(pi*x/Lx) * std::cos(pi*y/Ly);
-        vel(i,j,k,1) = -std::cos(pi*x/Lx) * std::sin(pi*y/Ly);
+        vel(i,j,k,0) =  std::sin(x) * std::cos(y);
+        vel(i,j,k,1) = -std::cos(x) * std::sin(y);
         vel(i,j,k,2) = 0.0;
     });
 }
@@ -154,13 +151,8 @@ void incflo::init_taylor_green3d (Box const& vbx, Box const& gbx,
         Real x = (i+0.5)*dx[0];
         Real y = (j+0.5)*dx[1];
         Real z = (k+0.5)*dx[2];
-        //Compute the domain dimensions
-				Real Lx = probhi[0] - problo[0]; 
-				Real Ly = probhi[1] - problo[1]; 
-				Real Lz = probhi[2] - problo[2];
-        constexpr Real pi = 3.1415926535897932;
-        vel(i,j,k,0) =  std::sin(pi*x/Lx) * std::cos(pi*y/Ly) * cos(pi*z/Lz);
-        vel(i,j,k,1) = -std::cos(pi*x/Lx) * std::sin(pi*y/Ly) * cos(pi*z/Lz);
+        vel(i,j,k,0) =  std::sin(x) * std::cos(y) * cos(z);
+        vel(i,j,k,1) = -std::cos(x) * std::sin(y) * cos(z);
         vel(i,j,k,2) = 0.0;
     });
 }
