@@ -352,6 +352,8 @@ void incflo::WritePlotFile()
     if (m_plt_eta) ++ncomp;
     // Vorticity
     if (m_plt_vort) ++ncomp;
+    // Q-criterion 
+    //if (m_plt_qcrit) ++ncomp;
     // Magnitude of the rate-of-strain tensor 
     if (m_plt_strainrate) ++ncomp;
     // Magnitude of the stress tensor 
@@ -448,6 +450,14 @@ void incflo::WritePlotFile()
         pltscaVarsName.push_back("vort");
         ++icomp;
     }
+    //if (m_plt_qcrit) {
+    //    for (int lev = 0; lev <= finest_level; ++lev) {
+    //        MultiFab vort(mf[lev], amrex::make_alias, icomp, 1);
+    //        ComputeQcriterion(lev, m_cur_time, vort, m_leveldata[lev]->velocity);
+    //    }
+    //    pltscaVarsName.push_back("qcrit");
+    //    ++icomp;
+    //}
     if (m_plt_strainrate) {
         amrex::Abort("plt_strainrate: xxxxx TODO");
         pltscaVarsName.push_back("strainrate");

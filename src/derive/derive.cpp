@@ -39,10 +39,16 @@ void incflo::ComputeDivU(Real time_in)
     linop.compDivergence(GetVecOfPtrs(divu),GetVecOfPtrs(vel));
 #endif
 }
+#if 0
+void incflo::ComputeQcriterion (int lev, Real t, MultiFab& qcrit, MultiFab const& vel)
+{
 
+}
+#endif
+
+#if 0
 void incflo::ComputeStrainrate(Real time_in)
 {
-#if 0
     BL_PROFILE("incflo::ComputeStrainrate");
 
     for(int lev = 0; lev <= finest_level; lev++)
@@ -253,9 +259,8 @@ void incflo::ComputeStrainrate(Real time_in)
 #endif
         } // MFIter
     } // lev
-#endif
 }
-
+#endif
 
 Real incflo::ComputeKineticEnergy () const
 {

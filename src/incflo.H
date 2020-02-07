@@ -264,6 +264,8 @@ public: // for cuda
     void ComputeStrainrate (amrex::Real time);
     void ComputeVorticity (int lev, amrex::Real time, amrex::MultiFab& vort,
                            amrex::MultiFab const& vel);
+    void ComputeQcriterion (int lev, amrex::Real time, amrex::MultiFab& qcrit,
+                           amrex::MultiFab const& vel);
     void ComputeDivU (amrex::Real time);
     void ComputeDrag ();
     amrex::Real ComputeKineticEnergy () const;
@@ -501,6 +503,7 @@ private:
     int m_plt_p            = 0;
     int m_plt_eta          = 0;
     int m_plt_vort         = 1;
+    int m_plt_qcrit        = 0;
     int m_plt_strainrate   = 0;
     int m_plt_stress       = 0;
     int m_plt_divu         = 0;
