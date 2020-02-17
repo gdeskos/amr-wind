@@ -11,7 +11,7 @@ Contents:
    :maxdepth: 2
 
    introduction.rst
-
+   theory.rst
 
 README
 ======
