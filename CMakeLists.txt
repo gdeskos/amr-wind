@@ -12,12 +12,10 @@ option(AMR_WIND_ENABLE_DOCUMENTATION "Build documentation" OFF)
 option(AMR_WIND_ENABLE_SPHINX_API_DOCS "Link Doxygen API docs to Sphinx" OFF)
 option(AMR_WIND_ENABLE_ALL_WARNINGS "Show most warnings for most compilers" OFF)
 option(AMR_WIND_ENABLE_FCOMPARE "Enable building fcompare when not testing" OFF)
-option(AMR_WIND_ENABLE_FEXTREMA "Enable building fextrema when not testing" OFF)
 
 #Enabling tests overrides the executable options
 option(AMR_WIND_ENABLE_TESTS "Enable testing suite" OFF)
 option(AMR_WIND_TEST_WITH_FCOMPARE "Check test plots against gold files" OFF)
-option(AMR_WIND_TEST_WITH_FEXTREMA "Check test plots against maxima and minima files" OFF)
 
 #Options for the executable
 option(AMR_WIND_ENABLE_MPI "Enable MPI" OFF)
@@ -29,13 +27,16 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 ########################### AMReX #####################################
-add_subdirectory(submods/amrex)
+
+set(AMREX_SUBMOD_LOCATION "submods/amrex")
+include(${CMAKE_SOURCE_DIR}/cmake/set_amrex_options.cmake)
+add_subdirectory(${AMREX_SUBMOD_LOCATION})
+
+if(AMR_WIND_ENABLE_FCOMPARE OR AMR_WIND_TEST_WITH_FCOMPARE)
+  add_subdirectory(${AMREX_SUBMOD_LOCATION}/Tools/Plotfile)
+endif()
 
 ########################### AMR-Wind #####################################
-
-#We inherit amrex's compiler flags for now?
-#include(${CMAKE_SOURCE_DIR}/cmake/set_compile_flags.cmake)
-#set_compile_flags()
 
 find_package(Python REQUIRED)
 find_package(Threads REQUIRED) # Needed this for the Travis CI system
@@ -74,6 +75,8 @@ set(amr_wind_unit_test_exe_name "${amr_wind_exe_name}_unit_tests")
 #Create main target executable
 add_executable(${amr_wind_exe_name} "")
 
+include(${CMAKE_SOURCE_DIR}/cmake/set_compile_flags.cmake)
+
 #Keep our Fortran module files confined to a unique directory for each executable 
 set_target_properties(${amr_wind_exe_name} PROPERTIES Fortran_MODULE_DIRECTORY
                      "${CMAKE_BINARY_DIR}/fortran_modules/${amr_wind_exe_name}_fortran_modules")
@@ -84,11 +87,11 @@ file(MAKE_DIRECTORY ${GENERATED_FILES_DIR})
 
 #Generate the AMReX_buildInfo.cpp file with Python
 add_custom_target(generate_build_info_${amr_wind_exe_name} ALL
-   COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_SOURCE_DIR}/submods/amrex/Tools/C_scripts/makebuildinfo_C.py
-   --amrex_home "${CMAKE_SOURCE_DIR}/submods/amrex"                        
+   COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_SOURCE_DIR}/${AMREX_SUBMOD_LOCATION}/Tools/C_scripts/makebuildinfo_C.py
+   --amrex_home "${CMAKE_SOURCE_DIR}/${AMREX_SUBMOD_LOCATION}"
    --COMP ${CMAKE_CXX_COMPILER_ID} --COMP_VERSION ${CMAKE_CXX_COMPILER_VERSION}
    --FCOMP ${CMAKE_Fortran_COMPILER_ID} --FCOMP_VERSION ${CMAKE_Fortran_COMPILER_VERSION}
-   --GIT "${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/submods/amrex"
+   --GIT "${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/${AMREX_SUBMOD_LOCATION}"
    WORKING_DIRECTORY ${GENERATED_FILES_DIR} BYPRODUCTS ${GENERATED_FILES_DIR}/AMReX_buildInfo.cpp
    COMMENT "Generating AMReX_buildInfo.cpp"
 )                  
