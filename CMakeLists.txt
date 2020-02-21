@@ -18,7 +18,7 @@ option(AMR_WIND_ENABLE_TESTS "Enable testing suite" OFF)
 option(AMR_WIND_TEST_WITH_FCOMPARE "Check test plots against gold files" OFF)
 
 #Options for the executable
-option(AMR_WIND_ENABLE_MPI "Enable MPI" OFF)
+option(AMR_WIND_ENABLE_MPI "Enable MPI" ON)
 option(AMR_WIND_ENABLE_OPENMP "Enable OpenMP" OFF)
 
 #Options for C++
@@ -77,7 +77,7 @@ add_executable(${amr_wind_exe_name} "")
 
 include(${CMAKE_SOURCE_DIR}/cmake/set_compile_flags.cmake)
 
-#Keep our Fortran module files confined to a unique directory for each executable 
+#Keep our Fortran module files confined to a unique directory for each executable
 set_target_properties(${amr_wind_exe_name} PROPERTIES Fortran_MODULE_DIRECTORY
                      "${CMAKE_BINARY_DIR}/fortran_modules/${amr_wind_exe_name}_fortran_modules")
 
@@ -94,9 +94,9 @@ add_custom_target(generate_build_info_${amr_wind_exe_name} ALL
    --GIT "${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/${AMREX_SUBMOD_LOCATION}"
    WORKING_DIRECTORY ${GENERATED_FILES_DIR} BYPRODUCTS ${GENERATED_FILES_DIR}/AMReX_buildInfo.cpp
    COMMENT "Generating AMReX_buildInfo.cpp"
-)                  
-  
-#Set the dependencies on targets so the generated source code files are there before we try to build the executable 
+)
+
+#Set the dependencies on targets so the generated source code files are there before we try to build the executable
 add_dependencies(${amr_wind_exe_name} generate_build_info_${amr_wind_exe_name})
 
 #Build amr-wind and link to amrex library
@@ -112,7 +112,7 @@ if(AMR_WIND_ENABLE_DOCUMENTATION)
    add_subdirectory(docs)
 endif()
 
-#Define what we want to be installed during a make install 
+#Define what we want to be installed during a make install
 install(TARGETS ${amr_wind_exe_name}
         RUNTIME DESTINATION bin
         ARCHIVE DESTINATION lib
