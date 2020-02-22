@@ -23,7 +23,7 @@ target_include_directories(${amr_wind_exe_name} PRIVATE ${CMAKE_CURRENT_SOURCE_D
 #Needed for AMReX_buildInfo.H
 target_include_directories(${amr_wind_exe_name} SYSTEM PRIVATE ${CMAKE_SOURCE_DIR}/submods/amrex/Tools/C_scripts)
 
-#Gather all other source files  
+#Gather all other source files
 add_subdirectory(boundary_conditions)
 add_subdirectory(convection)
 add_subdirectory(derive)

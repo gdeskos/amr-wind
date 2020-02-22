@@ -18,7 +18,7 @@ void incflo::ReadParameters ()
 
     ReadIOParameters();
     ReadRheologyParameters();
-
+    ReadSGSModelParameters();
     { // Prefix amr
         ParmParse pp("amr");
 

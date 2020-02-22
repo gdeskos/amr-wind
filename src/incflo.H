@@ -13,6 +13,7 @@
 
 #include <DiffusionTensorOp.H>
 #include <DiffusionScalarOp.H>
+#include <sgs_model.H> // use the sgs model class
 
 class incflo : public amrex::AmrCore
 {
@@ -23,6 +24,9 @@ public:
 
     enum struct FluidModel {
         Newtonian, powerlaw, Bingham, HerschelBulkley, deSouzaMendesDutra, SmagorinskyLillySGS
+    };
+
+    enum struct SGSModel { None, Smagorinsky
     };
 
     incflo ();
@@ -426,7 +430,11 @@ private:
     amrex::Real m_papa_reg = 0.0;
     amrex::Real m_eta_0 = 0.0;
     
-    
+    // SGS properties
+    SGSModel m_sgs_model; //this is the enum
+
+    sgs_model m_sgs; //this is the actual instance of the class
+
     void ReadABLParameters();
     
     // fixme move these somewhere else
@@ -772,6 +780,13 @@ private:
     ///////////////////////////////////////////////////////////////////////////
 
     void ReadRheologyParameters ();
+    
+    ///////////////////////////////////////////////////////////////////////////
+    //
+    // Subgrid-Scale Modelling 
+    //
+    ///////////////////////////////////////////////////////////////////////////
+    void ReadSGSModelParameters ();
 
     ///////////////////////////////////////////////////////////////////////////
     //

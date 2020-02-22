@@ -8,13 +8,13 @@ include(CMakePackageConfigHelpers)
 ########################## OPTIONS #####################################
 
 #General options for the project
-option(AMR_WIND_ENABLE_DOCUMENTATION "Build documentation" OFF)
+option(AMR_WIND_ENABLE_DOCUMENTATION "Build documentation" ON)
 option(AMR_WIND_ENABLE_SPHINX_API_DOCS "Link Doxygen API docs to Sphinx" OFF)
 option(AMR_WIND_ENABLE_ALL_WARNINGS "Show most warnings for most compilers" OFF)
 option(AMR_WIND_ENABLE_FCOMPARE "Enable building fcompare when not testing" OFF)
 
 #Enabling tests overrides the executable options
-option(AMR_WIND_ENABLE_TESTS "Enable testing suite" OFF)
+option(AMR_WIND_ENABLE_TESTS "Enable testing suite" ON)
 option(AMR_WIND_TEST_WITH_FCOMPARE "Check test plots against gold files" OFF)
 
 #Options for the executable

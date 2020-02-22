@@ -204,6 +204,9 @@ void incflo::ApplyPredictor (bool incremental_projection)
                       get_density_old_const(), get_velocity_old_const(), get_tracer_old_const(),
                       m_cur_time, 1);
 
+    if(m_sgs_model != SGSModel::None) {
+    }
+
     if (need_divtau()) {
         get_diffusion_tensor_op()->compute_divtau(get_divtau_old(),
                                                   get_velocity_old_const(),

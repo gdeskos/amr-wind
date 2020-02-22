@@ -5,7 +5,7 @@ target_sources(${amr_wind_exe_name}
       DiffusionTensorOp.cpp
       DiffusionScalarOp.cpp
       #Headers
-      DiffusionTensorOp.H 
+      DiffusionTensorOp.H
       DiffusionScalarOp.H
    )
 
