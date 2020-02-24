@@ -385,6 +385,8 @@ private:
 
     // Use Boussinesq approximation for buoyancy?
     bool m_use_boussinesq = false;
+    bool m_use_sgs = false;
+    bool m_use_ke_sgs = false;
 
     // AMR / refinement settings
     int m_refine_cutcells = 1;
@@ -520,7 +522,8 @@ private:
                    amrex::DistributionMapping const& dm,
                    amrex::FabFactory<amrex::FArrayBox> const& fact,
                    int ntrac, int ng_state,
-                   bool use_godunov, bool implicit_diffusion, bool advect_tracer);
+                   bool use_godunov, bool implicit_diffusion, bool advect_tracer,
+                   bool use_sgs, bool use_ke_eq);
         // cell-centered multifabs
         amrex::MultiFab velocity;
         amrex::MultiFab velocity_o;
@@ -543,6 +546,12 @@ private:
         amrex::MultiFab divtau_o;
         amrex::MultiFab laps;
         amrex::MultiFab laps_o;
+        // sgs MultiFabs
+        amrex::MultiFab divtauSGS;
+        amrex::MultiFab divtauSGS_o;
+        // one-equation kinetic energy Model 
+        amrex::MultiFab keSGS;
+        amrex::MultiFab keSGS_o;
     };
 
     amrex::Vector<std::unique_ptr<LevelData> > m_leveldata;

@@ -7,7 +7,7 @@ incflo::LevelData::LevelData (amrex::BoxArray const& ba,
                               amrex::FabFactory<FArrayBox> const& fact,
                               int ntrac, int ng_state,
                               bool use_godunov, bool implicit_diffusion,
-                              bool advect_tracer)
+                              bool advect_tracer, bool use_sgs, bool use_ke_eq)
     : velocity  (ba, dm, AMREX_SPACEDIM, ng_state, MFInfo(), fact),
       velocity_o(ba, dm, AMREX_SPACEDIM, ng_state, MFInfo(), fact),
       density   (ba, dm, 1             , ng_state, MFInfo(), fact),
@@ -23,6 +23,14 @@ incflo::LevelData::LevelData (amrex::BoxArray const& ba,
 {
     if (use_godunov) {
         divtau_o.define(ba, dm, AMREX_SPACEDIM, 0, MFInfo(), fact);
+        if (use_sgs){
+            divtauSGS.define(ba,dm,AMREX_SPACEDIM,ng_state,MFInfo(),fact);
+            divtauSGS_o.define(ba,dm,AMREX_SPACEDIM,ng_state,MFInfo(),fact);
+            if (use_ke_eq){
+                keSGS.define(ba,dm,AMREX_SPACEDIM,ng_state,MFInfo(),fact);
+                keSGS_o.define(ba,dm,AMREX_SPACEDIM,ng_state,MFInfo(),fact);
+            }
+        }
         if (advect_tracer) {
             laps_o.define(ba, dm, ntrac, 0, MFInfo(), fact);
         }
@@ -30,6 +38,14 @@ incflo::LevelData::LevelData (amrex::BoxArray const& ba,
         conv_velocity.define(ba, dm, AMREX_SPACEDIM, 0, MFInfo(), fact);
         conv_density.define (ba, dm, 1             , 0, MFInfo(), fact);
         conv_tracer.define (ba, dm, ntrac         , 0, MFInfo(), fact);
+        if (use_sgs){
+            divtauSGS.define(ba,dm,AMREX_SPACEDIM,ng_state,MFInfo(),fact);
+            divtauSGS_o.define(ba,dm,AMREX_SPACEDIM,ng_state,MFInfo(),fact);
+            if (use_ke_eq){
+                keSGS.define(ba,dm,AMREX_SPACEDIM,ng_state,MFInfo(),fact);
+                keSGS_o.define(ba,dm,AMREX_SPACEDIM,ng_state,MFInfo(),fact);
+            }
+        }
         if (!implicit_diffusion) {
             divtau.define  (ba, dm, AMREX_SPACEDIM, 0, MFInfo(), fact);
             divtau_o.define(ba, dm, AMREX_SPACEDIM, 0, MFInfo(), fact);
@@ -38,6 +54,7 @@ incflo::LevelData::LevelData (amrex::BoxArray const& ba,
                 laps_o.define(ba, dm, ntrac, 0, MFInfo(), fact);
             }
         }
+        
     }
 
 }

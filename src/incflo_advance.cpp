@@ -204,9 +204,6 @@ void incflo::ApplyPredictor (bool incremental_projection)
                       get_density_old_const(), get_velocity_old_const(), get_tracer_old_const(),
                       m_cur_time, 1);
 
-    if(m_sgs_model != SGSModel::None) {
-    }
-
     if (need_divtau()) {
         get_diffusion_tensor_op()->compute_divtau(get_divtau_old(),
                                                   get_velocity_old_const(),
@@ -329,6 +326,10 @@ void incflo::ApplyPredictor (bool incremental_projection)
                                                       GetVecOfConstPtrs(tra_eta),
                                                       m_cur_time, dt_diff);
         }
+    }
+
+    if (m_use_sgs)
+    {
     }
 
     // **********************************************************************************************
@@ -694,7 +695,19 @@ void incflo::compute_forces (Vector<MultiFab*> const& vel_forces,
                     
                 });
             }
+           
+            if(m_use_sgs){
             
+                Array4<Real const> const& divtausgs = m_leveldata[lev]->divtauSGS.const_array(mfi);
+                
+                amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
+                {
+                    vel_f(i,j,k,0) += divtausgs(i,j,k,0);
+                    vel_f(i,j,k,1) += divtausgs(i,j,k,1);
+                    vel_f(i,j,k,2) += divtausgs(i,j,k,2);
+                }); 
+            }
+
             if(m_use_abl_forcing){
                 const Real dudt = (u-umean)/dt;// fixme make sure this is the correct dt and not dt/2
                 const Real dvdt = (v-vmean)/dt;

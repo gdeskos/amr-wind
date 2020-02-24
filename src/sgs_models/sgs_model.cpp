@@ -16,12 +16,13 @@ void incflo::ReadSGSModelParameters()
     if(sgs_model_s=="none" || sgs_model_s== "None" || sgs_model_s=="NONE"){
         m_sgs_model=SGSModel::None;
         amrex::Print() << "SGS model = None"<<std::endl;
-
     }
     else if(sgs_model_s=="smagorinsky" || sgs_model_s== "Smagorinsky" || sgs_model_s=="SMAGORINSKY"){
         m_sgs_model=SGSModel::Smagorinsky;
+        m_use_sgs=true;
         amrex::Print() << "SGS model = Smagorinsky"<<std::endl;
-	    //pp.query("smag_constant", m_C);
+	    
+        //pp.query("smag_constant", m_C);
 	    //pp.query("MT_exp",m_MTexponent); //! Mason & Thomson exponent (m_C) is used as the free-stream value
     }
     else
