@@ -14,9 +14,9 @@ public:
   ~sgs_model();
  
   void compute_eddy_viscosity (amrex::Vector<amrex::MultiFab const*> const& rho,
-                                 amrex::Vector<amrex::MultiFab const*> const& vel,
-                                 amrex::Vector<amrex::MultiFab const*> const& tra,
-                                 amrex::Real time, int nghost);
+                               amrex::Vector<amrex::MultiFab const*> const& vel,
+                               amrex::Vector<amrex::MultiFab const*> const& tra,
+                               amrex::Real time, int nghost);
 			
 private: 
 	// Function to compute planar averages
