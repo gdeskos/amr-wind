@@ -14,6 +14,9 @@ void incflo::declare_fields()
     auto& gp = m_repo.declare_cc_field("gp", AMREX_SPACEDIM, 0, 1);
     auto& p = m_repo.declare_nd_field("p", 1, 0, 1);
 
+    // Declare the vof -- the volume fraction of a fluid 
+    auto& vof = m_repo.declare_cc_field("vof", m_nvof, ng, nstates);
+
     auto& vel_for = m_repo.declare_cc_field("velocity_forces", AMREX_SPACEDIM, nghost_force(), 1);
     auto& tra_for = m_repo.declare_cc_field("tracer_forces", m_ntrac, nghost_force(), 1);
 
@@ -38,6 +41,9 @@ void incflo::declare_fields()
     gp.register_fill_patch_op<amr_wind::FieldFillPatchOps<amr_wind::FieldBCNoOp>>(
         *this, m_time, m_probtype);
 
+    vof.register_fill_patch_op<amr_wind::FieldFillPatchOps<amr_wind::FieldBCDirichlet>>(
+        *this, m_time, m_probtype);
+
     p.register_fill_patch_op<amr_wind::FieldFillConstScalar>(0.0);
 
     vel_for.register_fill_patch_op<amr_wind::FieldFillPatchOps<amr_wind::FieldBCNoOp>>(
@@ -51,6 +57,7 @@ void incflo::declare_fields()
     trac.fillpatch_on_regrid() = true;
     gp.fillpatch_on_regrid() = true;
 
+    vof.fillpatch_on_regrid() = true;
 }
 
 void incflo::init_field_bcs ()
@@ -59,6 +66,9 @@ void incflo::init_field_bcs ()
     auto& velocity = m_repo.get_field("velocity");
     auto& density = m_repo.get_field("density");
     auto& tracer = m_repo.get_field("tracer");
+
+    auto& vof = m_repo.get_field("vof");
+
     auto& vel_for = m_repo.get_field("velocity_forces");
     auto& tra_for = m_repo.get_field("tracer_forces");
 
@@ -68,6 +78,10 @@ void incflo::init_field_bcs ()
     auto& bcrec_density = density.bcrec();
     auto& bc_tracer = tracer.bc_values();
     auto& bcrec_tracer = tracer.bcrec();
+    
+    auto& bc_vof = vof.bc_values();
+    auto& bcrec_vof = vof.bcrec();
+    
     auto& bcrec_vel_for = vel_for.bcrec();
     auto& bcrec_tra_for = tra_for.bcrec();
 

@@ -435,6 +435,7 @@ private:
     amrex::Gpu::DeviceVector<int> m_iconserv_tracer_d;
 
     int m_ntrac = 1;
+    int m_nvof = 1;
 
     std::unique_ptr<DiffusionTensorOp> m_diffusion_tensor_op;
     std::unique_ptr<DiffusionScalarOp> m_diffusion_scalar_op;
