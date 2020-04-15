@@ -41,15 +41,15 @@ if(AMR_WIND_ENABLE_VERIFICATION)
   set(AMR_WIND_ENABLE_TESTS ON)
 endif()
 
+if(AMR_WIND_TEST_WITH_FCOMPARE)
+  set(AMR_WIND_ENABLE_FCOMPARE ON)
+endif()
+
 ########################### AMReX #####################################
 
 set(AMREX_SUBMOD_LOCATION "submods/amrex")
 include(${CMAKE_SOURCE_DIR}/cmake/set_amrex_options.cmake)
 add_subdirectory(${AMREX_SUBMOD_LOCATION})
-
-if(AMR_WIND_ENABLE_FCOMPARE OR AMR_WIND_TEST_WITH_FCOMPARE)
-  add_subdirectory(${AMREX_SUBMOD_LOCATION}/Tools/Plotfile)
-endif()
 
 ########################### AMR-Wind #####################################
 
@@ -89,7 +89,7 @@ set(amr_wind_exe_name "amr_wind")
 set(amr_wind_unit_test_exe_name "${amr_wind_exe_name}_unit_tests")
 
 #Create main target executable
-add_library(${amr_wind_lib_name})
+add_library(${amr_wind_lib_name} OBJECT)
 add_executable(${amr_wind_exe_name})
 
 include(${CMAKE_SOURCE_DIR}/cmake/set_compile_flags.cmake)

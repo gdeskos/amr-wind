@@ -3,6 +3,7 @@
 
 #include "ABL.H"
 #include "RefinementCriteria.H"
+#include "PDE.H"
 
 using namespace amrex;
 
@@ -19,10 +20,7 @@ incflo::incflo ()
 
     declare_fields();
 
-    init_bcs();
     init_field_bcs();
-
-    init_advection();
 
     set_background_pressure();
 }

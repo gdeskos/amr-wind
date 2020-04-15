@@ -2,62 +2,21 @@
 #include "FieldFillPatchOps.H"
 #include "FieldBCOps.H"
 #include "prob_bc.H"
+#include "PDE.H"
+#include "SchemeTraits.H"
 
 void incflo::declare_fields()
 {
+    const std::string scheme = m_use_godunov
+                                   ? amr_wind::fvm::Godunov::scheme_name()
+                                   : amr_wind::fvm::MOL::scheme_name();
+    m_icns = amr_wind::pde::PDEBase::create(
+        "ICNS-" + scheme, m_time, m_repo, m_probtype);
+    m_scalar_eqns.emplace_back(amr_wind::pde::PDEBase::create(
+        "Temperature-" + scheme, m_time, m_repo, m_probtype));
+
     const int nstates = 2;
-    const int ng = nghost_state();
-
-    auto& vel = m_repo.declare_cc_field("velocity", AMREX_SPACEDIM, ng, nstates);
-    auto& rho = m_repo.declare_cc_field("density", 1, ng, nstates);
-    auto& trac = m_repo.declare_cc_field("tracer", m_ntrac, ng, nstates);
-    auto& gp = m_repo.declare_cc_field("gp", AMREX_SPACEDIM, 0, 1);
-    auto& p = m_repo.declare_nd_field("p", 1, 0, 1);
-
-    // Declare the vof -- the volume fraction of a fluid 
-    auto& vof = m_repo.declare_cc_field("vof", m_nvof, ng, nstates);
-
-    auto& vel_for = m_repo.declare_cc_field("velocity_forces", AMREX_SPACEDIM, nghost_force(), 1);
-    auto& tra_for = m_repo.declare_cc_field("tracer_forces", m_ntrac, nghost_force(), 1);
-
-    m_repo.declare_cc_field("viscosity", 1, 1, 1);
-    m_repo.declare_cc_field("tracer_viscosity", m_ntrac, 1, 1);
-
-    m_repo.declare_cc_field("conv_velocity", AMREX_SPACEDIM, 0, nstates);
     m_repo.declare_cc_field("conv_density", 1, 0, nstates);
-    m_repo.declare_cc_field("conv_tracer", m_ntrac, 0, nstates);
-
-    m_repo.declare_cc_field("divtau", AMREX_SPACEDIM, 0, nstates);
-    m_repo.declare_cc_field("laps", m_ntrac, 0, nstates);
-
-    m_repo.declare_face_normal_field({"u_mac","v_mac","w_mac"}, 1, nghost_mac(), 1);
-
-    vel.register_fill_patch_op<amr_wind::FieldFillPatchOps<amr_wind::FieldBCDirichlet>>(
-        *this, m_time, m_probtype);
-    rho.register_fill_patch_op<amr_wind::FieldFillPatchOps<amr_wind::FieldBCDirichlet>>(
-        *this, m_time, m_probtype);
-    trac.register_fill_patch_op<amr_wind::FieldFillPatchOps<amr_wind::FieldBCDirichlet>>(
-        *this, m_time, m_probtype);
-    gp.register_fill_patch_op<amr_wind::FieldFillPatchOps<amr_wind::FieldBCNoOp>>(
-        *this, m_time, m_probtype);
-
-    vof.register_fill_patch_op<amr_wind::FieldFillPatchOps<amr_wind::FieldBCDirichlet>>(
-        *this, m_time, m_probtype);
-
-    p.register_fill_patch_op<amr_wind::FieldFillConstScalar>(0.0);
-
-    vel_for.register_fill_patch_op<amr_wind::FieldFillPatchOps<amr_wind::FieldBCNoOp>>(
-        *this, m_time, m_probtype, amr_wind::FieldInterpolator::PiecewiseConstant);
-    tra_for.register_fill_patch_op<amr_wind::FieldFillPatchOps<amr_wind::FieldBCNoOp>>(
-        *this, m_time, m_probtype, amr_wind::FieldInterpolator::PiecewiseConstant);
-
-    // Inform field repo which fields need fillpatch operations on regrid
-    vel.fillpatch_on_regrid() = true;
-    rho.fillpatch_on_regrid() = true;
-    trac.fillpatch_on_regrid() = true;
-    gp.fillpatch_on_regrid() = true;
-
-    vof.fillpatch_on_regrid() = true;
 }
 
 void incflo::init_field_bcs ()
@@ -65,12 +24,9 @@ void incflo::init_field_bcs ()
     using namespace amrex;
     auto& velocity = m_repo.get_field("velocity");
     auto& density = m_repo.get_field("density");
-    auto& tracer = m_repo.get_field("tracer");
-
-    auto& vof = m_repo.get_field("vof");
-
-    auto& vel_for = m_repo.get_field("velocity_forces");
-    auto& tra_for = m_repo.get_field("tracer_forces");
+    auto& tracer = m_repo.get_field("temperature");
+    auto& vel_for = m_repo.get_field("velocity_src_term");
+    auto& tra_for = m_repo.get_field("temperature_src_term");
 
     auto& bc_velocity = velocity.bc_values();
     auto& bcrec_velocity = velocity.bcrec();
@@ -84,6 +40,10 @@ void incflo::init_field_bcs ()
     
     auto& bcrec_vel_for = vel_for.bcrec();
     auto& bcrec_tra_for = tra_for.bcrec();
+    auto& bc_pressure = pressure().bc_values();
+
+    // store temporary array to copy into each field below
+    amrex::GpuArray<BC, AMREX_SPACEDIM*2> bc_temp;
 
     auto f = [&] (std::string const& bcid, Orientation ori)
     {
@@ -97,8 +57,20 @@ void incflo::init_field_bcs ()
         pp.query("type", bc_type_in);
         std::string bc_type = amrex::toLower(bc_type_in);
 
-        if (bc_type == "mass_inflow" or bc_type == "mi")
+        if (bc_type == "pressure_inflow" or bc_type == "pi")
         {
+            bc_temp[ori] = BC::pressure_inflow;
+            pp.get("pressure", bc_pressure[ori][0]);
+        }
+        else if (bc_type == "pressure_outflow" or bc_type == "po")
+        {
+            bc_temp[ori] = BC::pressure_outflow;
+            pp.get("pressure", bc_pressure[ori][0]);
+        }
+        else if (bc_type == "mass_inflow" or bc_type == "mi")
+        {
+            bc_temp[ori] = BC::mass_inflow;
+
             std::vector<Real> v;
             if (pp.queryarr("velocity", v, 0, AMREX_SPACEDIM)) {
                bc_velocity[ori] = {v[0],v[1],v[2]};
@@ -110,6 +82,8 @@ void incflo::init_field_bcs ()
         }
         else if (bc_type == "no_slip_wall" or bc_type == "nsw")
         {
+            bc_temp[ori] = BC::no_slip_wall;
+
             std::vector<Real> v;
             if (pp.queryarr("velocity", v, 0, AMREX_SPACEDIM)) {
                 v[ori.coordDir()] = 0.0;
@@ -118,12 +92,26 @@ void incflo::init_field_bcs ()
         }
         else if (bc_type == "slip_wall" or bc_type == "sw")
         {
+            bc_temp[ori] = BC::slip_wall;
             pp.queryarr("tracer", bc_tracer[ori], 0, m_ntrac);
-
         }
         else if (bc_type == "wall_model" or bc_type == "wm")
         {
+            bc_temp[ori] = BC::wall_model;
+            m_wall_model_flag = true;
             pp.queryarr("tracer", bc_tracer[ori], 0, m_ntrac);
+        }
+        else
+        {
+            bc_temp[ori] = BC::undefined;
+        }
+
+        if (geom[0].isPeriodic(ori.coordDir())) {
+            if (bc_temp[ori] == BC::undefined) {
+                bc_temp[ori] = BC::periodic;
+            } else {
+                amrex::Abort("Wrong BC type for periodic boundary");
+            }
         }
     };
 
@@ -134,12 +122,19 @@ void incflo::init_field_bcs ()
     f("zlo", Orientation(Direction::z,Orientation::low));
     f("zhi", Orientation(Direction::z,Orientation::high));
 
+    for (int i=0; i < AMREX_SPACEDIM*2; ++i) {
+        velocity.bc_type()[i] = bc_temp[i];
+        tracer.bc_type()[i] = bc_temp[i];
+        density.bc_type()[i] = bc_temp[i];
+        pressure().bc_type()[i] = bc_temp[i];
+    }
+
     {
         for (OrientationIter oit; oit; ++oit) {
             Orientation ori = oit();
             int dir = ori.coordDir();
             Orientation::Side side = ori.faceDir();
-            auto const bct = m_bc_type[ori];
+            auto const bct = bc_temp[ori];
             if (bct == BC::pressure_inflow or
                 bct == BC::pressure_outflow)
             {
@@ -206,7 +201,7 @@ void incflo::init_field_bcs ()
             Orientation ori = oit();
             int dir = ori.coordDir();
             Orientation::Side side = ori.faceDir();
-            auto const bct = m_bc_type[ori];
+            auto const bct = bc_temp[ori];
             if (bct == BC::pressure_inflow  or
                 bct == BC::pressure_outflow or
                 bct == BC::no_slip_wall)
@@ -251,7 +246,7 @@ void incflo::init_field_bcs ()
             Orientation ori = oit();
             int dir = ori.coordDir();
             Orientation::Side side = ori.faceDir();
-            auto const bct = m_bc_type[ori];
+            auto const bct = bc_temp[ori];
             if (bct == BC::pressure_inflow  or
                 bct == BC::pressure_outflow or
                 bct == BC::no_slip_wall)
@@ -295,7 +290,7 @@ void incflo::init_field_bcs ()
             Orientation ori = oit();
             int dir = ori.coordDir();
             Orientation::Side side = ori.faceDir();
-            auto const bct = m_bc_type[ori];
+            auto const bct = bc_temp[ori];
             if (bct == BC::periodic)
             {
                 if (side == Orientation::low) {
@@ -321,7 +316,7 @@ void incflo::init_field_bcs ()
             Orientation ori = oit();
             int dir = ori.coordDir();
             Orientation::Side side = ori.faceDir();
-            auto const bct = m_bc_type[ori];
+            auto const bct = bc_temp[ori];
             if (bct == BC::periodic)
             {
                 if (side == Orientation::low) {

@@ -3,6 +3,10 @@
 #include "Physics.H"
 #include <cmath>
 #include "field_ops.H"
+#include "Godunov.H"
+#include "MOL.H"
+#include "PDE.H"
+#include "mac_projection.H"
 
 using namespace amrex;
 
@@ -21,9 +25,9 @@ void incflo::Advance()
     density().advance_states();
     tracer().advance_states();
 
-    m_repo.get_field("velocity",amr_wind::FieldState::Old).fillpatch(m_time.current_time());
-    m_repo.get_field("density",amr_wind::FieldState::Old).fillpatch(m_time.current_time());
-    m_repo.get_field("tracer",amr_wind::FieldState::Old).fillpatch(m_time.current_time());
+    velocity().state(amr_wind::FieldState::Old).fillpatch(m_time.current_time());
+    density().state(amr_wind::FieldState::Old).fillpatch(m_time.current_time());
+    tracer().state(amr_wind::FieldState::Old).fillpatch(m_time.current_time());
 
     for (auto& pp: m_physics)
         pp->pre_advance_work();
@@ -32,9 +36,9 @@ void incflo::Advance()
 
     if (!m_use_godunov) {
 
-        m_repo.get_field("velocity",amr_wind::FieldState::New).fillpatch(m_time.new_time());
-        m_repo.get_field("density",amr_wind::FieldState::New).fillpatch(m_time.new_time());
-        m_repo.get_field("tracer",amr_wind::FieldState::New).fillpatch(m_time.new_time());
+        velocity().state(amr_wind::FieldState::New).fillpatch(m_time.new_time());
+        density().state(amr_wind::FieldState::New).fillpatch(m_time.new_time());
+        tracer().state(amr_wind::FieldState::New).fillpatch(m_time.new_time());
 
         ApplyCorrector();
     }
@@ -132,24 +136,31 @@ void incflo::ApplyPredictor (bool incremental_projection)
         PrintMaxValues(new_time);
     }
 
-    auto& velocity_old = m_repo.get_field("velocity", amr_wind::FieldState::Old);
-    auto& velocity_new = m_repo.get_field("velocity", amr_wind::FieldState::New);
-    auto& density_old = m_repo.get_field("density", amr_wind::FieldState::Old);
-    auto& density_new = m_repo.get_field("density", amr_wind::FieldState::New);
-    auto& tracer_old = m_repo.get_field("tracer", amr_wind::FieldState::Old);
-    auto& tracer_new = m_repo.get_field("tracer", amr_wind::FieldState::New);
+    auto& icns_fields = m_icns->fields();
+    auto& velocity_old = velocity().state(amr_wind::FieldState::Old);
+    auto& velocity_new = velocity().state(amr_wind::FieldState::New);
+    auto& density_old = density().state(amr_wind::FieldState::Old);
+    auto& density_new = density().state(amr_wind::FieldState::New);
+    auto& tracer_old = tracer().state(amr_wind::FieldState::Old);
+    auto& tracer_new = tracer().state(amr_wind::FieldState::New);
 
-    auto& velocity_forces = m_repo.get_field("velocity_forces");
-    auto& tracer_forces = m_repo.get_field("tracer_forces");
-    auto& vel_eta = m_repo.get_field("viscosity");
-    auto& tra_eta = m_repo.get_field("tracer_viscosity");
+    auto& velocity_forces = icns_fields.src_term;
+    auto& tracer_forces = m_repo.get_field("temperature_src_term");
+    auto& vel_eta = icns_fields.nueff;
+    auto& tra_eta = m_repo.get_field("temperature_nueff");
 
     // only the old states are used in predictor
-    auto& divtau = m_repo.get_field("divtau", amr_wind::FieldState::Old);
-    auto& laps = m_repo.get_field("laps", amr_wind::FieldState::Old);
-    auto& conv_velocity = m_repo.get_field("conv_velocity", amr_wind::FieldState::Old);
-    auto& conv_density = m_repo.get_field("conv_density", amr_wind::FieldState::Old);
-    auto& conv_tracer = m_repo.get_field("conv_tracer", amr_wind::FieldState::Old);
+    auto& divtau = m_use_godunov
+                       ? icns_fields.diff_term
+                       : icns_fields.diff_term.state(amr_wind::FieldState::Old);
+    auto pred_state = m_use_godunov ? amr_wind::FieldState::New : amr_wind::FieldState::Old;
+    auto& laps = m_repo.get_field("temperature_diff_term", pred_state);
+    auto& conv_velocity =
+        m_use_godunov ? icns_fields.conv_term
+                      : icns_fields.conv_term.state(amr_wind::FieldState::Old);
+    auto& conv_density =
+        m_repo.get_field("conv_density", amr_wind::FieldState::Old);
+    auto& conv_tracer = m_repo.get_field("temperature_conv_term", pred_state);
 
     auto& u_mac = m_repo.get_field("u_mac");
     auto& v_mac = m_repo.get_field("v_mac");
@@ -163,9 +174,9 @@ void incflo::ApplyPredictor (bool incremental_projection)
         }
     }
 
-    // Allocate scratch space for half time density and tracer
-    auto density_nph = m_repo.create_scratch_field(1,1);
-    auto tracer_nph = m_repo.create_scratch_field(m_ntrac,1);
+    // Ensure that density and tracer exists at half time
+    auto& density_nph = density_new.create_state(amr_wind::FieldState::NPH);
+    auto& tracer_nph = tracer_new.create_state(amr_wind::FieldState::NPH);
 
     // *************************************************************************************
     // Define the forcing terms to use in the Godunov prediction
@@ -177,9 +188,9 @@ void incflo::ApplyPredictor (bool incremental_projection)
                            density_old.vec_const_ptrs(),
                            tracer_old.vec_const_ptrs());
 
-        // Note this is forcing for (rho s), not for s
-        if (m_advect_tracer)
-           compute_tra_forces(tracer_forces.vec_ptrs(), density_old.vec_const_ptrs());
+        for (auto& seqn: m_scalar_eqns) {
+            seqn->compute_source_term(amr_wind::FieldState::Old);
+        }
     }
 
     // *************************************************************************************
@@ -229,18 +240,30 @@ void incflo::ApplyPredictor (bool incremental_projection)
     // if (!m_use_godunov) Compute the explicit advective terms R_u^n      , R_s^n       and R_t^n
     // Note that "get_conv_tracer_old" returns div(rho u tracer)
     // *************************************************************************************
-    compute_convective_term(conv_velocity.vec_ptrs(),
-                            conv_density.vec_ptrs(),
-                            conv_tracer.vec_ptrs(),
-                            velocity_old.vec_const_ptrs(),
-                            density_old.vec_const_ptrs(),
-                            tracer_old.vec_const_ptrs(),
-                            u_mac.vec_ptrs(),
-                            v_mac.vec_ptrs(),
-                            w_mac.vec_ptrs(),
-                            velocity_forces.vec_const_ptrs(),
-                            tracer_forces.vec_const_ptrs(),
-                            m_time.current_time());
+    if(m_use_godunov){
+
+        godunov::predict_godunov(m_repo,
+                                 amr_wind::FieldState::Old,
+                                 m_time.deltaT(),
+                                 m_godunov_ppm,
+                                 m_godunov_use_forces_in_trans);
+
+        mac::apply_MAC_projection(m_repo, amr_wind::FieldState::Old, m_mac_mg_max_coarsening_level, m_mac_mg_rtol, m_mac_mg_atol);
+
+        godunov::compute_convective_term(m_repo,
+                                         amr_wind::FieldState::Old,
+                                         m_time.deltaT(),
+                                         m_constant_density, m_advect_tracer, m_godunov_ppm);
+        
+    } else{
+
+        mol::predict_vels_on_faces(m_repo, amr_wind::FieldState::Old);
+
+        mac::apply_MAC_projection(m_repo, amr_wind::FieldState::Old, m_mac_mg_max_coarsening_level, m_mac_mg_rtol, m_mac_mg_atol);
+
+        mol::compute_convective_term(m_repo, amr_wind::FieldState::Old, m_constant_density, m_advect_tracer);
+
+    }
 
     // *************************************************************************************
     // Define local variables for lambda to capture.
@@ -253,7 +276,7 @@ void incflo::ApplyPredictor (bool incremental_projection)
     // *************************************************************************************
     if (l_constant_density)
     {
-        amr_wind::field_ops::copy(*density_nph, density_old, 0, 0, 1, 1);
+        amr_wind::field_ops::copy(density_nph, density_old, 0, 0, 1, 1);
     }
     else
     {
@@ -269,7 +292,7 @@ void incflo::ApplyPredictor (bool incremental_projection)
                 Box const& bx = mfi.tilebox();
                 Array4<Real  const> const& rho_o  = density_old(lev).const_array(mfi);
                 Array4<Real> const& rho_new       = density_new(lev).array(mfi);
-                Array4<Real> const& rho_nph       = (*density_nph)(lev).array(mfi);
+                Array4<Real> const& rho_nph       = (density_nph)(lev).array(mfi);
                 Array4<Real const> const& drdt    = conv_density(lev).const_array(mfi);
 
                 amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
@@ -285,8 +308,9 @@ void incflo::ApplyPredictor (bool incremental_projection)
     // *************************************************************************************
     // Compute (or if Godunov, re-compute) the tracer forcing terms (forcing for (rho s), not for s)
     // *************************************************************************************
-    if (m_advect_tracer)
-       compute_tra_forces(tracer_forces.vec_ptrs(), (*density_nph).vec_const_ptrs());
+    for (auto& seqn: m_scalar_eqns) {
+        seqn->compute_source_term(amr_wind::FieldState::NPH);
+    }
 
     // *************************************************************************************
     // Update the tracer next
@@ -379,9 +403,9 @@ void incflo::ApplyPredictor (bool incremental_projection)
     // Update tracer at n+1/2
     // *************************************************************************************
     if (m_advect_tracer)
-        amr_wind::field_ops::lincomb(*tracer_nph, 0.5, tracer_old, 0, 0.5, tracer_new, 0, 0, m_ntrac, 1);
+        amr_wind::field_ops::lincomb(tracer_nph, 0.5, tracer_old, 0, 0.5, tracer_new, 0, 0, m_ntrac, 1);
     else
-        amr_wind::field_ops::copy(*tracer_nph, tracer_old, 0, 0, m_ntrac, 1);
+        amr_wind::field_ops::copy(tracer_nph, tracer_old, 0, 0, m_ntrac, 1);
 
     
     
@@ -391,8 +415,8 @@ void incflo::ApplyPredictor (bool incremental_projection)
     // *************************************************************************************
     compute_vel_forces(velocity_forces.vec_ptrs(),
                        velocity_old.vec_const_ptrs(),
-                       (*density_nph).vec_const_ptrs(),
-                       (*tracer_nph).vec_const_ptrs());
+                       (density_nph).vec_const_ptrs(),
+                       (tracer_nph).vec_const_ptrs());
     
     // *************************************************************************************
     // Update the velocity
@@ -464,7 +488,7 @@ void incflo::ApplyPredictor (bool incremental_projection)
     // Project velocity field, update pressure
     //
     // **********************************************************************************************
-    ApplyProjection((*density_nph).vec_const_ptrs(), new_time, m_time.deltaT(), incremental_projection);
+    ApplyProjection((density_nph).vec_const_ptrs(), new_time, m_time.deltaT(), incremental_projection);
 
 }
 
@@ -543,21 +567,21 @@ void incflo::ApplyCorrector()
         PrintMaxValues(new_time);
     }
 
-    auto& velocity_old = m_repo.get_field("velocity", amr_wind::FieldState::Old);
-    auto& velocity_new = m_repo.get_field("velocity", amr_wind::FieldState::New);
-    auto& density_old = m_repo.get_field("density", amr_wind::FieldState::Old);
-    auto& density_new = m_repo.get_field("density", amr_wind::FieldState::New);
-    auto& tracer_old = m_repo.get_field("tracer", amr_wind::FieldState::Old);
-    auto& tracer_new = m_repo.get_field("tracer", amr_wind::FieldState::New);
+    auto& velocity_old = velocity().state(amr_wind::FieldState::Old);
+    auto& velocity_new = velocity().state(amr_wind::FieldState::New);
+    auto& density_old = density().state(amr_wind::FieldState::Old);
+    auto& density_new = density().state(amr_wind::FieldState::New);
+    auto& tracer_old = tracer().state(amr_wind::FieldState::Old);
+    auto& tracer_new = tracer().state(amr_wind::FieldState::New);
 
-    auto& velocity_forces = m_repo.get_field("velocity_forces");
-    auto& tracer_forces = m_repo.get_field("tracer_forces");
-    auto& vel_eta = m_repo.get_field("viscosity");
-    auto& tra_eta = m_repo.get_field("tracer_viscosity");
+    auto& velocity_forces = m_repo.get_field("velocity_src_term");
+    auto& tracer_forces = m_repo.get_field("temperature_src_term");
+    auto& vel_eta = m_repo.get_field("velocity_nueff");
+    auto& tra_eta = m_repo.get_field("temperature_nueff");
 
     // Allocate scratch space for half time density and tracer
-    auto density_nph = m_repo.create_scratch_field(1,1);
-    auto tracer_nph = m_repo.create_scratch_field(m_ntrac,1);
+    auto& density_nph = density().state(amr_wind::FieldState::NPH);
+    auto& tracer_nph = tracer().state(amr_wind::FieldState::NPH);
 
     // **********************************************************************************************
     // Compute the explicit "new" advective terms R_u^(n+1,*), R_r^(n+1,*) and R_t^(n+1,*)
@@ -565,16 +589,9 @@ void incflo::ApplyCorrector()
     // We only reach the corrector if !m_use_godunov which means we don't use the forces
     // in constructing the advection term
     // *************************************************************************************
-    compute_convective_term(m_repo.get_field("conv_velocity", amr_wind::FieldState::New).vec_ptrs(),
-                            m_repo.get_field("conv_density", amr_wind::FieldState::New).vec_ptrs(),
-                            m_repo.get_field("conv_tracer", amr_wind::FieldState::New).vec_ptrs(),
-                            velocity_new.vec_const_ptrs(),
-                            density_new.vec_const_ptrs(),
-                            tracer_new.vec_const_ptrs(),
-                            m_repo.get_field("u_mac").vec_ptrs(),
-                            m_repo.get_field("v_mac").vec_ptrs(),
-                            m_repo.get_field("w_mac").vec_ptrs(),
-                            {}, {}, new_time);
+    mol::predict_vels_on_faces(m_repo, amr_wind::FieldState::New);
+    mac::apply_MAC_projection(m_repo, amr_wind::FieldState::New, m_mac_mg_max_coarsening_level, m_mac_mg_rtol, m_mac_mg_atol);
+    mol::compute_convective_term (m_repo,amr_wind::FieldState::New, m_constant_density, m_advect_tracer);
 
     // *************************************************************************************
     // Compute viscosity / diffusive coefficients
@@ -586,12 +603,12 @@ void incflo::ApplyCorrector()
     // Here we create divtau of the (n+1,*) state that was computed in the predictor;
     //      we use this laps only if DiffusionType::Explicit
     if (m_diff_type == DiffusionType::Explicit) {
-        get_diffusion_tensor_op()->compute_divtau(m_repo.get_field("divtau", amr_wind::FieldState::New).vec_ptrs(),
+        get_diffusion_tensor_op()->compute_divtau(m_repo.get_field("velocity_diff_term", amr_wind::FieldState::New).vec_ptrs(),
                                                   velocity_new.vec_const_ptrs(),
                                                   density_new.vec_const_ptrs(),
                                                   vel_eta.vec_const_ptrs());
         if (m_advect_tracer) {
-            get_diffusion_scalar_op()->compute_laps(m_repo.get_field("laps", amr_wind::FieldState::New).vec_ptrs(),
+            get_diffusion_scalar_op()->compute_laps(m_repo.get_field("temperature_diff_term", amr_wind::FieldState::New).vec_ptrs(),
                                                     tracer_new.vec_const_ptrs(),
                                                     density_new.vec_const_ptrs(),
                                                     tra_eta.vec_const_ptrs());
@@ -609,7 +626,7 @@ void incflo::ApplyCorrector()
     // Update density first
     // *************************************************************************************
     if (l_constant_density) {
-        amr_wind::field_ops::copy(*density_nph, density_old, 0, 0, 1, 1);
+        amr_wind::field_ops::copy(density_nph, density_old, 0, 0, 1, 1);
     } else {
         for (int lev = 0; lev <= finest_level; lev++)
         {
@@ -622,7 +639,7 @@ void incflo::ApplyCorrector()
                 Box const& bx = mfi.tilebox();
                 Array4<Real const> const& rho_o  = density_old(lev).const_array(mfi);
                 Array4<Real> const& rho_n        = density_new(lev).array(mfi);
-                Array4<Real> const& rho_nph      = (*density_nph)(lev).array(mfi);
+                Array4<Real> const& rho_nph      = (density_nph)(lev).array(mfi);
                 Array4<Real const> const& drdt_o = m_repo.get_field("conv_density", amr_wind::FieldState::Old)(lev).const_array(mfi);
                 Array4<Real const> const& drdt   = m_repo.get_field("conv_density", amr_wind::FieldState::New)(lev).const_array(mfi);
 
@@ -638,8 +655,9 @@ void incflo::ApplyCorrector()
     // *************************************************************************************
     // Compute the tracer forcing terms (forcing for (rho s), not for s)
     // *************************************************************************************
-    if (m_advect_tracer)
-        compute_tra_forces(tracer_forces.vec_ptrs(),  (*density_nph).vec_const_ptrs());
+    for (auto& seqn: m_scalar_eqns) {
+        seqn->compute_source_term(amr_wind::FieldState::New);
+    }
 
     // *************************************************************************************
     // Update the tracer next (note that dtdt already has rho in it)
@@ -661,15 +679,15 @@ void incflo::ApplyCorrector()
                 Array4<Real const> const& rho_o   = density_old(lev).const_array(mfi);
                 Array4<Real      > const& tra     = tracer_new(lev).array(mfi);
                 Array4<Real const> const& rho     = density_new(lev).const_array(mfi);
-                Array4<Real const> const& dtdt_o  = m_repo.get_field("conv_tracer", amr_wind::FieldState::Old)(lev).const_array(mfi);
-                Array4<Real const> const& dtdt    = m_repo.get_field("conv_tracer", amr_wind::FieldState::New)(lev).const_array(mfi);
+                Array4<Real const> const& dtdt_o  = m_repo.get_field("temperature_conv_term", amr_wind::FieldState::Old)(lev).const_array(mfi);
+                Array4<Real const> const& dtdt    = m_repo.get_field("temperature_conv_term", amr_wind::FieldState::New)(lev).const_array(mfi);
                 Array4<Real const> const& tra_f   = tracer_forces(lev).const_array(mfi);
 
                 if (m_diff_type == DiffusionType::Explicit)
                 {
 
-                    Array4<Real const> const& laps_o = m_repo.get_field("laps", amr_wind::FieldState::Old)(lev).const_array(mfi);
-                    Array4<Real const> const& laps   = m_repo.get_field("laps", amr_wind::FieldState::New)(lev).const_array(mfi);
+                    Array4<Real const> const& laps_o = m_repo.get_field("temperature_diff_term", amr_wind::FieldState::Old)(lev).const_array(mfi);
+                    Array4<Real const> const& laps   = m_repo.get_field("temperature_diff_term", amr_wind::FieldState::New)(lev).const_array(mfi);
 
                     amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
                     {
@@ -686,7 +704,7 @@ void incflo::ApplyCorrector()
                 }
                 else if (m_diff_type == DiffusionType::Crank_Nicolson)
                 {
-                    Array4<Real const> const& laps_o = m_repo.get_field("laps", amr_wind::FieldState::Old)(lev).const_array(mfi);
+                    Array4<Real const> const& laps_o = m_repo.get_field("temperature_diff_term", amr_wind::FieldState::Old)(lev).const_array(mfi);
 
                     amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
                     {
@@ -740,17 +758,17 @@ void incflo::ApplyCorrector()
     // Update tracer at n+1/2
     // *************************************************************************************
     if (m_advect_tracer)
-        amr_wind::field_ops::lincomb(*tracer_nph, 0.5, tracer_old, 0, 0.5, tracer_new, 0, 0, m_ntrac, 1);
+        amr_wind::field_ops::lincomb(tracer_nph, 0.5, tracer_old, 0, 0.5, tracer_new, 0, 0, m_ntrac, 1);
     else
-        amr_wind::field_ops::copy(*tracer_nph, tracer_old, 0, 0, m_ntrac, 1);
+        amr_wind::field_ops::copy(tracer_nph, tracer_old, 0, 0, m_ntrac, 1);
 
 
     // *************************************************************************************
     // Define the forcing terms to use in the final update (using half-time density)
     // *************************************************************************************
     compute_vel_forces(velocity_forces.vec_ptrs(),velocity_new.vec_const_ptrs(),
-                       (*density_nph).vec_const_ptrs(),
-                       (*tracer_nph).vec_const_ptrs());
+                       (density_nph).vec_const_ptrs(),
+                       (tracer_nph).vec_const_ptrs());
 
     // *************************************************************************************
     // Update velocity
@@ -766,8 +784,8 @@ void incflo::ApplyCorrector()
             Box const& bx = mfi.tilebox();
             Array4<Real> const& vel = velocity_new(lev).array(mfi);
             Array4<Real const> const& vel_o = velocity_old(lev).const_array(mfi);
-            Array4<Real const> const& dvdt = m_repo.get_field("conv_velocity", amr_wind::FieldState::New)(lev).const_array(mfi);
-            Array4<Real const> const& dvdt_o = m_repo.get_field("conv_velocity", amr_wind::FieldState::Old)(lev).const_array(mfi);
+            Array4<Real const> const& dvdt = m_repo.get_field("velocity_conv_term", amr_wind::FieldState::New)(lev).const_array(mfi);
+            Array4<Real const> const& dvdt_o = m_repo.get_field("velocity_conv_term", amr_wind::FieldState::Old)(lev).const_array(mfi);
             Array4<Real const> const& vel_f = velocity_forces(lev).const_array(mfi);
 
             if (m_diff_type == DiffusionType::Implicit)
@@ -782,7 +800,7 @@ void incflo::ApplyCorrector()
             }
             else if (m_diff_type == DiffusionType::Crank_Nicolson)
             {
-                Array4<Real const> const& divtau_o = m_repo.get_field("divtau", amr_wind::FieldState::Old)(lev).const_array(mfi);
+                Array4<Real const> const& divtau_o = m_repo.get_field("velocity_diff_term", amr_wind::FieldState::Old)(lev).const_array(mfi);
                 amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
                 {
                     for (int idim = 0; idim < AMREX_SPACEDIM; ++idim) {
@@ -794,8 +812,8 @@ void incflo::ApplyCorrector()
             }
             else if (m_diff_type == DiffusionType::Explicit)
             {
-                Array4<Real const> const& divtau_o = m_repo.get_field("divtau", amr_wind::FieldState::Old)(lev).const_array(mfi);
-                Array4<Real const> const& divtau   = m_repo.get_field("divtau", amr_wind::FieldState::New)(lev).const_array(mfi);
+                Array4<Real const> const& divtau_o = m_repo.get_field("velocity_diff_term", amr_wind::FieldState::Old)(lev).const_array(mfi);
+                Array4<Real const> const& divtau   = m_repo.get_field("velocity_diff_term", amr_wind::FieldState::New)(lev).const_array(mfi);
                 amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
                 {
                     for (int idim = 0; idim < AMREX_SPACEDIM; ++idim) {
@@ -832,6 +850,6 @@ void incflo::ApplyCorrector()
     //
     // Project velocity field, update pressure
     bool incremental = false;
-    ApplyProjection((*density_nph).vec_const_ptrs(),new_time, m_time.deltaT(), incremental);
+    ApplyProjection((density_nph).vec_const_ptrs(),new_time, m_time.deltaT(), incremental);
 
 }
