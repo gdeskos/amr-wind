@@ -14,6 +14,8 @@ void incflo::declare_fields()
         "ICNS-" + scheme, m_time, m_repo, m_probtype);
     m_scalar_eqns.emplace_back(amr_wind::pde::PDEBase::create(
         "Temperature-" + scheme, m_time, m_repo, m_probtype));
+    m_scalar_eqns.emplace_back(amr_wind::pde::PDEBase::create(
+        "VOF-" + scheme, m_time, m_repo, m_probtype));
 
     const int nstates = 2;
     m_repo.declare_cc_field("conv_density", 1, 0, nstates);
@@ -27,6 +29,9 @@ void incflo::init_field_bcs ()
     auto& tracer = m_repo.get_field("temperature");
     auto& vel_for = m_repo.get_field("velocity_src_term");
     auto& tra_for = m_repo.get_field("temperature_src_term");
+
+
+    auto& vof = m_repo.get_field("vof");
 
     auto& bc_velocity = velocity.bc_values();
     auto& bcrec_velocity = velocity.bcrec();
