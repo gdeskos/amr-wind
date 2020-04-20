@@ -30,7 +30,6 @@ void incflo::init_field_bcs ()
     auto& vel_for = m_repo.get_field("velocity_src_term");
     auto& tra_for = m_repo.get_field("temperature_src_term");
 
-
     auto& vof = m_repo.get_field("vof");
 
     auto& bc_velocity = velocity.bc_values();
