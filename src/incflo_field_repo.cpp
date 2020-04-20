@@ -36,10 +36,10 @@ void incflo::init_field_bcs ()
     auto& velocity = m_repo.get_field("velocity");
     auto& density = m_repo.get_field("density");
     auto& tracer = m_repo.get_field("temperature");
+    auto& vof = m_repo.get_field("vof");
     auto& vel_for = m_repo.get_field("velocity_src_term");
     auto& tra_for = m_repo.get_field("temperature_src_term");
 
-    auto& vof = m_repo.get_field("vof");
 
     auto& bc_velocity = velocity.bc_values();
     auto& bcrec_velocity = velocity.bcrec();
@@ -47,7 +47,6 @@ void incflo::init_field_bcs ()
     auto& bcrec_density = density.bcrec();
     auto& bc_tracer = tracer.bc_values();
     auto& bcrec_tracer = tracer.bcrec();
-    
     auto& bc_vof = vof.bc_values();
     auto& bcrec_vof = vof.bcrec();
     
@@ -92,6 +91,8 @@ void incflo::init_field_bcs ()
             pp.queryarr("density", bc_density[ori], 0, 1);
 
             pp.queryarr("tracer", bc_tracer[ori], 0, m_ntrac);
+            
+            pp.queryarr("vof", bc_tracer[ori], 0, m_nvof);
         }
         else if (bc_type == "no_slip_wall" or bc_type == "nsw")
         {
@@ -107,12 +108,14 @@ void incflo::init_field_bcs ()
         {
             bc_temp[ori] = BC::slip_wall;
             pp.queryarr("tracer", bc_tracer[ori], 0, m_ntrac);
+            pp.queryarr("vof", bc_vof[ori], 0, m_ntrac);
         }
         else if (bc_type == "wall_model" or bc_type == "wm")
         {
             bc_temp[ori] = BC::wall_model;
             m_wall_model_flag = true;
             pp.queryarr("tracer", bc_tracer[ori], 0, m_ntrac);
+            pp.queryarr("vof", bc_vof[ori], 0, m_nvof);
         }
         else
         {
@@ -138,6 +141,7 @@ void incflo::init_field_bcs ()
     for (int i=0; i < AMREX_SPACEDIM*2; ++i) {
         velocity.bc_type()[i] = bc_temp[i];
         tracer.bc_type()[i] = bc_temp[i];
+        vof.bc_type()[i] = bc_temp[i];
         density.bc_type()[i] = bc_temp[i];
         pressure().bc_type()[i] = bc_temp[i];
     }
@@ -349,9 +353,56 @@ void incflo::init_field_bcs ()
         }
     }
 
+    if (m_nvof > 0)
+    {
+
+        for (OrientationIter oit; oit; ++oit) {
+            Orientation ori = oit();
+            int dir = ori.coordDir();
+            Orientation::Side side = ori.faceDir();
+            auto const bct = bc_temp[ori];
+            if (bct == BC::pressure_inflow  or
+                bct == BC::pressure_outflow or
+                bct == BC::no_slip_wall)
+            {
+                if (side == Orientation::low) {
+                    for (auto& b : bcrec_vof) b.setLo(dir, BCType::foextrap);
+                } else {
+                    for (auto& b : bcrec_vof) b.setHi(dir, BCType::foextrap);
+                }
+            }
+            else if (bct == BC::slip_wall   or
+                     bct == BC::wall_model)
+            {
+                if (side == Orientation::low) {
+                    for (auto& b : bcrec_vof) b.setLo(dir, BCType::hoextrap);
+                } else {
+                    for (auto& b : bcrec_vof) b.setHi(dir, BCType::hoextrap);
+                }
+            }
+            else if (bct == BC::mass_inflow)
+            {
+                if (side == Orientation::low) {
+                    for (auto& b : bcrec_vof) b.setLo(dir, BCType::ext_dir);
+                } else {
+                    for (auto& b : bcrec_vof) b.setHi(dir, BCType::ext_dir);
+                }
+            }
+            else if (bct == BC::periodic)
+            {
+                if (side == Orientation::low) {
+                    for (auto& b : bcrec_vof) b.setLo(dir, BCType::int_dir);
+                } else {
+                    for (auto& b : bcrec_vof) b.setHi(dir, BCType::int_dir);
+                }
+            }
+        
+        }
+    }
     velocity.copy_bc_to_device();
     density.copy_bc_to_device();
     tracer.copy_bc_to_device();
+    vof.copy_bc_to_device();
     vel_for.copy_bc_to_device();
     tra_for.copy_bc_to_device();
 
