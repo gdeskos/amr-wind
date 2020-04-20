@@ -11,10 +11,6 @@
 namespace mol {
 
 void predict_vels_on_faces(
-    amr_wind::FieldRepo& repo,
-    const amr_wind::FieldState fstate);
-
-void predict_vels_on_faces(
     int lev,
     amrex::Box const& ubx,
     amrex::Box const& vbx,
@@ -23,14 +19,11 @@ void predict_vels_on_faces(
     amrex::Array4<amrex::Real> const& v,
     amrex::Array4<amrex::Real> const& w,
     amrex::Array4<amrex::Real const> const& vcc,
-    amrex::GpuArray<BC, AMREX_SPACEDIM*2> bctype,
+    amrex::Vector<amrex::BCRec> const& h_bcrec,
+    amrex::BCRec const* d_bcrec,
     amrex::Vector<amrex::Geometry> geom);
 
-void compute_convective_term(
-    amr_wind::FieldRepo& repo,
-    const amr_wind::FieldState fstate,
-    bool constant_density,
-    bool advect_tracer);
+
 
 void compute_convective_fluxes(
     int lev,
