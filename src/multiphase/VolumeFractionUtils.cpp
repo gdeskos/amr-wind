@@ -4,6 +4,7 @@
 //
 
 #include "VolumeFractionUtils.H"
+#include "VolumeFraction_K.H"
 
 using namespace amrex;
 
