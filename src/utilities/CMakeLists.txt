@@ -5,7 +5,6 @@ target_sources(${amr_wind_lib_name}
       incflo_build_info.cpp
       io.cpp
       PlaneAveraging.cpp
-      VolumeFractionUtils.cpp
       bc_ops.cpp
    )
 

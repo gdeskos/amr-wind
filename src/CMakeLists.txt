@@ -36,6 +36,7 @@ add_subdirectory(setup)
 add_subdirectory(utilities)
 add_subdirectory(prob)
 add_subdirectory(wind_energy)
+add_subdirectory(multiphase)
 add_subdirectory(equation_systems)
 
 target_link_libraries_system(${amr_wind_lib_name} PUBLIC amrex)
