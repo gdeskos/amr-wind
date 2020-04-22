@@ -15,7 +15,6 @@ using namespace amrex;
 void incflo::ReadParameters ()
 {
     ReadIOParameters();
-    ReadRheologyParameters();
 
     { // Prefix amr
         ParmParse pp("amr");
@@ -40,8 +39,6 @@ void incflo::ReadParameters ()
 
         // Godunov-related flags
         pp.query("use_godunov"                      , m_use_godunov);
-        pp.query("use_ppm"                          , m_godunov_ppm);
-        pp.query("godunov_use_forces_in_trans"      , m_godunov_use_forces_in_trans);
 
         // The default for diffusion_type is 2, i.e. the default m_diff_type is DiffusionType::Implicit
         int diffusion_type = 2;
@@ -85,14 +82,6 @@ void incflo::ReadParameters ()
             amrex::Abort("We currently require at least one tracer");
         }
 
-        // Scalar diffusion coefficients
-        m_mu_s.resize(m_ntrac, 0.0);
-        pp.queryarr("mu_s", m_mu_s, 0, m_ntrac );
-
-        amrex::Print() << "Scalar diffusion coefficients " << std::endl;
-        for (int i = 0; i < m_ntrac; i++) {
-            amrex::Print() << "Tracer" << i << ":" << m_mu_s[i] << std::endl;
-        }
     } // end prefix incflo
 
     // FIXME: clean up WIP logic
@@ -182,15 +171,11 @@ void incflo::ReadIOParameters()
 void incflo::InitialIterations ()
 {
     BL_PROFILE("incflo::InitialIterations()");
+    amrex::Print() << "Begin initial pressure iterations. Num. iters = "
+                   << m_initial_iterations << std::endl;
 
     bool explicit_diffusion = (m_diff_type == DiffusionType::Explicit);
     ComputeDt(explicit_diffusion);
-
-    if (m_verbose)
-    {
-        amrex::Print() << "Doing initial pressure iterations with dt = "
-                       << m_time.deltaT() << std::endl;
-    }
 
     auto& vel = velocity();
     auto& rho = density();
@@ -218,6 +203,7 @@ void incflo::InitialIterations ()
         rho.copy_state(amr_wind::FieldState::New, amr_wind::FieldState::Old);
         trac.copy_state(amr_wind::FieldState::New, amr_wind::FieldState::Old);
     }
+    amrex::Print() << "Completed initial pressure iterations" << std::endl << std::endl;
 }
 
 // Project velocity field to make sure initial velocity is divergence-free
@@ -227,9 +213,9 @@ void incflo::InitialProjection()
 
     Real time = 0.0;
 
+    amrex::Print() << "Begin initial projection" << std::endl;
     if (m_verbose)
     {
-        amrex::Print() << "Initial projection:" << std::endl;
         PrintMaxValues(time);
     }
 
@@ -247,4 +233,5 @@ void incflo::InitialProjection()
         amrex::Print() << "After initial projection:" << std::endl;
         PrintMaxValues(time);
     }
+    amrex::Print() << "Completed initial projection" << std::endl << std::endl;
 }
