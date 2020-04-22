@@ -1,4 +1,4 @@
-#include "vof/vof.H"
+#include "lsvof/vof.H"
 #include "AdvOp_Godunov.H"
 #include "AdvOp_MOL.H"
 

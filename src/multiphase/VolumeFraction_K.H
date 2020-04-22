@@ -9,6 +9,7 @@
  */
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 amrex::Real volume_fraction_reconstruct (int i, int j, int k,
+                                        amrex::Real x0, amrex::Real y0, amrex::Real z0,
                                         amrex::Real dx, amrex::Real dy, amrex::Real dz,
                                         amrex::Real mx, amrex::Real my, amrex::Real mz,
                                         amrex::Real vof) noexcept
@@ -18,7 +19,8 @@ amrex::Real volume_fraction_reconstruct (int i, int j, int k,
     Real cch,c01,c02,c03,np1,np2,np3;
     Real m1,m2,m3,m12,numer,denom,p,pst,q,arc,csarc;
 
-    np1=std::abs(mx*dx);np2=std::abs(my*dy);np3=std::abs(mz*dz); 
+    // Define everything in a unit box (1x1x1)
+    np1=std::abs(mx);np2=std::abs(my);np3=std::abs(mz); 
     m1=std::min(np1,np2);m3=std::max(np1,np2);
 
     if(np3<np1){
@@ -43,12 +45,18 @@ amrex::Real volume_fraction_reconstruct (int i, int j, int k,
         numer = m3*m3*(3.*m12-m3) + m1*m1*(m1-3.*m3) + m2*m2*(m2-3.*m3);
         c03 = numer/denom;
     }
-    Real alpha;
+
+    Real AlphaUnit,Alpha;
     if (cch <= c01){
-     alpha = std::pow(6.*m1*dx*m3*dy*m3*dz,1./3.);  // case 1
+     AlphaUnit = std::pow(6.*m1*m2*m3,1./3.);  // case 1
     }
-  
-    return alpha;
+ 
+    //move coordinate system to the origin x0,y0,z0
+    Alpha=AlphaUnit-mx*x0-my*y0-mz*z0;
+    //
+    Alpha=Alpha;
+    
+    return Alpha;
 }
 
 #endif // VolumeFraction_K.H

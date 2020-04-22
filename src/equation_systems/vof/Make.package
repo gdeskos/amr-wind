@@ -1,3 +1,0 @@
-CEXE_headers += vof.H
-
-CEXE_sources += vof.cpp
