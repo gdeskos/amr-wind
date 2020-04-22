@@ -1,5 +1,0 @@
-CEXE_headers += vof.H
-CEXE_headers += levelset.H
-
-CEXE_sources += vof.cpp
-CEXE_sources += levelset.cpp
