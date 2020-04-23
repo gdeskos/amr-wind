@@ -1,0 +1,77 @@
+==============================================================================
+                AMR-Wind (https://github.com/exawind/amr-wind)
+
+  AMR-Wind Git SHA :: 7f91d10e4f8b-dirty
+  AMReX version    :: 20.04-156-g48a6cecd9b51 ( 20.04-156-g48a6cecd9b51 )
+
+  Exec. date       :: Wed Apr 22 17:43:00 2020
+  Build date       :: 2020-04-22 17:38:22
+  C++ compiler     :: AppleClang 11.0.0.11000033
+
+  MPI              :: ON    (Num. ranks = 8)
+  GPU              :: OFF
+  OpenMP           :: OFF
+
+           This software is released under the BSD 3-clause license.           
+ See https://github.com/Exawind/amr-wind/blob/development/LICENSE for details. 
+------------------------------------------------------------------------------
+
+MPI initialized with 8 MPI processes
+AMReX (20.04-156-g48a6cecd9b51) initialized
+Initializing AMR-Wind ...
+Creating PDESystem instance: ICNS-MOL
+Creating PDESystem instance: Temperature-MOL
+Creating PDESystem instance: VOF-MOL
+Creating TurbulenceModel instance: Laminar-ConstTransport
+Creating mesh... Making new level 0 from scratch
+with BoxArray (BoxArray maxbox(8)
+       m_ref->m_hash_sig(0)
+       ((0,0,0) (15,15,15) (0,0,0)) ((16,0,0) (47,15,15) (0,0,0)) ((0,16,0) (15,47,15) (0,0,0)) ((16,16,0) (47,47,15) (0,0,0)) ((0,0,16) (15,15,47) (0,0,0)) ((16,0,16) (47,15,47) (0,0,0)) ((0,16,16) (15,47,47) (0,0,0)) ((16,16,16) (47,47,47) (0,0,0)) )
+
+done
+Grid summary: 
+  Level 0   8 grids  110592 cells  100 % of domain
+            smallest grid: 16 x 16 x 16  biggest grid: 32 x 32 x 32
+
+Begin initial projection
+Level 0
+max(abs(u/v/w))  = 7.092628419  6.106573752  0  
+max tracer0 = 308.71875
+max(abs(gpx/gpy/gpz/p))  = 0  0  0  0  
+
+Before projection:
+Level 0
+max(abs(u/v/w))  = 7.092628419  6.106573752  0  
+max tracer0 = 308.71875
+max(abs(gpx/gpy/gpz/p))  = 0  0  0  0  
+
+  Nodal_projection               0       2.134403765e-17       2.134403765e-17
+After  projection:
+Level 0
+max(abs(u/v/w))  = 7.092628419  6.106573752  0  
+max tracer0 = 308.71875
+max(abs(gpx/gpy/gpz/p))  = 0  0  0  0  
+
+After initial projection:
+Level 0
+max(abs(u/v/w))  = 7.092628419  6.106573752  0  
+max tracer0 = 308.71875
+max(abs(gpx/gpy/gpz/p))  = 0  0  0  0  
+
+Completed initial projection
+
+Begin initial pressure iterations. Num. iters = 3
+CFL: 0.05 dt: 0.05699772724
+In initial_iterations: iter = 0
+Before predictor step:
+Level 0
+max(abs(u/v/w))  = 7.092628419  6.106573752  0  
+max tracer0 = 308.71875
+max(abs(gpx/gpy/gpz/p))  = 0  0  0  0  
+
+
+Predictor:
+  System                     Iters      Initial residual        Final residual
+  ----------------------------------------------------------------------------
+  MAC_projection                 0                     0                     0
+  temperature_solve              0       1.532100669e-09       1.532100669e-09
