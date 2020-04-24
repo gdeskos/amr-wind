@@ -31,7 +31,7 @@ struct ComputeRHSOp<VOF, Scheme>
             for (amrex::MFIter mfi(field(lev)); mfi.isValid(); ++mfi) {
                 const auto& bx = mfi.tilebox();
                 auto vof = field(lev).array(mfi);
-                const auto vof_old = field_old(lev).const_array(mfi);
+                const auto vof_o = field_old(lev).const_array(mfi);
                 const auto ddt_o = conv_term(lev).const_array(mfi);
 
                 amrex::ParallelFor(
