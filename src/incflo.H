@@ -16,7 +16,7 @@ namespace amr_wind {
 namespace pde {
 class PDEBase;
 }
-class Physics;
+class PhysicsOld;
 class RefinementCriteria;
 }
 
@@ -133,7 +133,8 @@ public: // for cuda
 
     void prob_init_fluid (int lev);
     void prob_set_inflow_velocity (int grid_id, amrex::Orientation ori, amrex::Box const& bx,
-                                   amrex::Array4<amrex::Real> const& v, int lev, amrex::Real time);
+                                   amrex::Array4<amrex::Real> const& v, int lev, amrex::Real time,
+                                   amrex::Real bcv);
 
 #include "incflo_prob_I.H"
 
@@ -165,7 +166,7 @@ private:
     // std::unique_ptr<amr_wind::pde::PDEBase> m_icns;
     // amrex::Vector<std::unique_ptr<amr_wind::pde::PDEBase>> m_scalar_eqns;
 
-    amrex::Vector<std::unique_ptr<amr_wind::Physics>> m_physics;
+    amrex::Vector<std::unique_ptr<amr_wind::PhysicsOld>> m_physics;
     amrex::Vector<std::unique_ptr<amr_wind::RefinementCriteria>> m_refine_criteria;
 
     // Be verbose?
@@ -191,7 +192,6 @@ private:
     amrex::Real m_ro_0 = 1.0;
 
     bool m_constant_density = true;
-    bool m_advect_tracer    = false;
     bool m_test_tracer_conservation = false;
 
     // Default to MOL (not Godunov)
@@ -234,9 +234,6 @@ private:
     int m_plt_divu        = 0;
     int m_plt_vfrac       = 1;
 
-    int m_ntrac = 1;
-    int m_nvof = 1;
-
     //
     // end of member variables
     //
@@ -269,7 +266,6 @@ private:
     void set_background_pressure ();
     void ReadParameters ();
     void ReadIOParameters ();
-    void ResizeArrays (); // Resize arrays to fit (up to) max_level + 1 AMR levels
     void InitialProjection ();
     void InitialIterations ();
 

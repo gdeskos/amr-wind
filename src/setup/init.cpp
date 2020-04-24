@@ -34,7 +34,6 @@ void incflo::ReadParameters ()
         pp.queryarr("gravity", m_gravity, 0, AMREX_SPACEDIM);
 
         pp.query("constant_density"         , m_constant_density);
-        pp.query("advect_tracer"            , m_advect_tracer);
         pp.query("test_tracer_conservation" , m_test_tracer_conservation);
 
         // Godunov-related flags
@@ -74,23 +73,11 @@ void incflo::ReadParameters ()
         pp.query("ro_0", m_ro_0);
         AMREX_ALWAYS_ASSERT(m_ro_0 >= 0.0);
 
-        pp.query("ntrac", m_ntrac);
-
-        if (m_ntrac <= 0) m_advect_tracer = 0;
-
-        if (m_ntrac < 1) {
-            amrex::Abort("We currently require at least one tracer");
-        }
-
     } // end prefix incflo
 
     // FIXME: clean up WIP logic
     if (m_probtype == 35) {
-        m_physics.emplace_back(new amr_wind::ABL(m_time, this));
-    }
-    
-    if (m_probtype == 11) {
-        m_physics.emplace_back(new amr_wind::BoussinesqBubble(this));
+        m_physics.emplace_back(new amr_wind::ABLOld(m_time, this));
     }
 
     {
@@ -221,7 +208,7 @@ void incflo::InitialProjection()
 
     Real dummy_dt = 1.0;
     bool incremental = false;
-    ApplyProjection(m_repo.get_field("density", amr_wind::FieldState::New).vec_const_ptrs(),
+    ApplyProjection(density().vec_const_ptrs(),
                     m_time.current_time(), dummy_dt, incremental);
 
     // We set p and gp back to zero (p0 may still be still non-zero)

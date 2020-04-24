@@ -4,6 +4,9 @@
 #include "FieldUtils.H"
 #include "PDEHelpers.H"
 #include "TurbulenceModel.H"
+#include "CFDSim.H"
+
+#include "AMReX_ParmParse.H"
 
 namespace amr_wind {
 namespace pde {
@@ -24,13 +27,26 @@ struct FieldRegOp
 template<typename PDE>
 struct SrcTermOpBase
 {
-    SrcTermOpBase(PDEFields& fields_in) : fields(fields_in) {}
+    SrcTermOpBase(PDEFields& fields_in)
+    : fields(fields_in)
+    , m_density(fields_in.repo.get_field("density")) {}
+
+    void init_source_terms(const CFDSim& sim)
+    {
+        amrex::ParmParse pp(PDE::pde_name());
+        amrex::Vector<std::string> src_terms;
+        pp.queryarr("source_terms", src_terms);
+        for (auto& src_name: src_terms)
+        {
+            sources.emplace_back(PDE::SrcTerm::create(src_name, sim));
+        }
+    }
 
     void multiply_rho(const FieldState fstate)
     {
         BL_PROFILE("amr-wind::" + PDE::pde_name() + "::multiply_rho")
         const auto rhostate = field_impl::phi_state(fstate);
-        auto& density = fields.repo.get_field("density", rhostate);
+        auto& density = m_density.state(rhostate);
 
         const int nlevels = fields.repo.num_active_levels();
         for (int lev=0; lev < nlevels; ++lev) {
@@ -52,15 +68,6 @@ struct SrcTermOpBase
             }
         }
     }
-
-    PDEFields& fields;
-    amrex::Vector<std::unique_ptr<typename PDE::SrcTerm>> sources;
-};
-
-template<typename PDE>
-struct SrcTermOp : SrcTermOpBase<PDE>
-{
-    SrcTermOp(PDEFields& fields_in) : SrcTermOpBase<PDE>(fields_in) {}
 
     void operator()(const FieldState fstate)
     {
@@ -89,6 +96,16 @@ struct SrcTermOp : SrcTermOpBase<PDE>
 
         if (PDE::multiply_rho) this->multiply_rho(fstate);
     }
+
+    PDEFields& fields;
+    Field& m_density;
+    amrex::Vector<std::unique_ptr<typename PDE::SrcTerm>> sources;
+};
+
+template<typename PDE>
+struct SrcTermOp : SrcTermOpBase<PDE>
+{
+    SrcTermOp(PDEFields& fields_in) : SrcTermOpBase<PDE>(fields_in) {}
 };
 
 template<typename PDE, typename Scheme, typename = void>
@@ -115,6 +132,9 @@ struct TurbulenceOp
     turbulence::TurbulenceModel& m_tmodel;
     PDEFields& m_fields;
 };
+
+template<typename PDE, typename = void>
+struct BCOp;
 
 }
 }
