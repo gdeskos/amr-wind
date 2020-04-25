@@ -1,4 +1,4 @@
-CEXE_sources += VolumeFractionUtils.cpp
+CEXE_sources += VolumeFractions.cpp
 
-CEXE_headers += VolumeFractionUtils.H
-CEXE_headers += VolumeFraction_K.H
+CEXE_headers += VolumeFractions.H
+CEXE_headers += VolumeFractions_K.H

@@ -1,9 +1,9 @@
 target_sources(${amr_wind_lib_name}
   PRIVATE
     #Source
-    VolumeFractionUtils.cpp
+    VolumeFractions.cpp
     #Headers
-    VolumeFraction_K.H
+    VolumeFractions_K.H
   )
 
 target_include_directories(
