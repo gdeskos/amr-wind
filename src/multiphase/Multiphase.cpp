@@ -1,4 +1,4 @@
-#include "VolumeFractions.H"
+#include "Multiphase.H"
 #include "VolumeFractions_K.H"
 #include "CFDSim.H"
 #include "AMReX_ParmParse.H"
@@ -7,9 +7,10 @@
 namespace amr_wind {
 
 
-VolumeFractions::VolumeFractions(const CFDSim& sim)
+Multiphase::Multiphase(const CFDSim& sim)
     : m_vof(sim.repo().get_field("vof"))
     , m_density(sim.repo().get_field("density"))
+    , m_velocity(sim.repo().get_field("velocity"))
 {
     amrex::ParmParse pp("incflo");
     pp.query("ro_air", m_rho_air);
@@ -20,7 +21,7 @@ VolumeFractions::VolumeFractions(const CFDSim& sim)
 /** Initialize the vof and density fields at the beginning of the
  *  simulation.
  */
-void VolumeFractions::initialize_fields(
+void Multiphase::initialize_fields(
     int level,
     const amrex::Geometry& geom)
 {
@@ -44,7 +45,7 @@ void VolumeFractions::initialize_fields(
     }
 }
 
-void VolumeFractions::set_density(
+void Multiphase::set_density(
         int level,
         const amrex::Geometry& geom)
 {

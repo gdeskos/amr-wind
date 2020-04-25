@@ -1,23 +1,24 @@
-#ifndef VolumeFractions_H
-#define VolumeFractions_H
+#ifndef Multiphase_H
+#define Multiphase_H
 
 #include "Physics.H"
 #include "Field.H"
+
 
 namespace amr_wind {
 
 /** VOF init file 
  */
-class VolumeFractions : public Physics::Register<VolumeFractions>
+class Multiphase : public Physics::Register<Multiphase>
 {
 public:
-    static const std::string identifier() { return "VolumeFractions"; }
+    static const std::string identifier() { return "Multiphase"; }
 
-    VolumeFractions(const CFDSim& sim);
+    Multiphase(const CFDSim& sim);
 
-    virtual ~VolumeFractions() = default;
+    virtual ~Multiphase() = default;
 
-    //! Initialize the temperature and velocity fields for BoussinesqBubble simulations
+    //! Initialize velocity, volume fractions and density for multiphase simulations 
     void initialize_fields(
         int level,
         const amrex::Geometry& geom) override;
@@ -32,7 +33,8 @@ private:
 
     Field& m_vof;
     Field& m_density;
-
+    Field& m_velocity;
+    //Field& m_normal; 
     //! initial density value
     amrex::Real m_rho_air{1.2041};
     amrex::Real m_rho_water{997.};
@@ -42,4 +44,4 @@ private:
 
 }
 
-#endif /* VolumeFractions_H */
+#endif /* Multiphase_H */

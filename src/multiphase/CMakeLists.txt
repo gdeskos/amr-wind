@@ -1,8 +1,9 @@
 target_sources(${amr_wind_lib_name}
   PRIVATE
     #Source
-    VolumeFractions.cpp
+    Multiphase.cpp
     #Headers
+    Multiphase.H
     VolumeFractions_K.H
   )
 
