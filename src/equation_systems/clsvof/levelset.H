@@ -9,10 +9,13 @@
 namespace amr_wind {
 namespace pde {
 
-struct LS : ScalarTransport
+struct LevelSet : ScalarTransport
 {
-    static std::string pde_name() { return "LS"; }
-    static std::string var_name() { return "ls"; }
+    static std::string pde_name() { return "LevelSet"; }
+    static std::string var_name() { return "levelset"; }
+    
+    static constexpr bool multiply_rho = false;
+    static constexpr bool has_diffusion = false;    
 };
 
 
@@ -20,4 +23,4 @@ struct LS : ScalarTransport
 } // namespace amr_wind
 
 
-#endif /* VOF_H */
+#endif /* LEVELSET_H */

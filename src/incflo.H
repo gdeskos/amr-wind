@@ -70,6 +70,10 @@ public:
     amr_wind::Field& pressure() const { return m_repo.get_field("p"); }
     amr_wind::Field& grad_p() const { return m_repo.get_field("gp"); }
 
+    amr_wind::Field& levelset() const {return m_repo.get_field("levelset");}
+    amr_wind::Field& vof() const {return m_repo.get_field("vof");}
+
+
 public: // for cuda
 
     void ComputeDt (bool explicit_diffusion);
@@ -189,6 +193,8 @@ private:
     int m_plt_gpy         = 1;
     int m_plt_gpz         = 1;
     int m_plt_rho         = 1;
+    int m_plt_vof         = 0;
+    int m_plt_levelset    = 0;
     int m_plt_tracer      = 1;
     int m_plt_p           = 0;
     int m_plt_eta         = 0;

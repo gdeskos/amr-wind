@@ -16,8 +16,6 @@ struct VOF : ScalarTransport
     
     static constexpr bool multiply_rho = false;
     static constexpr bool has_diffusion = false;
-    
-    static constexpr amrex::Real default_bc_value = 1.0;
 };
 
 

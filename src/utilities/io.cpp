@@ -310,6 +310,12 @@ void incflo::WritePlotFile()
     // Apparent viscosity
     if(m_plt_eta) ++ncomp;
 
+    // Volume Fraction
+    if(m_plt_vof) ++ncomp;
+
+    // Level Set
+    if(m_plt_levelset) ++ncomp;
+
     // Vorticity
     if(m_plt_vort) ++ncomp;
 
@@ -406,6 +412,20 @@ void incflo::WritePlotFile()
             ComputeVorticity(lev, m_time.current_time(), vort, velocity()(lev));
         }
         pltscaVarsName.push_back("vort");
+        ++icomp;
+    }
+    if (m_plt_vof) {
+        for (int lev = 0; lev <= finest_level; ++lev) {
+            MultiFab::Copy(mf[lev], vof()(lev), 0, icomp, 1, 0);
+        }
+        pltscaVarsName.push_back("volume_fraction");
+        ++icomp;
+    }
+    if (m_plt_levelset) {
+        for (int lev = 0; lev <= finest_level; ++lev) {
+            MultiFab::Copy(mf[lev], levelset()(lev), 0, icomp, 1, 0);
+        }
+        pltscaVarsName.push_back("level_set");
         ++icomp;
     }
     if (m_plt_forcing) {

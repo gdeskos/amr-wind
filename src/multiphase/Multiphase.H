@@ -23,6 +23,8 @@ public:
         int level,
         const amrex::Geometry& geom) override;
 
+    void post_init_actions() override {}
+
     void pre_advance_work() override {}
 
 
@@ -31,6 +33,7 @@ private:
     void set_density(int level,
         const amrex::Geometry& geom);
 
+    Field& m_levelset;
     Field& m_vof;
     Field& m_density;
     Field& m_velocity;
@@ -38,7 +41,7 @@ private:
     //! initial density value
     amrex::Real m_rho_air{1.2041};
     amrex::Real m_rho_water{997.};
-    int m_vof_problem{1};
+    int m_multiphase_problem{1};
 
 };
 

@@ -145,6 +145,9 @@ void incflo::ReadIOParameters()
     pp.query("plt_vfrac",      m_plt_vfrac );
 
     pp.query("plt_forcing",    m_plt_forcing );
+
+    pp.query("plt_volumefraction", m_plt_vof);
+    pp.query("plt_levelset", m_plt_levelset);
 }
 
 //

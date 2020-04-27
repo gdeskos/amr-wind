@@ -25,6 +25,7 @@ void incflo::declare_fields()
     pde_mgr.register_transport_pde("Temperature");
    
     // TODO: This should be optional
+    pde_mgr.register_transport_pde("LevelSet");
     pde_mgr.register_transport_pde("VOF");
 
     m_sim.create_turbulence_model();
