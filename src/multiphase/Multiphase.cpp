@@ -28,19 +28,22 @@ void Multiphase::initialize_fields(
     using namespace utils;
 
     auto& vof = m_vof(level);
+    auto& velocity = m_velocity(level);
     
     for (amrex::MFIter mfi(vof); mfi.isValid(); ++mfi) {
         const auto& vbx = mfi.validbox();
 
         const auto& dx = geom.CellSizeArray();
         const auto& problo = geom.ProbLoArray();
-        auto VolumeFraction = vof.array(mfi);
+        auto F = vof.array(mfi);
+        auto vel = velocity.array(mfi);
 
         amrex::ParallelFor(vbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
             const amrex::Real x = problo[0] + (i + 0.5) * dx[0];
             const amrex::Real y = problo[1] + (j + 0.5) * dx[1];
             const amrex::Real z = problo[2] + (k + 0.5) * dx[2];
-            VolumeFraction(i,j,k) =  1.;
+            F(i,j,k) =  1.;
+            vel(i,j,k) = 0.;
         });
     }
 }
