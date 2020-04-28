@@ -5,8 +5,6 @@
 #include "SimTime.H"
 #include "Multiphase.H"
 
-class Multiphase;
-
 namespace amr_wind {
 namespace pde {
 namespace icns {
