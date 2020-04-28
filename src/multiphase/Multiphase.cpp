@@ -29,10 +29,9 @@ void Multiphase::initialize_fields(
     using namespace utils;
 
     auto& levelset=m_levelset(level);
-    auto& vof = m_vof(level);
     auto& velocity = m_velocity(level);
     
-    for (amrex::MFIter mfi(vof); mfi.isValid(); ++mfi) {
+    for (amrex::MFIter mfi(levelset); mfi.isValid(); ++mfi) {
         const auto& vbx = mfi.validbox();
 
         const auto& dx = geom.CellSizeArray();
@@ -53,8 +52,10 @@ void Multiphase::initialize_fields(
             const amrex::Real y0= 0.5*(problo[1]+probhi[1]);
             const amrex::Real z0= 0.5*(problo[2]+probhi[2]); 
             phi(i,j,k) = -((x-x0)*(x-x0)+(y-y0)*(y-y0)+(z-z0)*(z-z0))
-                         *(std::sqrt(x*x/(a*a)+y*y/(b*b)+z*z/(c*c))-1); 
-            vel(i,j,k) = 0.;
+                         *(std::sqrt(x*x/(a*a)+y*y/(b*b)+z*z/(c*c))-1.); 
+            vel(i,j,k,0) = 1.;
+            vel(i,j,k,1) = 0.;
+            vel(i,j,k,2) = 0.;
         });
     }
     // compute density based on the volume fractions

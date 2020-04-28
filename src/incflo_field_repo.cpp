@@ -24,7 +24,7 @@ void incflo::declare_fields()
     // TODO: This should be customized based on Physics
     pde_mgr.register_transport_pde("Temperature");
    
-    // TODO: This should be optional
+    // TODO: These two should be optional
     pde_mgr.register_transport_pde("LevelSet");
     pde_mgr.register_transport_pde("VOF");
 
