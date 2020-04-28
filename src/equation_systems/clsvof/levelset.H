@@ -16,6 +16,7 @@ struct LevelSet : ScalarTransport
     
     static constexpr bool multiply_rho = false;
     static constexpr bool has_diffusion = false;    
+
 };
 
 

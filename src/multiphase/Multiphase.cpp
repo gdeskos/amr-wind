@@ -13,6 +13,8 @@ Multiphase::Multiphase(const CFDSim& sim)
     , m_vof(sim.repo().get_field("vof"))
     , m_density(sim.repo().get_field("density"))
     , m_velocity(sim.repo().get_field("velocity"))
+    //, m_lsnormal(sim.repo().declare_field("ls_normal",pde::LevelSet::ndim,0,1))
+    //, m_lscurv(sim.repo().declare_field("ls_curv",1,0,1)) 
 {
     amrex::ParmParse pp("incflo");
     pp.query("ro_air", m_rho_air);

@@ -38,10 +38,8 @@ private:
     Field& m_vof;
     Field& m_density;
     Field& m_velocity;
-    
-    // Define Auxilliary fields 
-    //const Field& m_lsnormal=m_sim.repo().declare_field("ls_normal",pde::LevelSet::ndim,0,1);    //Interface-normal vector 
-    //const Field& m_lscurv=m_sim.repo().declare_field("ls_curv",1,0,1);                          //Interface-curvature
+    //Field& m_lsnormal;
+    //Field& m_lscurv;
    
     //! initial density value
     amrex::Real m_rho_air{1.2041};
