@@ -3,6 +3,7 @@
 #include "CFDSim.H"
 #include "AMReX_ParmParse.H"
 #include "trig_ops.H"
+#include "derive_K.H"
 
 namespace amr_wind {
 
@@ -10,11 +11,11 @@ namespace amr_wind {
 Multiphase::Multiphase(const CFDSim& sim)
     : m_sim(sim)
     , m_levelset(sim.repo().get_field("levelset"))
+    , m_lsnormal(sim.repo().get_field("ls_normal"))
+    , m_lscurv(sim.repo().get_field("ls_curvature"))
     , m_vof(sim.repo().get_field("vof"))
     , m_density(sim.repo().get_field("density"))
     , m_velocity(sim.repo().get_field("velocity"))
-    //, m_lsnormal(sim.repo().declare_field("ls_normal",pde::LevelSet::ndim,0,1))
-    //, m_lscurv(sim.repo().declare_field("ls_curv",1,0,1)) 
 {
     amrex::ParmParse pp("incflo");
     pp.query("ro_air", m_rho_air);
@@ -62,9 +63,7 @@ void Multiphase::initialize_fields(
         });
     }
     //compute level-set normal vector nu
-    
-    //compute level-set curvature kappa
-
+    compute_normals_and_curvature(level,geom);
     // compute density based on the volume fractions
     set_density(level,geom);
 }
@@ -76,10 +75,48 @@ void Multiphase::pre_advance_work()
     
     for (int lev=0; lev<nlevels; ++lev){
         set_density(lev,geom[lev]);
+        compute_normals_and_curvature(lev,geom[lev]);
     }
 }
 
-// Reconstruct the interface based on the levelset/tracking function approach
+void Multiphase::compute_normals_and_curvature(
+        int level,
+        const amrex::Geometry& geom)
+{
+    using namespace utils;
+
+    const auto& domain = geom.Domain();
+    
+    const amrex::Real dx = geom.CellSize()[0];
+    const amrex::Real dy = geom.CellSize()[1];
+    const amrex::Real dz = geom.CellSize()[2];
+
+    const amrex::Real idx = 1.0 / dx;
+    const amrex::Real idy = 1.0 / dy;
+    const amrex::Real idz = 1.0 / dz;
+    
+    auto& level_set = m_levelset(level);
+    auto& normal = m_lsnormal(level);
+    auto& curvature = m_lscurv(level);
+
+    for (amrex::MFIter mfi(level_set); mfi.isValid(); ++mfi) {
+        const auto& vbx = mfi.validbox();
+        const auto& dx = geom.CellSizeArray();
+        auto phi = level_set.array(mfi);
+        auto n = normal.array(mfi);
+        amrex::Real n1,n2,n3;
+        amrex::ParallelFor(vbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+                amrex::RealArray{n1,n2,n3} = first_derivatives<StencilInterior>(
+                    i, j, k, idx, idy, idz, phi);
+            }); 
+        amrex::ParallelFor(vbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+        const amrex::Real abs_n=std::sqrt(n1*n1+n2*n2+n3*n3);
+        n(i,j,k,0)=n1/abs_n;
+        n(i,j,k,1)=n2/abs_n;
+        n(i,j,k,2)=n3/abs_n;
+        });
+    }
+}
 
 void Multiphase::set_density(
         int level,

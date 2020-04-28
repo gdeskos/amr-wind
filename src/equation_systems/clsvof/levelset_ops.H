@@ -7,6 +7,23 @@ namespace amr_wind {
 namespace pde {
 
 template<typename Scheme>
+struct FieldRegOp<LevelSet, Scheme>
+{
+    FieldRegOp(FieldRepo& repo_in): repo(repo_in) {}
+
+    PDEFields  operator()(const SimTime& time, const int probtype)
+    {
+        auto fields = create_fields_instance<LevelSet, Scheme>(time, repo, probtype);
+        
+        auto& ls_normal = repo.declare_cc_field("ls_normal",3,0,1);
+        auto& ls_curv   = repo.declare_nd_field("ls_curvature",1,0,1);
+ 
+        return fields;
+    }
+    FieldRepo& repo;
+};
+
+template<typename Scheme>
 struct ComputeRHSOp<LevelSet, Scheme>
 {
     ComputeRHSOp(PDEFields& fields_in) : fields(fields_in) {}

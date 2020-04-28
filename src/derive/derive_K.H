@@ -99,6 +99,39 @@ struct StencilKHI
 };
 
 template <typename Stencil>
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::RealArray first_derivatives(
+    int i,
+    int j,
+    int k,
+    amrex::Real idx,
+    amrex::Real idy,
+    amrex::Real idz,
+    amrex::Array4<amrex::Real const> const& phi) noexcept
+{
+    using namespace amrex;
+
+    Real cp1, c, cm1;
+
+    cp1 = Stencil::c00;
+    c   = Stencil::c01;
+    cm1 = Stencil::c02;
+
+    const Real phix = (cp1*phi(i+1,j,k) + c*phi(i,j,k) + cm1*phi(i-1,j,k)) * idx;
+    cp1 = Stencil::c10;
+    c   = Stencil::c11;
+    cm1 = Stencil::c12;
+    const Real phiy = (cp1*phi(i,j+1,k) + c*phi(i,j,k) + cm1*phi(i,j-1,k)) * idy;
+    cp1 = Stencil::c20;
+    c   = Stencil::c21;
+    cm1 = Stencil::c22;
+    const Real phiz = (cp1*phi(i,j,k+1) + c*phi(i,j,k) + cm1*phi(i,j,k-1)) * idz;
+
+    amrex::RealArray grad_phi={phix,phiy,phiz};
+
+    return grad_phi;
+}
+
+template <typename Stencil>
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::Real strainrate(
     int i,
     int j,
@@ -142,6 +175,7 @@ AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::Real strainrate(
 
 template<typename FType>
 void compute_strainrate(FType& field, const Field& velocity);
+
 
 } // namespace amr_wind
 #endif

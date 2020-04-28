@@ -32,14 +32,14 @@ private:
     const CFDSim& m_sim;
 
     void set_density(int level,const amrex::Geometry& geom);
-    //void compute_normal_and_curvature(int level,const amrex::Geometry& geom);
-     
+    void compute_normals_and_curvature(int level, const amrex::Geometry& geom);
+
     Field& m_levelset;
     Field& m_vof;
     Field& m_density;
     Field& m_velocity;
-    //Field& m_lsnormal;
-    //Field& m_lscurv;
+    Field& m_lsnormal;
+    Field& m_lscurv;
    
     //! initial density value
     amrex::Real m_rho_air{1.2041};
