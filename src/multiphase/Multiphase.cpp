@@ -8,7 +8,8 @@ namespace amr_wind {
 
 
 Multiphase::Multiphase(const CFDSim& sim)
-    : m_levelset(sim.repo().get_field("levelset"))
+    : m_sim(sim)
+    , m_levelset(sim.repo().get_field("levelset"))
     , m_vof(sim.repo().get_field("vof"))
     , m_density(sim.repo().get_field("density"))
     , m_velocity(sim.repo().get_field("velocity"))
@@ -58,8 +59,22 @@ void Multiphase::initialize_fields(
             vel(i,j,k,2) = 0.;
         });
     }
+    //compute level-set normal vector nu
+    
+    //compute level-set curvature kappa
+
     // compute density based on the volume fractions
     set_density(level,geom);
+}
+
+void Multiphase::pre_advance_work()
+{
+    const int nlevels = m_sim.repo().num_active_levels();
+    const auto& geom=m_sim.mesh().Geom();
+    
+    for (int lev=0; lev<nlevels; ++lev){
+        set_density(lev,geom[lev]);
+    }
 }
 
 // Reconstruct the interface based on the levelset/tracking function approach
@@ -69,7 +84,7 @@ void Multiphase::set_density(
         const amrex::Geometry& geom)
 {
     using namespace utils;
-    
+
     auto& level_set = m_levelset(level);
     auto& density = m_density(level);
 
