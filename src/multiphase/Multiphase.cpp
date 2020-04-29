@@ -4,6 +4,7 @@
 #include "AMReX_ParmParse.H"
 #include "trig_ops.H"
 #include "derive_K.H"
+#include "tensor_ops.H"
 
 namespace amr_wind {
 
@@ -103,18 +104,182 @@ void Multiphase::compute_normals_and_curvature(
         const auto& vbx = mfi.validbox();
         const auto& dx = geom.CellSizeArray();
         auto phi = level_set.array(mfi);
-        auto n = normal.array(mfi);
-        amrex::Real n1,n2,n3;
+        auto Gphi = normal.array(mfi);
+        auto kappa = curvature.array(mfi); 
+
         amrex::ParallelFor(vbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-                amrex::RealArray{n1,n2,n3} = first_derivatives<StencilInterior>(
-                    i, j, k, idx, idy, idz, phi);
+            amr_wind::compute_gradient_scalar<StencilInterior>(i, j, k, idx, idy, idz, phi, Gphi);
+            //compute curvature
+            kappa(i,j,k)=amr_wind::curvature<StencilInterior>(i, j, k, idx, idy, idz, phi, Gphi);
+            // normalize vector TODO --> use the tensor_ops one 
+            const amrex::Real abs_Gphi=std::sqrt(Gphi(i,j,k,0)*Gphi(i,j,k,0)+
+                                                 Gphi(i,j,k,1)*Gphi(i,j,k,1)+
+                                                 Gphi(i,j,k,2)*Gphi(i,j,k,2));
+            
+            Gphi(i,j,k,0)=Gphi(i,j,k,0)/abs_Gphi; 
+            Gphi(i,j,k,1)=Gphi(i,j,k,1)/abs_Gphi; 
+            Gphi(i,j,k,2)=Gphi(i,j,k,2)/abs_Gphi; 
             }); 
-        amrex::ParallelFor(vbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-        const amrex::Real abs_n=std::sqrt(n1*n1+n2*n2+n3*n3);
-        n(i,j,k,0)=n1/abs_n;
-        n(i,j,k,1)=n2/abs_n;
-        n(i,j,k,2)=n3/abs_n;
-        });
+             
+            const auto& bxi = mfi.tilebox();
+            int idim = 0;
+            if (!geom.isPeriodic(idim)) {
+                if (bxi.smallEnd(idim) == domain.smallEnd(idim)) {
+                    amrex::IntVect low(bxi.smallEnd());
+                    amrex::IntVect hi(bxi.bigEnd());
+                    int sm = low[idim];
+                    low.setVal(idim, sm);
+                    hi.setVal(idim, sm);
+
+                    auto bxlo = amrex::Box(low, hi).grow({0, 1, 1});
+
+                    amrex::ParallelFor(
+                        bxlo, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+                        amr_wind::compute_gradient_scalar<StencilILO>(i, j, k, idx, idy, idz, phi, Gphi);
+                        //compute curvature
+                        kappa(i,j,k)=amr_wind::curvature<StencilILO>(i, j, k, idx, idy, idz, phi, Gphi);
+                        // normalize vector TODO --> use the tensor_ops one 
+                        const amrex::Real abs_Gphi=std::sqrt(Gphi(i,j,k,0)*Gphi(i,j,k,0)+
+                                                             Gphi(i,j,k,1)*Gphi(i,j,k,1)+
+                                                             Gphi(i,j,k,2)*Gphi(i,j,k,2));
+                        
+                        Gphi(i,j,k,0)=Gphi(i,j,k,0)/abs_Gphi; 
+                        Gphi(i,j,k,1)=Gphi(i,j,k,1)/abs_Gphi; 
+                        Gphi(i,j,k,2)=Gphi(i,j,k,2)/abs_Gphi; 
+                        }); 
+                }
+
+                if (bxi.bigEnd(idim) == domain.bigEnd(idim)) {
+                    amrex::IntVect low(bxi.bigEnd());
+                    amrex::IntVect hi(bxi.bigEnd());
+                    int sm = low[idim];
+                    low.setVal(idim, sm);
+                    hi.setVal(idim, sm);
+
+                    auto bxhi = amrex::Box(low, hi).grow({0, 1, 1});
+
+                    amrex::ParallelFor(
+                        bxhi, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+                        amr_wind::compute_gradient_scalar<StencilIHI>(i, j, k, idx, idy, idz, phi, Gphi);
+                        //compute curvature
+                        kappa(i,j,k)=amr_wind::curvature<StencilIHI>(i, j, k, idx, idy, idz, phi, Gphi);
+                        // normalize vector TODO --> use the tensor_ops one 
+                        const amrex::Real abs_Gphi=std::sqrt(Gphi(i,j,k,0)*Gphi(i,j,k,0)+
+                                                             Gphi(i,j,k,1)*Gphi(i,j,k,1)+
+                                                             Gphi(i,j,k,2)*Gphi(i,j,k,2));
+                        
+                        Gphi(i,j,k,0)=Gphi(i,j,k,0)/abs_Gphi; 
+                        Gphi(i,j,k,1)=Gphi(i,j,k,1)/abs_Gphi; 
+                        Gphi(i,j,k,2)=Gphi(i,j,k,2)/abs_Gphi;  
+                        });
+                }
+            } // if (!geom.isPeriodic)
+
+            idim = 1;
+            if (!geom.isPeriodic(idim)) {
+                if (bxi.smallEnd(idim) == domain.smallEnd(idim)) {
+                    amrex::IntVect low(bxi.smallEnd());
+                    amrex::IntVect hi(bxi.bigEnd());
+                    int sm = low[idim];
+                    low.setVal(idim, sm);
+                    hi.setVal(idim, sm);
+
+                    auto bxlo = amrex::Box(low, hi).grow({1, 0, 1});
+
+                    amrex::ParallelFor(
+                        bxlo, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+                        amr_wind::compute_gradient_scalar<StencilJLO>(i, j, k, idx, idy, idz, phi, Gphi);
+                        //compute curvature
+                        kappa(i,j,k)=amr_wind::curvature<StencilJLO>(i, j, k, idx, idy, idz, phi, Gphi);
+                        // normalize vector TODO --> use the tensor_ops one 
+                        const amrex::Real abs_Gphi=std::sqrt(Gphi(i,j,k,0)*Gphi(i,j,k,0)+
+                                                             Gphi(i,j,k,1)*Gphi(i,j,k,1)+
+                                                             Gphi(i,j,k,2)*Gphi(i,j,k,2));
+                        
+                        Gphi(i,j,k,0)=Gphi(i,j,k,0)/abs_Gphi; 
+                        Gphi(i,j,k,1)=Gphi(i,j,k,1)/abs_Gphi; 
+                        Gphi(i,j,k,2)=Gphi(i,j,k,2)/abs_Gphi;  
+                        });
+                }
+
+                if (bxi.bigEnd(idim) == domain.bigEnd(idim)) {
+                    amrex::IntVect low(bxi.bigEnd());
+                    amrex::IntVect hi(bxi.bigEnd());
+                    int sm = low[idim];
+                    low.setVal(idim, sm);
+                    hi.setVal(idim, sm);
+
+                    auto bxhi = amrex::Box(low, hi).grow({1, 0, 1});
+
+                    amrex::ParallelFor(
+                        bxhi, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+                        amr_wind::compute_gradient_scalar<StencilJHI>(i, j, k, idx, idy, idz, phi, Gphi);
+                        //compute curvature
+                        kappa(i,j,k)=amr_wind::curvature<StencilJHI>(i, j, k, idx, idy, idz, phi, Gphi);
+                        // normalize vector TODO --> use the tensor_ops one 
+                        const amrex::Real abs_Gphi=std::sqrt(Gphi(i,j,k,0)*Gphi(i,j,k,0)+
+                                                             Gphi(i,j,k,1)*Gphi(i,j,k,1)+
+                                                             Gphi(i,j,k,2)*Gphi(i,j,k,2));
+                        
+                        Gphi(i,j,k,0)=Gphi(i,j,k,0)/abs_Gphi; 
+                        Gphi(i,j,k,1)=Gphi(i,j,k,1)/abs_Gphi; 
+                        Gphi(i,j,k,2)=Gphi(i,j,k,2)/abs_Gphi;  
+                        });
+                }
+            } // if (!geom.isPeriodic)
+
+            idim = 2;
+            if (!geom.isPeriodic(idim)) {
+                if (bxi.smallEnd(idim) == domain.smallEnd(idim)) {
+                    amrex::IntVect low(bxi.smallEnd());
+                    amrex::IntVect hi(bxi.bigEnd());
+                    int sm = low[idim];
+                    low.setVal(idim, sm);
+                    hi.setVal(idim, sm);
+
+                    auto bxlo = amrex::Box(low, hi).grow({1, 1, 0});
+
+                    amrex::ParallelFor(
+                        bxlo, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+                        amr_wind::compute_gradient_scalar<StencilKLO>(i, j, k, idx, idy, idz, phi, Gphi);
+                        //compute curvature
+                        kappa(i,j,k)=amr_wind::curvature<StencilKLO>(i, j, k, idx, idy, idz, phi, Gphi);
+                        // normalize vector TODO --> use the tensor_ops one 
+                        const amrex::Real abs_Gphi=std::sqrt(Gphi(i,j,k,0)*Gphi(i,j,k,0)+
+                                                             Gphi(i,j,k,1)*Gphi(i,j,k,1)+
+                                                             Gphi(i,j,k,2)*Gphi(i,j,k,2));
+                        
+                        Gphi(i,j,k,0)=Gphi(i,j,k,0)/abs_Gphi; 
+                        Gphi(i,j,k,1)=Gphi(i,j,k,1)/abs_Gphi; 
+                        Gphi(i,j,k,2)=Gphi(i,j,k,2)/abs_Gphi;  
+                        });
+                }
+
+                if (bxi.bigEnd(idim) == domain.bigEnd(idim)) {
+                    amrex::IntVect low(bxi.bigEnd());
+                    amrex::IntVect hi(bxi.bigEnd());
+                    int sm = low[idim];
+                    low.setVal(idim, sm);
+                    hi.setVal(idim, sm);
+
+                    auto bxhi = amrex::Box(low, hi).grow({1, 1, 0});
+
+                    amrex::ParallelFor(
+                        bxhi, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+                        amr_wind::compute_gradient_scalar<StencilKHI>(i, j, k, idx, idy, idz, phi, Gphi);
+                        //compute curvature
+                        kappa(i,j,k)=amr_wind::curvature<StencilKHI>(i, j, k, idx, idy, idz, phi, Gphi);
+                        // normalize vector TODO --> use the tensor_ops one 
+                        const amrex::Real abs_Gphi=std::sqrt(Gphi(i,j,k,0)*Gphi(i,j,k,0)+
+                                                             Gphi(i,j,k,1)*Gphi(i,j,k,1)+
+                                                             Gphi(i,j,k,2)*Gphi(i,j,k,2));
+                        
+                        Gphi(i,j,k,0)=Gphi(i,j,k,0)/abs_Gphi; 
+                        Gphi(i,j,k,1)=Gphi(i,j,k,1)/abs_Gphi; 
+                        Gphi(i,j,k,2)=Gphi(i,j,k,2)/abs_Gphi;  
+                        });
+                }
+            } // if (!geom.isPeriodic)
     }
 }
 
