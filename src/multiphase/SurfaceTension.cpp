@@ -11,6 +11,9 @@ namespace icns {
 
 SurfaceTension::SurfaceTension(const CFDSim& sim) : m_time(sim.time())
 {
+    const auto& multi_phase = dynamic_cast<const amr_wind::Multiphase&>(
+        sim.physics_manager()(amr_wind::Multiphase::identifier()));
+    multi_phase.register_forcing_term(this);
 
 }
 

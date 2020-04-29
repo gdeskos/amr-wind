@@ -7,7 +7,13 @@
 
 namespace amr_wind {
 
-/** VOF init file 
+namespace pde {
+namespace icns {
+class SurfaceTension;
+}
+}
+
+/** Multiphase physics 
  */
 class Multiphase : public Physics::Register<Multiphase>
 {
@@ -27,6 +33,10 @@ public:
 
     void pre_advance_work() override;
 
+    void register_forcing_term(pde::icns::SurfaceTension* forcing) const
+    {
+        m_surfacetension_forcing = forcing;
+    }
 
 private:
     const CFDSim& m_sim;
@@ -45,6 +55,10 @@ private:
     amrex::Real m_rho_air{1.2041};
     amrex::Real m_rho_water{997.};
     int m_multiphase_problem{1};
+
+
+    //! Reference to SurfaceTension forcing term if present
+    mutable pde::icns::SurfaceTension* m_surfacetension_forcing{nullptr};
 
 };
 
