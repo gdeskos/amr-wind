@@ -182,7 +182,8 @@ AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::Real curvature(
                           gradphi(i,j,k,1)*gradphi(i,j,k,1)+
                           gradphi(i,j,k,2)*gradphi(i,j,k,2));
     return (phix*phix*phiyy - 2.*phix*phiy*phixy + phiy*phiy*phixx + phix*phix*phizz
-            -2.*phix*phiz*phixz + phiz*phiz*phixx + phiy*phiy*phizz - 2*phiy*phiz*phiyz)/(abs_gradphi*abs_gradphi*abs_gradphi);
+            -2.*phix*phiz*phixz + phiz*phiz*phixx + phiy*phiy*phizz - 2*phiy*phiz*phiyz 
+            + phiz*phiz*phiyy)/(abs_gradphi*abs_gradphi*abs_gradphi);
 }
 
 
