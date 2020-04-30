@@ -27,10 +27,14 @@ public:
 
 
 private:
-    const SimTime& m_time;
+    const amrex::AmrCore& m_mesh;
 
-    amrex::Real sigma; // surface tension coefficient
-
+    Field& m_levelset;
+    Field& m_lsnormal;
+    Field& m_lscurv;
+    
+    amrex::Real m_sigma; // surface tension coefficient
+    
 };
 
 } // namespace icns

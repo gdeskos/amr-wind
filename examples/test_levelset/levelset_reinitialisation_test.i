@@ -28,6 +28,7 @@ incflo.use_godunov      = 1
 transport.viscosity = 0.00009947183943 
 transport.laminar_prandtl = 1.0
 turbulence.model = Laminar
+ICNS.source_terms = SurfaceTension 
 
 #¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨#
 #        ADAPTIVE MESH REFINEMENT       #
@@ -47,3 +48,4 @@ geometry.is_periodic    =   1   1   1   # Periodicity x y z (0/1)
 #.......................................#
 incflo.probtype         =   0
 incflo.physics = Multiphase
+inflow.multiphase_problem = 1

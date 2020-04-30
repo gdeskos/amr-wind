@@ -9,24 +9,48 @@ namespace amr_wind {
 namespace pde {
 namespace icns {
 
-SurfaceTension::SurfaceTension(const CFDSim& sim) : m_time(sim.time())
+SurfaceTension::SurfaceTension(const CFDSim& sim)
+    : m_mesh(sim.mesh())
+    , m_levelset(sim.repo().get_field("levelset"))
+    , m_lsnormal(sim.repo().get_field("ls_normal"))
+    , m_lscurv(sim.repo().get_field("ls_curvature"))
 {
-    const auto& multi_phase = dynamic_cast<const amr_wind::Multiphase&>(
-        sim.physics_manager()(amr_wind::Multiphase::identifier()));
-    multi_phase.register_forcing_term(this);
-
 }
 
 SurfaceTension::~SurfaceTension() = default;
 
 void SurfaceTension::operator()(
-    const int,
-    const amrex::MFIter&,
+    const int lev,
+    const amrex::MFIter& mfi,
     const amrex::Box& bx,
     const FieldState,
     const amrex::Array4<amrex::Real>& src_term) const
 {
+  
+   auto& geom = m_mesh.Geom(lev);
+   auto& levelset = m_levelset(lev);
+   auto& normal = m_lsnormal(lev);
+   auto& curvature = m_lscurv(lev);
 
+   const auto& dx = geom.CellSizeArray();
+   auto phi = levelset.array(mfi);
+   auto n = normal.array(mfi);
+   auto kappa = curvature.array(mfi);
+   const amrex::Real epsilon=2.*std::cbrt(dx[0]*dx[1]*dx[2]);
+
+   amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+        
+        if (phi(i, j, k) > epsilon || phi(i,j,k)<-epsilon) {
+            src_term(i, j, k, 0) += 0.;
+            src_term(i, j, k, 1) += 0.;
+            src_term(i, j, k, 2) += 0.;
+        }else{
+            const amrex::Real delta_st=1./(2*epsilon)*(1+std::cos(M_PI*phi(i,j,k)/epsilon));
+            src_term(i, j, k, 0) += m_sigma*kappa(i,j,k)*delta_st*n(i,j,k,0);
+            src_term(i, j, k, 1) += m_sigma*kappa(i,j,k)*delta_st*n(i,j,k,1);
+            src_term(i, j, k, 2) += m_sigma*kappa(i,j,k)*delta_st*n(i,j,k,2);
+        }
+    }); 
 }
 
 } // namespace icns
