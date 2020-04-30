@@ -153,6 +153,7 @@ void BCScalar::set_bcrec()
         case BC::pressure_inflow:
         case BC::pressure_outflow:
         case BC::no_slip_wall:
+        case BC::slip_wall:
             if (side == amrex::Orientation::low)
                 set_bcrec_lo(dir, amrex::BCType::foextrap);
             else
@@ -166,7 +167,6 @@ void BCScalar::set_bcrec()
                 set_bcrec_hi(dir, amrex::BCType::ext_dir);
             break;
 
-        case BC::slip_wall:
         case BC::wall_model:
             if (side == amrex::Orientation::low) {
                 set_bcrec_lo(dir, amrex::BCType::hoextrap);
