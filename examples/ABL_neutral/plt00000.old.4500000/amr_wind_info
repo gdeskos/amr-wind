@@ -1,0 +1,76 @@
+==============================================================================
+                AMR-Wind (https://github.com/exawind/amr-wind)
+
+  AMR-Wind Git SHA :: 48ac7771f53a-dirty
+  AMReX version    :: 20.04-156-g48a6cecd9b51 ( 20.04-156-g48a6cecd9b51 )
+
+  Exec. date       :: Mon Apr 27 11:58:30 2020
+  Build date       :: 2020-04-27 11:51:13
+  C++ compiler     :: AppleClang 11.0.0.11000033
+
+  MPI              :: ON    (Num. ranks = 8)
+  GPU              :: OFF
+  OpenMP           :: OFF
+
+           This software is released under the BSD 3-clause license.           
+ See https://github.com/Exawind/amr-wind/blob/development/LICENSE for details. 
+------------------------------------------------------------------------------
+
+===============================================================================
+ Grid Information
+===============================================================================
+ level: 0
+   number of boxes = 8
+   maximum zones   = 48 48 48 
+
+===============================================================================
+ Inputs File Parameters
+===============================================================================
+time.stop_time = 22000.0
+time.max_step = -1
+time.fixed_dt = 0.5
+time.cfl = 0.95
+amr.KE_int = 1
+amr.line_plot_int(nvals = 1)  :: [1]
+time.plot_interval = 500
+time.checkpoint_interval = -1000
+amr.restart = 
+amr.plt_tracer = 1
+incflo.gravity = 0. 0. -9.81
+incflo.ro_0 = 1.0
+incflo.use_godunov = 1
+transport.viscosity = 1.0e-5
+transport.laminar_prandtl = 0.7
+transport.turbulent_prandtl = 0.3333
+turbulence.model = Smagorinsky
+Smagorinsky_coeffs.Cs = 0.135
+abl.reference_temperature(nvals = 1)  :: [300.0]
+abl.latitude(nvals = 1)  :: [41.3]
+incflo.physics = ABL
+ICNS.source_terms = BoussinesqBuoyancy CoriolisForcing ABLForcing
+BoussinesqBuoyancy.reference_temperature = 300.0
+CoriolisForcing.latitude = 41.3
+ABLForcing.abl_forcing_height = 90
+incflo.advect_tracer(nvals = 1)  :: [1]
+incflo.probtype = 35
+incflo.ic_u = 6.128355544951824
+incflo.ic_v = 5.142300877492314
+incflo.ic_w = 0.0
+abl.ntemperature = 3
+abl.temperature_heights = 650.0 750.0 1000.0
+abl.temperature_values = 300.0 308.0 308.75
+abl.kappa = .41
+abl.surface_roughness_z0 = 0.15
+abl.abl_forcing_height(nvals = 1)  :: [90]
+amr.n_cell = 48 48 48
+amr.max_level = 0
+geometry.prob_lo = 0. 0. 0.
+geometry.prob_hi = 1000. 1000. 1000.
+geometry.is_periodic = 1 1 0
+incflo.delp = 0. 0. 0.
+zlo.type = wall_model
+zlo.temperature = 0.0
+zhi.type = slip_wall
+zhi.temperature = 0.003
+incflo.verbose = 0
+amrex.fpe_trap_invalid = 0

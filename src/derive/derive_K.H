@@ -152,7 +152,10 @@ AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::Real curvature(
     amrex::Real idx,
     amrex::Real idy,
     amrex::Real idz,
+<<<<<<< HEAD
     amrex::Array4<amrex::Real const> const& phi,
+=======
+>>>>>>> development
     amrex::Array4<amrex::Real const> const& gradphi) noexcept
 {
     using namespace amrex;
