@@ -32,7 +32,7 @@ transport.laminar_prandtl = 1.0
 turbulence.model = Laminar
 ICNS.source_terms = SurfaceTension DensityBuoyancy 
 incflo.gravity          =   0.  0. -9.81  # Gravitational force (3D)
-
+incflo.surface_tension_coeff=0.
 #¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨#
 #        ADAPTIVE MESH REFINEMENT       #
 #.......................................#
