@@ -7,7 +7,7 @@ time.max_step                =   500          # Max number of time steps
 #¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨#
 #         TIME STEP COMPUTATION         #
 #.......................................#
-time.fixed_dt         =   0.002        # Use this constant dt if > 0
+time.fixed_dt         =   0.001        # Use this constant dt if > 0
 time.cfl              =   0.45        # CFL factor
 
 #¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨#
@@ -27,7 +27,7 @@ amrex.signal_handling = 0
 incflo.gravity          = 0.  0.  0.  # Gravitational force (3D)
 incflo.ro_0             = 1.          # Reference density 
 incflo.use_godunov      = 1
-transport.viscosity = 0.01 
+transport.viscosity = 0.001 
 transport.laminar_prandtl = 1.0
 turbulence.model = Laminar
 ICNS.source_terms = SurfaceTension DensityBuoyancy 
@@ -43,7 +43,7 @@ amr.max_level           =   0           # Max AMR level in hierarchy
 #              GEOMETRY                 #
 #.......................................#
 geometry.prob_lo        =   0   0.   0.  # Lo corner coordinates
-geometry.prob_hi        =   4   1.  3.  # Hi corner coordinates
+geometry.prob_hi        =   0.584   0.1  0.584  # Hi corner coordinates
 geometry.is_periodic    =   0   1   0   # Periodicity x y z (0/1)
 
 xlo.type =   "slip_wall"

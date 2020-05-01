@@ -21,6 +21,8 @@ Multiphase::Multiphase(const CFDSim& sim)
     pp.query("rho_air", m_rho_air);
     pp.query("rho_water", m_rho_water);
     pp.query("multiphase_problem", m_multiphase_problem);
+    pp.query("dambreak_box_h", m_dambreak_h);
+    pp.query("dambreak_box_d", m_dambreak_d);
 }
 
 /** Initialize the vof and density fields at the beginning of the
@@ -46,8 +48,6 @@ void Multiphase::initialize_fields(int level, const amrex::Geometry& geom)
         const amrex::Real a = 4.;
         const amrex::Real b = 2.;
         const amrex::Real c = 2.;
-        const amrex::Real dambreak_h=2.;
-        const amrex::Real dambreak_d=1.;
         amrex::ParallelFor(
             vbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
                 const amrex::Real x = problo[0] + (i + 0.5) * dx[0];
@@ -67,14 +67,14 @@ void Multiphase::initialize_fields(int level, const amrex::Geometry& geom)
                 vel(i, j, k, 1) = 0.;
                 vel(i, j, k, 2) = 0.;
             }else if(m_multiphase_problem==2){
-                if (x<dambreak_d && z<dambreak_h){
-                    phi(i,j,k)=std::min(dambreak_d-x,dambreak_h-z); 
-                }else if(x<dambreak_d && z>dambreak_h){
-                    phi(i,j,k)=dambreak_h-z; 
-                }else if(x>dambreak_d && z<dambreak_h){
-                    phi(i,j,k)=dambreak_d-x;
+                if (x<m_dambreak_d && z<m_dambreak_h){
+                    phi(i,j,k)=std::min(m_dambreak_d-x,m_dambreak_h-z); 
+                }else if(x<m_dambreak_d && z>m_dambreak_h){
+                    phi(i,j,k)=m_dambreak_h-z; 
+                }else if(x>m_dambreak_d && z<m_dambreak_h){
+                    phi(i,j,k)=m_dambreak_d-x;
                 }else{
-                    phi(i,j,k)=std::min(dambreak_d-x,dambreak_h-z); 
+                    phi(i,j,k)=std::min(m_dambreak_d-x,m_dambreak_h-z); 
                 }
 
                 vel(i, j, k, 0) = 0.;

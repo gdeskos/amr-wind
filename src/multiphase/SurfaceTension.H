@@ -33,7 +33,7 @@ private:
     Field& m_lsnormal;
     Field& m_lscurv;
     
-    amrex::Real m_sigma; // surface tension coefficient
+    amrex::Real m_sigma{0.07}; // surface tension coefficient
     
 };
 

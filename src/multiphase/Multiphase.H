@@ -43,10 +43,13 @@ private:
     Field& m_lscurv;
    
     //! initial density value
-    amrex::Real m_rho_air{1.2041};
-    amrex::Real m_rho_water{997.};
+    amrex::Real m_rho_air{1.};
+    amrex::Real m_rho_water{1000.};
     int m_multiphase_problem{1};
 
+    // Cases parameters -- TODO this shouldnt be here
+    amrex::Real m_dambreak_d{0.1461};
+    amrex::Real m_dambreak_h{0.292};
 
 };
 

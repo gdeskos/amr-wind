@@ -15,6 +15,8 @@ SurfaceTension::SurfaceTension(const CFDSim& sim)
     , m_lsnormal(sim.repo().get_field("ls_normal"))
     , m_lscurv(sim.repo().get_field("ls_curvature"))
 {
+    amrex::ParmParse pp("incflo");
+    pp.query("surface_tension_coeff", m_sigma);
 }
 
 SurfaceTension::~SurfaceTension() = default;
