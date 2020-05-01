@@ -152,10 +152,6 @@ AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::Real curvature(
     amrex::Real idx,
     amrex::Real idy,
     amrex::Real idz,
-<<<<<<< HEAD
-    amrex::Array4<amrex::Real const> const& phi,
-=======
->>>>>>> development
     amrex::Array4<amrex::Real const> const& gradphi) noexcept
 {
     using namespace amrex;
@@ -184,9 +180,19 @@ AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::Real curvature(
     const Real abs_gradphi=std::sqrt(gradphi(i,j,k,0)*gradphi(i,j,k,0)+
                           gradphi(i,j,k,1)*gradphi(i,j,k,1)+
                           gradphi(i,j,k,2)*gradphi(i,j,k,2));
-    return (phix*phix*phiyy - 2.*phix*phiy*phixy + phiy*phiy*phixx + phix*phix*phizz
+    
+    Real curv= -(phix*phix*phiyy - 2.*phix*phiy*phixy + phiy*phiy*phixx + phix*phix*phizz
             -2.*phix*phiz*phixz + phiz*phiz*phixx + phiy*phiy*phizz - 2*phiy*phiz*phiyz 
             + phiz*phiz*phiyy)/(abs_gradphi*abs_gradphi*abs_gradphi);
+   
+    const Real min_dx=std::min(1./idx,std::min(1./idy,1./idz));
+    if (std::abs(curv)<1/min_dx && curv<0){
+        curv=-1./min_dx;
+    }else if(std::abs(curv)<1/min_dx && curv>0){
+        curv=1./min_dx;
+    }
+    
+    return curv;
 }
 
 

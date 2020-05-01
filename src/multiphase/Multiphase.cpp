@@ -132,7 +132,7 @@ void Multiphase::compute_normals_and_curvature(
                     i, j, k, idx, idy, idz, phi, Gphi);
                 // compute curvature
                 kappa(i, j, k) = amr_wind::curvature<StencilInterior>(
-                    i, j, k, idx, idy, idz, phi, Gphi);
+                    i, j, k, idx, idy, idz, Gphi);
                 // normalize vector TODO --> use the tensor_ops one
                 const amrex::Real abs_Gphi = std::sqrt(
                     Gphi(i, j, k, 0) * Gphi(i, j, k, 0) +
@@ -162,7 +162,7 @@ void Multiphase::compute_normals_and_curvature(
                             i, j, k, idx, idy, idz, phi, Gphi);
                         // compute curvature
                         kappa(i, j, k) = amr_wind::curvature<StencilILO>(
-                            i, j, k, idx, idy, idz, phi, Gphi);
+                            i, j, k, idx, idy, idz, Gphi);
                         // normalize vector TODO --> use the tensor_ops one
                         const amrex::Real abs_Gphi = std::sqrt(
                             Gphi(i, j, k, 0) * Gphi(i, j, k, 0) +
@@ -190,7 +190,7 @@ void Multiphase::compute_normals_and_curvature(
                             i, j, k, idx, idy, idz, phi, Gphi);
                         // compute curvature
                         kappa(i, j, k) = amr_wind::curvature<StencilIHI>(
-                            i, j, k, idx, idy, idz, phi, Gphi);
+                            i, j, k, idx, idy, idz, Gphi);
                         // normalize vector TODO --> use the tensor_ops one
                         const amrex::Real abs_Gphi = std::sqrt(
                             Gphi(i, j, k, 0) * Gphi(i, j, k, 0) +
@@ -221,7 +221,7 @@ void Multiphase::compute_normals_and_curvature(
                             i, j, k, idx, idy, idz, phi, Gphi);
                         // compute curvature
                         kappa(i, j, k) = amr_wind::curvature<StencilJLO>(
-                            i, j, k, idx, idy, idz, phi, Gphi);
+                            i, j, k, idx, idy, idz, Gphi);
                         // normalize vector TODO --> use the tensor_ops one
                         const amrex::Real abs_Gphi = std::sqrt(
                             Gphi(i, j, k, 0) * Gphi(i, j, k, 0) +
@@ -249,7 +249,7 @@ void Multiphase::compute_normals_and_curvature(
                             i, j, k, idx, idy, idz, phi, Gphi);
                         // compute curvature
                         kappa(i, j, k) = amr_wind::curvature<StencilJHI>(
-                            i, j, k, idx, idy, idz, phi, Gphi);
+                            i, j, k, idx, idy, idz, Gphi);
                         // normalize vector TODO --> use the tensor_ops one
                         const amrex::Real abs_Gphi = std::sqrt(
                             Gphi(i, j, k, 0) * Gphi(i, j, k, 0) +
@@ -280,7 +280,7 @@ void Multiphase::compute_normals_and_curvature(
                             i, j, k, idx, idy, idz, phi, Gphi);
                         // compute curvature
                         kappa(i, j, k) = amr_wind::curvature<StencilKLO>(
-                            i, j, k, idx, idy, idz, phi, Gphi);
+                            i, j, k, idx, idy, idz, Gphi);
                         // normalize vector TODO --> use the tensor_ops one
                         const amrex::Real abs_Gphi = std::sqrt(
                             Gphi(i, j, k, 0) * Gphi(i, j, k, 0) +
@@ -308,7 +308,7 @@ void Multiphase::compute_normals_and_curvature(
                             i, j, k, idx, idy, idz, phi, Gphi);
                         // compute curvature
                         kappa(i, j, k) = amr_wind::curvature<StencilKHI>(
-                            i, j, k, idx, idy, idz, phi, Gphi);
+                            i, j, k, idx, idy, idz, Gphi);
                         // normalize vector TODO --> use the tensor_ops one
                         const amrex::Real abs_Gphi = std::sqrt(
                             Gphi(i, j, k, 0) * Gphi(i, j, k, 0) +

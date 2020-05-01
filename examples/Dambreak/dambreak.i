@@ -27,12 +27,14 @@ amrex.signal_handling = 0
 incflo.gravity          = 0.  0.  0.  # Gravitational force (3D)
 incflo.ro_0             = 1.          # Reference density 
 incflo.use_godunov      = 1
-transport.viscosity = 0.001 
-transport.laminar_prandtl = 1.0
+incflo.transport = TwoPhaseTransport
+transport.visc_water= 0.001 
+transport.visc_air= 0.00000148
+
 turbulence.model = Laminar
 ICNS.source_terms = SurfaceTension DensityBuoyancy 
 incflo.gravity          =   0.  0. -9.81  # Gravitational force (3D)
-incflo.surface_tension_coeff=0.
+incflo.surface_tension_coeff=0.0
 #¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨#
 #        ADAPTIVE MESH REFINEMENT       #
 #.......................................#
