@@ -29,6 +29,7 @@ public:
 private:
     const amrex::AmrCore& m_mesh;
 
+    Field& m_density;
     Field& m_levelset;
     Field& m_lsnormal;
     Field& m_lscurv;

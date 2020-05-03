@@ -3,6 +3,7 @@
 
 #include "TurbulenceModel.H"
 #include "ConstTransport.H"
+#include "TwoPhaseTransport.H"
 
 namespace amr_wind {
 

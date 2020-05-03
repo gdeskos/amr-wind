@@ -11,6 +11,7 @@ namespace icns {
 
 SurfaceTension::SurfaceTension(const CFDSim& sim)
     : m_mesh(sim.mesh())
+    , m_density(sim.repo().get_field("density"))
     , m_levelset(sim.repo().get_field("levelset"))
     , m_lsnormal(sim.repo().get_field("ls_normal"))
     , m_lscurv(sim.repo().get_field("ls_curvature"))
@@ -30,11 +31,13 @@ void SurfaceTension::operator()(
 {
   
    auto& geom = m_mesh.Geom(lev);
+   auto& density = m_density(lev);
    auto& levelset = m_levelset(lev);
    auto& normal = m_lsnormal(lev);
    auto& curvature = m_lscurv(lev);
 
    const auto& dx = geom.CellSizeArray();
+   auto rho = density.array(mfi);
    auto phi = levelset.array(mfi);
    auto n = normal.array(mfi);
    auto kappa = curvature.array(mfi);
@@ -48,9 +51,9 @@ void SurfaceTension::operator()(
             src_term(i, j, k, 2) += 0.;
         }else{
             const amrex::Real delta_st=1./(2*epsilon)*(1+std::cos(M_PI*phi(i,j,k)/epsilon));
-            src_term(i, j, k, 0) += m_sigma*kappa(i,j,k)*delta_st*n(i,j,k,0);
-            src_term(i, j, k, 1) += m_sigma*kappa(i,j,k)*delta_st*n(i,j,k,1);
-            src_term(i, j, k, 2) += m_sigma*kappa(i,j,k)*delta_st*n(i,j,k,2);
+            src_term(i, j, k, 0) += m_sigma*kappa(i,j,k)*delta_st*n(i,j,k,0)/rho(i,j,k);
+            src_term(i, j, k, 1) += m_sigma*kappa(i,j,k)*delta_st*n(i,j,k,1)/rho(i,j,k);
+            src_term(i, j, k, 2) += m_sigma*kappa(i,j,k)*delta_st*n(i,j,k,2)/rho(i,j,k);
         }
     }); 
 }

@@ -34,7 +34,7 @@ transport.visc_air= 0.00000148
 turbulence.model = Laminar
 ICNS.source_terms = SurfaceTension DensityBuoyancy 
 incflo.gravity          =   0.  0. -9.81  # Gravitational force (3D)
-incflo.surface_tension_coeff=0.0
+incflo.surface_tension_coeff=0.07
 #¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨#
 #        ADAPTIVE MESH REFINEMENT       #
 #.......................................#
@@ -52,6 +52,7 @@ xlo.type =   "slip_wall"
 xhi.type =   "slip_wall"
 zlo.type =   "slip_wall"
 zhi.type =   "slip_wall"
+
 
 #¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨#
 #          INITIAL CONDITIONS           #

@@ -3,6 +3,7 @@
 
 #include "TransportModel.H"
 #include "AMReX_ParmParse.H"
+#include "Field.H"
 
 namespace amr_wind {
 namespace transport {
@@ -21,20 +22,19 @@ public:
         amrex::ParmParse pp("transport");
         pp.query("visc_water", m_mu1);
         pp.query("visc_air", m_mu2);
-        
+        std::cout << "hi there" <<std::endl;        
     }
 
     std::unique_ptr<ScratchField> mu()
     {
-        const int nlevels = m_sim.repo().num_active_levels();
-        using namespace utils;
+        const int nlevels = m_repo.num_active_levels();
 
-        auto mu = m_repo.create_scratch_field(1, 1);
+        auto m_mu = m_repo.create_scratch_field(1, 1);
         
-        for (int lev; len< nlevels; ++lev){
-            auto& level_set = m_levelset(level);
-            auto& visc = mu(level);
-            const auto& geom = m_sim.mesh().Geom(lev);
+        for (int lev; lev< nlevels; ++lev){
+            auto& level_set = m_levelset(lev);
+            auto& visc = mu(lev);
+            const auto& geom = m_repo.mesh().Geom(lev);
 
             const amrex::Real dx = geom.CellSize()[0];
             const amrex::Real dy = geom.CellSize()[1];
@@ -64,7 +64,7 @@ public:
                         (1 + phi(i, j, k) / (2 * epsilon) +
                          1. / M_PI * std::sin(phi(i, j, k) * M_PI / epsilon));
                     viscosity(i, j, k) = m_mu1 * H + m_mu2 * (1. - H);
-                    std::cout<<viscosity(i,j,k,)<<std::endl;
+                    std::cout<<viscosity(i,j,k)<<std::endl;
                 }
             });
         }
@@ -98,6 +98,9 @@ public:
     }
 
 private:
+    //! Reference to the field repository (for creating scratch fields)
+    FieldRepo& m_repo;
+    
     Field& m_levelset;
 
     amrex::Real m_mu1{1e-3};
