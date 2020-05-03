@@ -24,16 +24,31 @@ public:
         pp.query("visc_air", m_mu2);
         std::cout << "hi there" <<std::endl;        
     }
+   
+    ~TwoPhaseTransport()=default;
+    
+    inline amrex::Real laminar_prandtl() const { return m_Pr; }
+
+    inline amrex::Real turbulent_prandtl() const { return m_Prt; }
+
+    inline amrex::Real laminar_schmidt(const std::string& scalar_name) const
+    {
+        amrex::ParmParse pp("transport");
+        const std::string key = scalar_name + "_laminar_schmidt";
+        amrex::Real lam_schmidt = 1.0;
+        pp.query(key.c_str(), lam_schmidt);
+        return lam_schmidt;
+    }
 
     std::unique_ptr<ScratchField> mu()
     {
         const int nlevels = m_repo.num_active_levels();
 
-        auto m_mu = m_repo.create_scratch_field(1, 1);
+        auto mu = m_repo.create_scratch_field(1, 1);
         
         for (int lev; lev< nlevels; ++lev){
             auto& level_set = m_levelset(lev);
-            auto& visc = mu(lev);
+            auto& visc = (*mu)(lev);
             const auto& geom = m_repo.mesh().Geom(lev);
 
             const amrex::Real dx = geom.CellSize()[0];
@@ -70,7 +85,7 @@ public:
         }
         
         }
-
+        return mu;
     }
 
     //! Return the thermal diffusivity field
