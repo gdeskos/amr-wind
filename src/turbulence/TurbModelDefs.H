@@ -3,13 +3,13 @@
 
 #include "TurbulenceModel.H"
 #include "ConstTransport.H"
-#include "TwoPhaseTransport.H"
+//#include "TwoPhaseTransport.H"
 
 namespace amr_wind {
 
 #define INSTANTIATE_TURBULENCE_MODEL(Model) \
     template struct ::amr_wind::turbulence::TurbulenceModel::Register<::amr_wind::turbulence::Model<transport::ConstTransport>>
-
+    //template struct ::amr_wind::turbulence::TurbulenceModel::Register<::amr_wind::turbulence::Model<transport::TwoPhaseTransport>> 
 }
 
 #endif /* TURBMODELDEFS_H */

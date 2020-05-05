@@ -98,6 +98,12 @@ void incflo::WriteCheckPointFile() const
 
         VisMF::Write(pressure()(lev),
                      amrex::MultiFabFileFullPrefix(lev, checkpointname, level_prefix, "p"));
+       
+        VisMF::Write(repo().get_field("levelset")(lev),
+                     amrex::MultiFabFileFullPrefix(lev, checkpointname, level_prefix, "level_set"));
+        
+        VisMF::Write(repo().get_field("vof")(lev),
+                     amrex::MultiFabFileFullPrefix(lev, checkpointname, level_prefix, "volume_fraction"));
     }
 }
 
@@ -223,6 +229,12 @@ void incflo::ReadCheckpointFile()
 
         VisMF::Read(pressure()(lev),
                     amrex::MultiFabFileFullPrefix(lev, m_restart_file, level_prefix, "p"));
+        
+        VisMF::Read(repo().get_field("levelset")(lev),
+                    amrex::MultiFabFileFullPrefix(lev, m_restart_file, level_prefix, "level_set"));
+        
+        VisMF::Read(repo().get_field("vof")(lev),
+                    amrex::MultiFabFileFullPrefix(lev, m_restart_file, level_prefix, "volume_fraction"));
     }
 
     amrex::Print() << "Restart complete" << std::endl;
