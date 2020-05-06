@@ -15,7 +15,7 @@ struct LevelSet : ScalarTransport
     static std::string var_name() { return "levelset"; }
     
     static constexpr bool multiply_rho = false;
-    static constexpr bool has_diffusion = false;    
+    static constexpr bool has_diffusion = true;    
 
 };
 

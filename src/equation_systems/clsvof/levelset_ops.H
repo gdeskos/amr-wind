@@ -1,6 +1,10 @@
 #ifndef LevelSet_OPS_H
 #define LevelSet_OPS_H
 
+#include "PDETraits.H"
+#include "PDEOps.H"
+#include "PDEHelpers.H"
+#include "DiffusionOps.H"
 #include "clsvof/levelset.H"
 
 namespace amr_wind {
@@ -98,6 +102,49 @@ struct ComputeRHSOp<LevelSet, Scheme>
     // data members
     PDEFields& fields;
 };
+
+template <typename Scheme>
+struct DiffusionOp<LevelSet, Scheme> 
+    : public DiffSolverIface<typename LevelSet::MLDiffOp>
+{
+    
+    static_assert(LevelSet::ndim == 1, "Re-initialisation operation masked as DiffusionOp invoked for LevelSet");
+    static_assert(std::is_same<typename LevelSet::MLDiffOp, amrex::MLABecLaplacian>::value,
+            "Invalid linear operator for scalar diffusion operator");
+
+    DiffusionOp(PDEFields& fields):DiffSolverIface<typename LevelSet::MLDiffOp>(fields){}
+    
+    void compute_diff_term(const FieldState fstate){}
+
+    void linsys_solve(const amrex::Real dt)
+    {
+    const auto& repo = this->m_pdefields.repo;
+    const int nlevels = repo.num_active_levels();
+    auto& ls = repo.get_field("levelset");
+    const auto& normal = repo.get_field("ls_normal");
+
+#ifdef _OPENMP
+#pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
+#endif
+        for (int lev = 0; lev < nlevels; ++lev) {
+
+            // Re-initiliasation of the level-set function according to 
+            // Russo & Smereka 2000 -- A remark on Computing Distance Functions
+            for (amrex::MFIter mfi(ls(lev), amrex::TilingIfNotGPU());
+                 mfi.isValid(); ++mfi) {
+                const auto& bx = mfi.tilebox();
+                const auto& phi_arr = ls(lev).array(mfi);
+                const auto& normal_arr = ls(lev).array(mfi);
+
+                amrex::ParallelFor(
+                    bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept 
+                    {
+                    });
+            }
+        }
+    }
+};
+
 }
 }
 
