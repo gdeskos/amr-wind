@@ -131,8 +131,7 @@ void Multiphase::compute_normals_and_curvature(
                 amr_wind::compute_gradient_scalar<StencilInterior>(
                     i, j, k, idx, idy, idz, phi, Gphi);
                 // compute curvature
-                kappa(i, j, k) = amr_wind::curvature<StencilInterior>(
-                    i, j, k, idx, idy, idz, Gphi);
+                kappa(i, j, k) = amr_wind::curvature<StencilInterior>(i, j, k, idx, idy, idz, Gphi);
                 // normalize vector TODO --> use the tensor_ops one
                 const amrex::Real abs_Gphi = std::sqrt(
                     Gphi(i, j, k, 0) * Gphi(i, j, k, 0) +
@@ -143,7 +142,7 @@ void Multiphase::compute_normals_and_curvature(
                 Gphi(i, j, k, 1) = Gphi(i, j, k, 1) / abs_Gphi;
                 Gphi(i, j, k, 2) = Gphi(i, j, k, 2) / abs_Gphi;
             });
-
+/*
         const auto& bxi = mfi.tilebox();
         int idim = 0;
         if (!geom.isPeriodic(idim)) {
@@ -161,8 +160,7 @@ void Multiphase::compute_normals_and_curvature(
                         amr_wind::compute_gradient_scalar<StencilILO>(
                             i, j, k, idx, idy, idz, phi, Gphi);
                         // compute curvature
-                        kappa(i, j, k) = amr_wind::curvature<StencilILO>(
-                            i, j, k, idx, idy, idz, Gphi);
+                        kappa(i, j, k) = 0;//amr_wind::curvature<StencilILO>(i, j, k, idx, idy, idz, Gphi);
                         // normalize vector TODO --> use the tensor_ops one
                         const amrex::Real abs_Gphi = std::sqrt(
                             Gphi(i, j, k, 0) * Gphi(i, j, k, 0) +
@@ -189,8 +187,7 @@ void Multiphase::compute_normals_and_curvature(
                         amr_wind::compute_gradient_scalar<StencilIHI>(
                             i, j, k, idx, idy, idz, phi, Gphi);
                         // compute curvature
-                        kappa(i, j, k) = amr_wind::curvature<StencilIHI>(
-                            i, j, k, idx, idy, idz, Gphi);
+                        kappa(i, j, k) = 0;//amr_wind::curvature<StencilIHI>(i, j, k, idx, idy, idz, Gphi);
                         // normalize vector TODO --> use the tensor_ops one
                         const amrex::Real abs_Gphi = std::sqrt(
                             Gphi(i, j, k, 0) * Gphi(i, j, k, 0) +
@@ -220,8 +217,7 @@ void Multiphase::compute_normals_and_curvature(
                         amr_wind::compute_gradient_scalar<StencilJLO>(
                             i, j, k, idx, idy, idz, phi, Gphi);
                         // compute curvature
-                        kappa(i, j, k) = amr_wind::curvature<StencilJLO>(
-                            i, j, k, idx, idy, idz, Gphi);
+                        kappa(i, j, k) = 0.;//amr_wind::curvature<StencilJLO>(i, j, k, idx, idy, idz, Gphi);
                         // normalize vector TODO --> use the tensor_ops one
                         const amrex::Real abs_Gphi = std::sqrt(
                             Gphi(i, j, k, 0) * Gphi(i, j, k, 0) +
@@ -248,8 +244,7 @@ void Multiphase::compute_normals_and_curvature(
                         amr_wind::compute_gradient_scalar<StencilJHI>(
                             i, j, k, idx, idy, idz, phi, Gphi);
                         // compute curvature
-                        kappa(i, j, k) = amr_wind::curvature<StencilJHI>(
-                            i, j, k, idx, idy, idz, Gphi);
+                        kappa(i, j, k) = 0;//amr_wind::curvature<StencilJHI>(i, j, k, idx, idy, idz, Gphi);
                         // normalize vector TODO --> use the tensor_ops one
                         const amrex::Real abs_Gphi = std::sqrt(
                             Gphi(i, j, k, 0) * Gphi(i, j, k, 0) +
@@ -279,8 +274,7 @@ void Multiphase::compute_normals_and_curvature(
                         amr_wind::compute_gradient_scalar<StencilKLO>(
                             i, j, k, idx, idy, idz, phi, Gphi);
                         // compute curvature
-                        kappa(i, j, k) = amr_wind::curvature<StencilKLO>(
-                            i, j, k, idx, idy, idz, Gphi);
+                        kappa(i, j, k) = 0;//amr_wind::curvature<StencilKLO>(i, j, k, idx, idy, idz, Gphi);
                         // normalize vector TODO --> use the tensor_ops one
                         const amrex::Real abs_Gphi = std::sqrt(
                             Gphi(i, j, k, 0) * Gphi(i, j, k, 0) +
@@ -307,8 +301,7 @@ void Multiphase::compute_normals_and_curvature(
                         amr_wind::compute_gradient_scalar<StencilKHI>(
                             i, j, k, idx, idy, idz, phi, Gphi);
                         // compute curvature
-                        kappa(i, j, k) = amr_wind::curvature<StencilKHI>(
-                            i, j, k, idx, idy, idz, Gphi);
+                        kappa(i, j, k) = 0.;//amr_wind::curvature<StencilKHI>(i, j, k, idx, idy, idz, Gphi);
                         // normalize vector TODO --> use the tensor_ops one
                         const amrex::Real abs_Gphi = std::sqrt(
                             Gphi(i, j, k, 0) * Gphi(i, j, k, 0) +
@@ -321,6 +314,7 @@ void Multiphase::compute_normals_and_curvature(
                     });
             }
         } // if (!geom.isPeriodic)
+    */
     }
 }
 

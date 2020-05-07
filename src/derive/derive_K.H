@@ -131,7 +131,6 @@ AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE void compute_gradient_scalar(
     cp1 = Stencil::c00;
     c   = Stencil::c01;
     cm1 = Stencil::c02;
-
     gradphi(i,j,k,0) = (cp1*phi(i+1,j,k) + c*phi(i,j,k) + cm1*phi(i-1,j,k)) * idx;
     cp1 = Stencil::c10;
     c   = Stencil::c11;
