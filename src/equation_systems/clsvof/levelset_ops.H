@@ -120,7 +120,7 @@ struct DiffusionOp<LevelSet, Scheme>
     {
     const auto& repo = this->m_pdefields.repo;
     const int nlevels = repo.num_active_levels();
-    auto& ls = repo.get_field("levelset");
+    const auto& ls = repo.get_field("levelset");
     const auto& normal = repo.get_field("ls_normal");
 
 #ifdef _OPENMP
@@ -133,12 +133,14 @@ struct DiffusionOp<LevelSet, Scheme>
             for (amrex::MFIter mfi(ls(lev), amrex::TilingIfNotGPU());
                  mfi.isValid(); ++mfi) {
                 const auto& bx = mfi.tilebox();
-                const auto& phi_arr = ls(lev).array(mfi);
-                const auto& normal_arr = ls(lev).array(mfi);
+                auto phi_arr = ls(lev).array(mfi);
+                auto normal_arr = normal(lev).array(mfi);
 
+                amrex::Real Dijk;
                 amrex::ParallelFor(
                     bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept 
                     {
+                    //Copy initial value
                     });
             }
         }
