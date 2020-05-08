@@ -246,7 +246,6 @@ void incflo::ApplyProjection (Vector<MultiFab const*> density,
 // Note: scaling_factor equals dt except when called during initial projection, when it is 1.0
 //
 void incflo::ApplyProjectionGhostFluidMethod (Vector<MultiFab const*> density,
-                                              Vector<MultiFab const*> levelset,
                               Real time, Real scaling_factor, bool incremental)
 {
     BL_PROFILE("amr-wind::incflo::ApplyProjectionGhostFluidMethod")
@@ -269,6 +268,7 @@ void incflo::ApplyProjectionGhostFluidMethod (Vector<MultiFab const*> density,
     auto& grad_p = m_repo.get_field("gp");
     auto& pressure = m_repo.get_field("p");
     auto& velocity = icns().fields().field;
+    auto& levelset = m_repo.get_field("levelset");
 
     // Add the ( grad p /ro ) back to u* (note the +dt)
     if (!incremental)
@@ -305,7 +305,7 @@ void incflo::ApplyProjectionGhostFluidMethod (Vector<MultiFab const*> density,
                                0, 0, AMREX_SPACEDIM, 0);
         }
     }
-    
+
     // Create sigma
     Vector<amrex::MultiFab> sigma(finest_level+1);
     for (int lev = 0; lev <= finest_level; ++lev )

@@ -127,7 +127,6 @@ public: // for cuda
                          amrex::Real time, amrex::Real scaling_factor, bool incremental);
 
     void ApplyProjectionGhostFluidMethod(amrex::Vector<amrex::MultiFab const*> density,
-                         amrex::Vector<amrex::MultiFab const*> levelset,
                          amrex::Real time, amrex::Real scaling_factor, bool incremental);
 
     // TODO: Transition

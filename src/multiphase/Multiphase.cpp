@@ -115,22 +115,21 @@ void Multiphase::compute_normals_and_curvature(
     const amrex::Real idy = 1.0 / dy;
     const amrex::Real idz = 1.0 / dz;
 
-    auto& level_set = m_levelset(level);
+    const auto& level_set = m_levelset(level);
     auto& normal = m_lsnormal(level);
     auto& curvature = m_lscurv(level);
 
     for (amrex::MFIter mfi(level_set); mfi.isValid(); ++mfi) {
-        const auto& vbx = mfi.validbox();
+        const auto& vx = mfi.validbox();
         const auto& dx = geom.CellSizeArray();
         auto phi = level_set.array(mfi);
         auto Gphi = normal.array(mfi);
         auto kappa = curvature.array(mfi);
-
+     
         amrex::ParallelFor(
-            vbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-                amr_wind::compute_gradient_scalar<StencilInterior>(
-                    i, j, k, idx, idy, idz, phi, Gphi);
-                // compute curvature
+            vx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+                // compute normal
+                amr_wind::compute_gradient_scalar<StencilInterior>(i, j, k, idx, idy, idz, phi, Gphi);
                 kappa(i, j, k) = amr_wind::curvature<StencilInterior>(i, j, k, idx, idy, idz, Gphi);
                 // normalize vector TODO --> use the tensor_ops one
                 const amrex::Real abs_Gphi = std::sqrt(
@@ -154,13 +153,12 @@ void Multiphase::compute_normals_and_curvature(
                 hi.setVal(idim, sm);
 
                 auto bxlo = amrex::Box(low, hi).grow({0, 1, 1});
-
+                amrex::Print() << bxlo << std::endl;
                 amrex::ParallelFor(
                     bxlo, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-                        amr_wind::compute_gradient_scalar<StencilILO>(
-                            i, j, k, idx, idy, idz, phi, Gphi);
+                        amr_wind::compute_gradient_scalar<StencilILO>(i, j, k, idx, idy, idz, phi, Gphi);
                         // compute curvature
-                        kappa(i, j, k) = 0;//amr_wind::curvature<StencilILO>(i, j, k, idx, idy, idz, Gphi);
+                        kappa(i, j, k) = amr_wind::curvature<StencilILO>(i, j, k, idx, idy, idz, Gphi);
                         // normalize vector TODO --> use the tensor_ops one
                         const amrex::Real abs_Gphi = std::sqrt(
                             Gphi(i, j, k, 0) * Gphi(i, j, k, 0) +
@@ -184,10 +182,9 @@ void Multiphase::compute_normals_and_curvature(
 
                 amrex::ParallelFor(
                     bxhi, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-                        amr_wind::compute_gradient_scalar<StencilIHI>(
-                            i, j, k, idx, idy, idz, phi, Gphi);
+                        amr_wind::compute_gradient_scalar<StencilIHI>(i, j, k, idx, idy, idz, phi, Gphi);
                         // compute curvature
-                        kappa(i, j, k) = 0;//amr_wind::curvature<StencilIHI>(i, j, k, idx, idy, idz, Gphi);
+                        kappa(i, j, k) = amr_wind::curvature<StencilIHI>(i, j, k, idx, idy, idz, Gphi);
                         // normalize vector TODO --> use the tensor_ops one
                         const amrex::Real abs_Gphi = std::sqrt(
                             Gphi(i, j, k, 0) * Gphi(i, j, k, 0) +
@@ -214,8 +211,7 @@ void Multiphase::compute_normals_and_curvature(
 
                 amrex::ParallelFor(
                     bxlo, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-                        amr_wind::compute_gradient_scalar<StencilJLO>(
-                            i, j, k, idx, idy, idz, phi, Gphi);
+                        amr_wind::compute_gradient_scalar<StencilJLO>(i, j, k, idx, idy, idz, phi, Gphi);
                         // compute curvature
                         kappa(i, j, k) = 0.;//amr_wind::curvature<StencilJLO>(i, j, k, idx, idy, idz, Gphi);
                         // normalize vector TODO --> use the tensor_ops one
