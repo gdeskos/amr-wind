@@ -172,8 +172,6 @@ void incflo::ApplyPredictor (bool incremental_projection)
             amr_wind::field_ops::add(velocity_forces, divtau, 0, 0, AMREX_SPACEDIM, 0);
     }
 
-
-
     // *************************************************************************************
     // Compute explicit diffusive terms
     // *************************************************************************************

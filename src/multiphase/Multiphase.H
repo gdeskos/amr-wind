@@ -28,6 +28,9 @@ public:
 
     void pre_advance_work() override;
 
+    void post_advance_work() override {}
+    
+    void post_regrid_actions() override {}
 
 private:
     const CFDSim& m_sim;
