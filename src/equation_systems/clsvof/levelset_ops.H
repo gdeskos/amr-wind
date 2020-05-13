@@ -13,7 +13,7 @@ namespace pde {
 template<typename Scheme>
 struct FieldRegOp<LevelSet, Scheme>
 {
-    FieldRegOp(FieldRepo& repo_in): repo(repo_in) {}
+    FieldRegOp(CFDSim& sim): repo(sim.repo()) {}
 
     PDEFields  operator()(const SimTime& time, const int probtype)
     {

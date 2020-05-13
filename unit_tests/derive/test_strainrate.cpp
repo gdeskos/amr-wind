@@ -28,7 +28,6 @@ TEST_F(StrainrateTest, interior)
     amrex::Real dx = 0.1, dy = 0.2 + 0.01*amrex::Random(), dz = 0.3;
     amrex::Real idx = 1.0/dx, idy = 1.0/dy, idz = 1.0/dz;
     
-    
     amrex::Real sr = amr_wind::strainrate<amr_wind::StencilInterior>(i,j,k,idx,idy,idz,velocity.array());
     EXPECT_NEAR(sr, 0.0, tol);
     
