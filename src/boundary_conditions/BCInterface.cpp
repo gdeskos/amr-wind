@@ -148,7 +148,7 @@ void BCVelocity::set_bcrec()
             break;
 
         case BC::slip_wall:
-        case BC::wall_model:
+        case BC::wall_model:        
             if (side == amrex::Orientation::low) {
                 // Tangential directions use higher-order extrapolation
                 set_bcrec_lo(dir, amrex::BCType::hoextrap);
@@ -232,6 +232,7 @@ void BCScalar::set_bcrec()
                 set_bcrec_hi(dir, amrex::BCType::ext_dir);
             break;
 
+        case BC::slip_wall:
         case BC::wall_model:
         case BC::fixed_gradient:
             if (side == amrex::Orientation::low) {

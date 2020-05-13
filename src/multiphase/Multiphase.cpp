@@ -8,15 +8,16 @@
 
 namespace amr_wind {
 
-Multiphase::Multiphase(const CFDSim& sim)
+Multiphase::Multiphase(CFDSim& sim)
     : m_sim(sim)
-    , m_levelset(sim.repo().get_field("levelset"))
-    , m_lsnormal(sim.repo().get_field("ls_normal"))
-    , m_lscurv(sim.repo().get_field("ls_curvature"))
-    , m_vof(sim.repo().get_field("vof"))
+    , m_velocity(sim.pde_manager().icns().fields().field)
     , m_density(sim.repo().get_field("density"))
-    , m_velocity(sim.repo().get_field("velocity"))
+    , m_lsnormal(sim.repo().declare_cc_field("ls_normal",3,1,1))
+    , m_lscurv(sim.repo().declare_cc_field("ls_curvature",1,1,1))
 {
+    auto& teqn = sim.pde_manager().register_transport_pde("LevelSet");
+    m_levelset = &(teqn.fields().field);
+   
     amrex::ParmParse pp("incflo");
     pp.query("rho_air", m_rho_air);
     pp.query("rho_water", m_rho_water);
@@ -32,7 +33,7 @@ void Multiphase::initialize_fields(int level, const amrex::Geometry& geom)
 {
     using namespace utils;
 
-    auto& levelset = m_levelset(level);
+    auto& levelset = (*m_levelset)(level);
     auto& velocity = m_velocity(level);
 
     for (amrex::MFIter mfi(levelset); mfi.isValid(); ++mfi) {
@@ -89,6 +90,7 @@ void Multiphase::initialize_fields(int level, const amrex::Geometry& geom)
 
 void Multiphase::pre_advance_work()
 {
+    
     const int nlevels = m_sim.repo().num_active_levels();
     const auto& geom = m_sim.mesh().Geom();
     const auto& time = m_sim.time().current_time();
@@ -98,6 +100,7 @@ void Multiphase::pre_advance_work()
         set_density(lev, geom[lev]);
         compute_normals_and_curvature(lev, geom[lev]);
     }
+    
 }
 
 void Multiphase::compute_normals_and_curvature(
@@ -115,14 +118,14 @@ void Multiphase::compute_normals_and_curvature(
     const amrex::Real idy = 1.0 / dy;
     const amrex::Real idz = 1.0 / dz;
 
-    const auto& level_set = m_levelset(level);
+    auto& levelset = (*m_levelset)(level);
     auto& normal = m_lsnormal(level);
     auto& curvature = m_lscurv(level);
 
-    for (amrex::MFIter mfi(level_set); mfi.isValid(); ++mfi) {
+    for (amrex::MFIter mfi(levelset); mfi.isValid(); ++mfi) {
         const auto& vx = mfi.validbox();
         const auto& dx = geom.CellSizeArray();
-        auto phi = level_set.array(mfi);
+        auto phi = levelset.array(mfi);
         auto Gphi = normal.array(mfi);
         auto kappa = curvature.array(mfi);
      
@@ -148,7 +151,7 @@ void Multiphase::set_density(int level, const amrex::Geometry& geom)
 {
     using namespace utils;
 
-    auto& level_set = m_levelset(level);
+    auto& levelset = (*m_levelset)(level);
     auto& density = m_density(level);
 
     const amrex::Real dx = geom.CellSize()[0];
@@ -157,12 +160,12 @@ void Multiphase::set_density(int level, const amrex::Geometry& geom)
     const amrex::Real ds = std::cbrt(dx * dy * dz);
     const amrex::Real epsilon = 2. * ds;
 
-    for (amrex::MFIter mfi(level_set); mfi.isValid(); ++mfi) {
+    for (amrex::MFIter mfi(levelset); mfi.isValid(); ++mfi) {
         const auto& vbx = mfi.validbox();
 
         const auto& dx = geom.CellSizeArray();
         const auto& problo = geom.ProbLoArray();
-        auto phi = level_set.array(mfi);
+        auto phi = levelset.array(mfi);
         auto Density = density.array(mfi);
 
         amrex::ParallelFor(

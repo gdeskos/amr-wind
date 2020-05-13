@@ -20,11 +20,10 @@ struct FieldRegOp<LevelSet, Scheme>
         auto fields = create_fields_instance<LevelSet, Scheme>(time, repo, probtype);
         
         auto& ls_normal = repo.declare_cc_field("ls_normal",3,1,1);
-        auto& ls_curv   = repo.declare_nd_field("ls_curvature",1,1,1);
+        auto& ls_curv   = repo.declare_cc_field("ls_curvature",1,1,1);
 
         ls_normal.template register_fill_patch_op<FieldFillPatchOps<FieldBCNoOp>>(repo.mesh(),time,probtype);
         ls_curv.template register_fill_patch_op<FieldFillPatchOps<FieldBCNoOp>>(repo.mesh(),time,probtype);
-
 
         return fields;
     }
