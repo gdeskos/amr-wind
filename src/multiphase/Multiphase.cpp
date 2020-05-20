@@ -98,53 +98,19 @@ void Multiphase::pre_advance_work()
 
     for (int lev = 0; lev < nlevels; ++lev) {
         set_density(lev, geom[lev]);
-        compute_normals_and_curvature(lev, geom[lev]);
     }
+    compute_normals_and_curvature();
     
 }
 
-void Multiphase::compute_normals_and_curvature(
-    int level, const amrex::Geometry& geom)
+void Multiphase::compute_normals_and_curvature()
 {
-    using namespace utils;
-
-    const auto& domain = geom.Domain();
-
-    const amrex::Real dx = geom.CellSize()[0];
-    const amrex::Real dy = geom.CellSize()[1];
-    const amrex::Real dz = geom.CellSize()[2];
-
-    const amrex::Real idx = 1.0 / dx;
-    const amrex::Real idy = 1.0 / dy;
-    const amrex::Real idz = 1.0 / dz;
-
-    auto& levelset = (*m_levelset)(level);
-    auto& normal = m_lsnormal(level);
-    auto& curvature = m_lscurv(level);
-
-    for (amrex::MFIter mfi(levelset); mfi.isValid(); ++mfi) {
-        const auto& vx = mfi.validbox();
-        const auto& dx = geom.CellSizeArray();
-        auto phi = levelset.array(mfi);
-        auto Gphi = normal.array(mfi);
-        auto kappa = curvature.array(mfi);
-     
-        amrex::ParallelFor(
-            vx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-                // compute normal
-                amr_wind::gradient<StencilInterior>(i, j, k, idx, idy, idz, phi, Gphi,1);
-                kappa(i, j, k) = amr_wind::curvature<StencilInterior>(i, j, k, idx, idy, idz, Gphi);
-                // normalize vector TODO --> use the tensor_ops one
-                const amrex::Real abs_Gphi = std::sqrt(
-                    Gphi(i, j, k, 0) * Gphi(i, j, k, 0) +
-                    Gphi(i, j, k, 1) * Gphi(i, j, k, 1) +
-                    Gphi(i, j, k, 2) * Gphi(i, j, k, 2));
-
-                Gphi(i, j, k, 0) = Gphi(i, j, k, 0) / abs_Gphi;
-                Gphi(i, j, k, 1) = Gphi(i, j, k, 1) / abs_Gphi;
-                Gphi(i, j, k, 2) = Gphi(i, j, k, 2) / abs_Gphi;
-            });
-    }
+    
+    //populate gradient into lsnormal to avoid creating a temporary buffer
+    compute_gradient(m_lsnormal,(*m_levelset));
+    compute_curvature(m_lscurv,m_lsnormal);
+    // now normalise the gradient of the levelset to get m_lsnormal
+    //TODO
 }
 
 void Multiphase::set_density(int level, const amrex::Geometry& geom)

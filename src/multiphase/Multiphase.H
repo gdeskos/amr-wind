@@ -36,7 +36,7 @@ private:
     const CFDSim& m_sim;
 
     void set_density(int level,const amrex::Geometry& geom);
-    void compute_normals_and_curvature(int level, const amrex::Geometry& geom);
+    void compute_normals_and_curvature();
 
     Field& m_density;
     Field& m_velocity;
