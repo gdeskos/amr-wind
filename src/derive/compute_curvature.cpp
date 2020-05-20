@@ -9,8 +9,6 @@ void compute_curvature(FType& curvf, const Field& field)
     const auto& geom_vec = repo.mesh().Geom();
     const auto ncomp = field.num_comp();
     
-    if (ncomp>1) {amrex::Abort("Curvature can be computed only on a scalar field");}
-
     const int nlevels = repo.num_active_levels();
     for (int lev=0; lev < nlevels; ++lev) {
         const auto& geom = geom_vec[lev];

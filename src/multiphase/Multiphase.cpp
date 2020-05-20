@@ -93,8 +93,6 @@ void Multiphase::pre_advance_work()
     
     const int nlevels = m_sim.repo().num_active_levels();
     const auto& geom = m_sim.mesh().Geom();
-    const auto& time = m_sim.time().current_time();
-    m_lsnormal.fillpatch(time);
 
     for (int lev = 0; lev < nlevels; ++lev) {
         set_density(lev, geom[lev]);
@@ -106,11 +104,18 @@ void Multiphase::pre_advance_work()
 void Multiphase::compute_normals_and_curvature()
 {
     
-    //populate gradient into lsnormal to avoid creating a temporary buffer
+    //populate gradient into lsnormal to avoid creating a temporary buffer    
+    //const auto& time = m_sim.time().current_time();
+    //(*m_levelset).fillpatch(time);
+    
     compute_gradient(m_lsnormal,(*m_levelset));
-    compute_curvature(m_lscurv,m_lsnormal);
+    //const auto& time = m_sim.time().current_time();
+    //m_lsnormal.fillpatch(time);
+
+    //compute_curvature(m_lscurv,m_lsnormal);
     // now normalise the gradient of the levelset to get m_lsnormal
     //TODO
+    //normalize_field(m_lsnormal);
 }
 
 void Multiphase::set_density(int level, const amrex::Geometry& geom)

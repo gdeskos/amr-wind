@@ -3,7 +3,7 @@
 # Temporary example cmake configure script
 
 cmake -DCMAKE_INSTALL_PREFIX:PATH=./install \
-      -DCMAKE_BUILD_TYPE:STRING=Release \
+      -DCMAKE_BUILD_TYPE:STRING=Debug \
       -DCMAKE_CXX_COMPILER:STRING=mpicxx \
       -DCMAKE_C_COMPILER:STRING=mpicc \
       -DCMAKE_Fortran_COMPILER:STRING=mpifort \
