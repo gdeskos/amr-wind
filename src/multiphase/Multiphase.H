@@ -19,7 +19,7 @@ public:
 
     virtual ~Multiphase() = default;
 
-    void post_init_actions() override {}
+    void post_init_actions() override;
 
     void post_regrid_actions() override {}
 

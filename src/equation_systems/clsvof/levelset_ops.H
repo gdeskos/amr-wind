@@ -24,7 +24,7 @@ struct FieldRegOp<LevelSet, Scheme>
 
         ls_normal.template register_fill_patch_op<FieldFillPatchOps<FieldBCNoOp>>(repo.mesh(),time,probtype);
         ls_curv.template register_fill_patch_op<FieldFillPatchOps<FieldBCNoOp>>(repo.mesh(),time,probtype);
-
+    
         return fields;
     }
     FieldRepo& repo;

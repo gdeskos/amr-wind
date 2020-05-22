@@ -2,7 +2,7 @@
 #            SIMULATION STOP            #
 #.......................................#
 time.stop_time               =   20        # Max (simulated) time to evolve
-time.max_step                =   1          # Max number of time steps
+time.max_step                =   10        # Max number of time steps
 
 #¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨#
 #         TIME STEP COMPUTATION         #
@@ -17,10 +17,10 @@ time.plot_interval  =  10   # Steps between plot files
 time.checkpoint_interval =   50  # Steps between checkpoint files
 amr.restart   =   ""  # Checkpoint to restart from 
 amr.KE_int = 1        # calculate kinetic energy 
-amr.plt_volumefraction=1
-amr.plt_levelset=1
 amrex.throw_exception =1 
 amrex.signal_handling = 0
+io.outputs = ls_normal ls_curvature levelset
+
 #¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨#
 #               PHYSICS                 #
 #.......................................#
@@ -34,7 +34,7 @@ transport.visc_air= 0.00000148
 turbulence.model = Laminar
 ICNS.source_terms = SurfaceTension DensityBuoyancy 
 incflo.gravity          =   0.  0. -9.81  # Gravitational force (3D)
-incflo.surface_tension_coeff=0.07
+incflo.surface_tension_coeff=0.00
 #¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨#
 #        ADAPTIVE MESH REFINEMENT       #
 #.......................................#

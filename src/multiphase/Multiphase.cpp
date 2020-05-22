@@ -5,6 +5,7 @@
 #include "trig_ops.H"
 #include "derive_K.H"
 #include "tensor_ops.H"
+#include "BCOps.H"
 
 namespace amr_wind {
 
@@ -86,6 +87,12 @@ void Multiphase::initialize_fields(int level, const amrex::Geometry& geom)
     }
     // compute density based on the volume fractions
     set_density(level, geom);
+}
+
+void Multiphase::post_init_actions()
+{
+    BCScalar bc_ls((*m_levelset));
+    bc_ls();
 }
 
 void Multiphase::pre_advance_work()

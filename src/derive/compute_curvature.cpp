@@ -22,11 +22,11 @@ void compute_curvature(FType& curvf, const Field& field)
         const amrex::Real idy = 1.0 / dy;
         const amrex::Real idz = 1.0 / dz;
 
-        for (amrex::MFIter mfi(field(lev)); mfi.isValid(); ++mfi) {
-            const auto& bx = mfi.tilebox(field.num_grow());
+        for (amrex::MFIter mfi(curvf(lev)); mfi.isValid(); ++mfi) {
+            const auto& bx = mfi.tilebox();
             const auto& curv_arr = curvf(lev).array(mfi);
             const auto& field_arr = field(lev).const_array(mfi);
-
+            amrex::Print()<<bx<<std::endl;
             amrex::ParallelFor(
                 bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
                     curv_arr(i,j,k)=curvature<StencilInterior>(
@@ -44,11 +44,12 @@ void compute_curvature(FType& curvf, const Field& field)
                     low.setVal(idim, sm);
                     hi.setVal(idim, sm);
 
-                    auto bxlo = amrex::Box(low, hi).grow({0, 1, 1});
+                    auto bxlo = amrex::Box(low, hi);
+                    amrex::Print()<<bxlo<<std::endl;
 
                     amrex::ParallelFor(
                         bxlo, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-                            curvature<StencilILO>(
+                            curv_arr(i,j,k)=curvature<StencilILO>(
                               i, j, k, idx, idy, idz, field_arr);
                         });
                 }
@@ -60,11 +61,11 @@ void compute_curvature(FType& curvf, const Field& field)
                     low.setVal(idim, sm);
                     hi.setVal(idim, sm);
 
-                    auto bxhi = amrex::Box(low, hi).grow({0, 1, 1});
+                    auto bxhi = amrex::Box(low, hi);
                     
                     amrex::ParallelFor(
                         bxhi, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-                            curvature<StencilIHI>(
+                            curv_arr(i,j,k)=curvature<StencilIHI>(
                               i, j, k, idx, idy, idz, field_arr);
                         });
                 }
@@ -79,11 +80,11 @@ void compute_curvature(FType& curvf, const Field& field)
                     low.setVal(idim, sm);
                     hi.setVal(idim, sm);
 
-                    auto bxlo = amrex::Box(low, hi).grow({1, 0, 1});
+                    auto bxlo = amrex::Box(low, hi);
 
                     amrex::ParallelFor(
                         bxlo, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-                            curvature<StencilJLO>(
+                            curv_arr(i,j,k)=curvature<StencilJLO>(
                                 i, j, k, idx, idy, idz, field_arr);
                         });
                 }
@@ -95,11 +96,11 @@ void compute_curvature(FType& curvf, const Field& field)
                     low.setVal(idim, sm);
                     hi.setVal(idim, sm);
 
-                    auto bxhi = amrex::Box(low, hi).grow({1, 0, 1});
+                    auto bxhi = amrex::Box(low, hi);
 
                     amrex::ParallelFor(
                         bxhi, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-                            curvature<StencilJHI>(
+                            curv_arr(i,j,k)=curvature<StencilJHI>(
                                 i, j, k, idx, idy, idz, field_arr);
                         });
                 }
@@ -114,11 +115,11 @@ void compute_curvature(FType& curvf, const Field& field)
                     low.setVal(idim, sm);
                     hi.setVal(idim, sm);
 
-                    auto bxlo = amrex::Box(low, hi).grow({1, 1, 0});
+                    auto bxlo = amrex::Box(low, hi);
 
                     amrex::ParallelFor(
                         bxlo, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-                            curvature<StencilKLO>(
+                            curv_arr(i,j,k)=curvature<StencilKLO>(
                                 i, j, k, idx, idy, idz, field_arr);
                         });
                 }
@@ -130,11 +131,11 @@ void compute_curvature(FType& curvf, const Field& field)
                     low.setVal(idim, sm);
                     hi.setVal(idim, sm);
 
-                    auto bxhi = amrex::Box(low, hi).grow({1, 1, 0});
+                    auto bxhi = amrex::Box(low, hi);
 
                     amrex::ParallelFor(
                         bxhi, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-                            curvature<StencilKHI>(
+                            curv_arr(i,j,k)=curvature<StencilKHI>(
                                 i, j, k, idx, idy, idz, field_arr);
                         });
                 }
