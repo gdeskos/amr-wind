@@ -2,7 +2,7 @@
 #            SIMULATION STOP            #
 #.......................................#
 time.stop_time               =   20        # Max (simulated) time to evolve
-time.max_step                =   10        # Max number of time steps
+time.max_step                =   300        # Max number of time steps
 
 #¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨#
 #         TIME STEP COMPUTATION         #
@@ -34,7 +34,7 @@ transport.visc_air= 0.00000148
 turbulence.model = Laminar
 ICNS.source_terms = SurfaceTension DensityBuoyancy 
 incflo.gravity          =   0.  0. -9.81  # Gravitational force (3D)
-incflo.surface_tension_coeff=0.00
+incflo.surface_tension_coeff=0.07
 #¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨#
 #        ADAPTIVE MESH REFINEMENT       #
 #.......................................#
@@ -61,3 +61,8 @@ incflo.probtype         =   0
 incflo.physics = Multiphase
 incflo.multiphase_problem = 2
 nodal_proj.verbose=1
+
+
+amrex.fpe_trap_invalid = 1
+amrex.fpe_trap_overflow = 1
+amrex.fpe_trap_zero = 1

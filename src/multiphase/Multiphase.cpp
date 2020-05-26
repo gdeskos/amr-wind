@@ -93,6 +93,10 @@ void Multiphase::post_init_actions()
 {
     BCScalar bc_ls((*m_levelset));
     bc_ls();
+    BCSrcTerm bc_norm(m_lsnormal);
+    bc_norm();
+    BCSrcTerm bc_curv(m_lscurv);
+    bc_curv();
 }
 
 void Multiphase::pre_advance_work()
@@ -102,24 +106,36 @@ void Multiphase::pre_advance_work()
     const auto& geom = m_sim.mesh().Geom();
 
     for (int lev = 0; lev < nlevels; ++lev) {
-        set_density(lev, geom[lev]);
+        set_density(lev, geom[lev]); 
     }
     compute_normals_and_curvature();
+   
+    /* Check the limits of levelset, lsnormal and curvature
+    for (int lev = 0; lev < nlevels; ++lev) { 
+        amrex::Print()<<(*m_levelset)(lev).min(0)<<" "<<(*m_levelset)(lev).max(0)<<std::endl; 
+        amrex::Print()<<(m_lsnormal)(lev).min(0)<<" "<<(m_lsnormal)(lev).max(0)<<std::endl; 
+        amrex::Print()<<(m_lscurv)(lev).min(0)<<" "<<(m_lscurv)(lev).max(0)<<std::endl; 
+    }
+    */
     
 }
 
 void Multiphase::compute_normals_and_curvature()
 {
-    
+   
+    const auto& time = m_sim.time().current_time();
+    (*m_levelset).fillpatch(time);
     //populate gradient into lsnormal to avoid creating a temporary buffer     
     compute_gradient(m_lsnormal,(*m_levelset));
-    const auto& time = m_sim.time().current_time();
+    
     m_lsnormal.fillpatch(time);
+    m_lscurv.fillpatch(time);
 
     compute_curvature(m_lscurv,m_lsnormal);
     // now normalise the gradient of the levelset to get m_lsnormal
     normalize_field(m_lsnormal);
 }
+
 
 void Multiphase::set_density(int level, const amrex::Geometry& geom)
 {

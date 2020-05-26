@@ -268,9 +268,6 @@ AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::Real curvature(
     cm1 = Stencil::c02;
     const Real phix  = gradphi(i,j,k,0);
     const Real phixx = (cp1*gradphi(i+1,j,k,0) + c*gradphi(i,j,k,0) + cm1*gradphi(i-1,j,k,0)) * idx;
-    if(std::isnan(gradphi(i-1,j,k,0))) {
-        amrex::Print() <<i<< " "<<j<<" "<<k<<" "<<std::endl;
-    }
     
     cp1 = Stencil::c10;
     c   = Stencil::c11;
@@ -291,11 +288,16 @@ AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::Real curvature(
                 -2.*phix*phiz*phixz + phiz*phiz*phixx + phiy*phiy*phizz - 2*phiy*phiz*phiyz 
                 + phiz*phiz*phiyy)/std::pow(phix*phix+phiy*phiy+phiz*phiz,1.5);
   
-    // Make sure that curv is not equal to  NaN
+    // Make sure that where the normal vector is zero so does curv 
     if(phix*phiz*phiy*phiy+phiz*phiz<1e-16) curv=0.;
-    if(std::isnan(curv)) {
-        curv=0.;
+    // Make sure that curv<1/dx (where dx is the max(dx,dy,dz)
+    Real max_dx=std::max(1./idx,std::max(1./idy,1./idz));
+    if(abs(curv)>1./max_dx && curv<0){
+        curv=-1./max_dx;
+    }else if(abs(curv)>1./max_dx && curv>0){
+        curv=1./max_dx;
     }
+    
 
     return curv;
 }

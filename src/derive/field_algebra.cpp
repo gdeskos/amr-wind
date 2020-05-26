@@ -13,20 +13,18 @@ void normalize_field(FType& Field)
         for (amrex::MFIter mfi(Field(lev)); mfi.isValid(); ++mfi) {
             const auto& bx = mfi.growntilebox(Field.num_grow());
             const auto& field_arr = Field(lev).array(mfi);
-
+            amrex::Real field_magnitude;
             amrex::ParallelFor(
                 bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-                amrex::Real mag=0;
                 //Compute magnitude
+                amrex::Real mag=0.;
                 for (int icomp=0;icomp<ncomp;++icomp){
                     mag=mag+field_arr(i,j,k,icomp)*field_arr(i,j,k,icomp);
                 }
-                //Normalize field
                 for (int icomp=0;icomp<ncomp;++icomp){
-                    field_arr(i,j,k)=field_arr(i,j,k,icomp)/std::sqrt(mag);
+                    field_arr(i,j,k,icomp)=field_arr(i,j,k,icomp)/std::sqrt(mag);
                 }
-
-                });
+            });
         }
     }
 }

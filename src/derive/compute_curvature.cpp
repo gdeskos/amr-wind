@@ -26,7 +26,7 @@ void compute_curvature(FType& curvf, const Field& field)
             const auto& bx = mfi.tilebox();
             const auto& curv_arr = curvf(lev).array(mfi);
             const auto& field_arr = field(lev).const_array(mfi);
-            amrex::Print()<<bx<<std::endl;
+            //amrex::Print()<<bx<<std::endl;
             amrex::ParallelFor(
                 bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
                     curv_arr(i,j,k)=curvature<StencilInterior>(
@@ -45,7 +45,7 @@ void compute_curvature(FType& curvf, const Field& field)
                     hi.setVal(idim, sm);
 
                     auto bxlo = amrex::Box(low, hi);
-                    amrex::Print()<<bxlo<<std::endl;
+                    //amrex::Print()<<bxlo<<std::endl;
 
                     amrex::ParallelFor(
                         bxlo, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
