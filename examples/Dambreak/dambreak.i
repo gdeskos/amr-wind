@@ -2,50 +2,47 @@
 #            SIMULATION STOP            #
 #.......................................#
 time.stop_time               =   20        # Max (simulated) time to evolve
-time.max_step                =   300        # Max number of time steps
+time.max_step                =   1000        # Max number of time steps
 
 #¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨#
 #         TIME STEP COMPUTATION         #
 #.......................................#
 time.fixed_dt         =   0.001        # Use this constant dt if > 0
-time.cfl              =   0.45        # CFL factor
+time.cfl              =   1.        # CFL factor
 
 #¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨#
 #            INPUT AND OUTPUT           #
 #.......................................#
 time.plot_interval  =  10   # Steps between plot files
 time.checkpoint_interval =   50  # Steps between checkpoint files
-amr.restart   =   ""  # Checkpoint to restart from 
-amr.KE_int = 1        # calculate kinetic energy 
+io.restart   =   ""  # Checkpoint to restart from 
 amrex.throw_exception =1 
 amrex.signal_handling = 0
-io.outputs = ls_normal ls_curvature levelset
-
+io.outputs = ls_normal ls_curvature levelset vof velocity_src_term velocity_mueff 
 #¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨#
 #               PHYSICS                 #
 #.......................................#
-incflo.gravity          = 0.  0.  0.  # Gravitational force (3D)
-incflo.ro_0             = 1.          # Reference density 
 incflo.use_godunov      = 1
-incflo.transport = TwoPhaseTransport
-transport.visc_water= 0.001 
-transport.visc_air= 0.00000148
-
+transport.model = TwoPhaseTransport
+#transport.viscosity_water= 0.001 
+#transport.viscosity_air= 0.001
+incflo.rho_air=1.
+incflo.rho_water=1000.
 turbulence.model = Laminar
-ICNS.source_terms = SurfaceTension DensityBuoyancy 
+ICNS.source_terms = DensityBuoyancy  
 incflo.gravity          =   0.  0. -9.81  # Gravitational force (3D)
-incflo.surface_tension_coeff=0.07
+incflo.surface_tension_coeff=0.0
 #¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨#
 #        ADAPTIVE MESH REFINEMENT       #
 #.......................................#
-amr.n_cell              =   64 16 64   # Grid cells at coarsest AMRlevel
+amr.n_cell              =   128 16 128   # Grid cells at coarsest AMRlevel
 amr.max_level           =   0           # Max AMR level in hierarchy 
 
 #¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨#
 #              GEOMETRY                 #
 #.......................................#
 geometry.prob_lo        =   0   0.   0.  # Lo corner coordinates
-geometry.prob_hi        =   0.584   0.1  0.584  # Hi corner coordinates
+geometry.prob_hi        =   0.584   0.05  0.584  # Hi corner coordinates
 geometry.is_periodic    =   0   1   0   # Periodicity x y z (0/1)
 
 xlo.type =   "slip_wall"
@@ -60,9 +57,11 @@ zhi.type =   "slip_wall"
 incflo.probtype         =   0
 incflo.physics = Multiphase
 incflo.multiphase_problem = 2
-nodal_proj.verbose=1
-
-
-amrex.fpe_trap_invalid = 1
-amrex.fpe_trap_overflow = 1
-amrex.fpe_trap_zero = 1
+incflo.verbose=3
+nodal_proj.mg_rtol=1e-4
+nodal_proj.mg_atol=1e-6
+nodal_proj.num_pre_smooth = 20
+nodal_proj.num_post_smooth = 20
+#nodal_proj.mg_max_coarsening_level = 10
+mac_proj.num_pre_smooth = 20
+mac_proj.num_post_smooth = 20

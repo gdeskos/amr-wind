@@ -37,18 +37,24 @@ private:
 
     void set_density(int level,const amrex::Geometry& geom);
     void compute_normals_and_curvature();
+    void compute_surface_tension();
 
     Field& m_density;
     Field& m_velocity;
 
+    // Define multiphase fields
     Field* m_levelset{nullptr};
+    Field* m_vof{nullptr};
 
     Field& m_lsnormal;
     Field& m_lscurv;
-   
+    Field& m_surface_tension;
+
     //! initial density value
     amrex::Real m_rho_air{1.};
     amrex::Real m_rho_water{1000.};
+    amrex::Real m_sigma{0.07};
+
     int m_multiphase_problem{1};
 
     // Cases parameters -- TODO this shouldnt be here

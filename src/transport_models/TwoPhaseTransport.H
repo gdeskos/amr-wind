@@ -18,15 +18,22 @@ public:
     TwoPhaseTransport(FieldRepo& repo)
         : m_repo(repo)
         , m_levelset(repo.get_field("levelset"))
+        , m_vof(repo.get_field("vof"))
     {
         amrex::ParmParse pp("transport");
-        pp.query("visc_water", m_mu1);
-        pp.query("visc_air", m_mu2);
-        std::cout << "hi there" <<std::endl;        
+        pp.query("viscosity_water", m_mu1);
+        pp.query("viscosity_air", m_mu2);
+        pp.query("laminar_prandtl",m_Pr);
+        pp.query("turbulent_prandtl",m_Prt);
     }
    
-    ~TwoPhaseTransport()=default;
+    virtual ~TwoPhaseTransport()=default;
     
+    inline amrex::Real viscosity() const { return 0.5*(m_mu1+m_mu2); }
+
+    inline amrex::Real thermal_diffusivity() const
+    { return 0.5*(m_mu1+m_mu2) / m_Pr; }
+     
     inline amrex::Real laminar_prandtl() const { return m_Pr; }
 
     inline amrex::Real turbulent_prandtl() const { return m_Prt; }
@@ -39,48 +46,37 @@ public:
         pp.query(key.c_str(), lam_schmidt);
         return lam_schmidt;
     }
+    
+    inline amrex::Real turbulent_schmidt(const std::string& scalar_name) const
+    {
+        amrex::ParmParse pp("transport");
+        const std::string key = scalar_name + "_turbulent_schmidt";
+        amrex::Real turb_schmidt = 1.0;
+        pp.query(key.c_str(), turb_schmidt);
+        return turb_schmidt;
+    }
 
-    std::unique_ptr<ScratchField> mu()
+    //! Return the two-phase dynamic viscosity field
+    inline std::unique_ptr<ScratchField> mu()
     {
         const int nlevels = m_repo.num_active_levels();
 
         auto mu = m_repo.create_scratch_field(1, 1);
         
         for (int lev; lev< nlevels; ++lev){
-            auto& level_set = m_levelset(lev);
+            auto& vof = m_vof(lev);
             auto& visc = (*mu)(lev);
-            const auto& geom = m_repo.mesh().Geom(lev);
+            visc.setVal(0.);
 
-            const amrex::Real dx = geom.CellSize()[0];
-            const amrex::Real dy = geom.CellSize()[1];
-            const amrex::Real dz = geom.CellSize()[2];
-            const amrex::Real ds = std::cbrt(dx * dy * dz);
-            const amrex::Real epsilon = 2. * ds;
+        for (amrex::MFIter mfi(vof); mfi.isValid(); ++mfi) {
+            const auto& vbx = mfi.tilebox();
 
-        for (amrex::MFIter mfi(level_set); mfi.isValid(); ++mfi) {
-            const auto& vbx = mfi.validbox();
-
-            const auto& dx = geom.CellSizeArray();
-            const auto& problo = geom.ProbLoArray();
-            auto phi = level_set.array(mfi);
+            auto F = vof.array(mfi);
             auto viscosity = visc.array(mfi);
 
             amrex::ParallelFor(
             vbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-                if (phi(i, j, k) > epsilon) {
-                    const amrex::Real H = 1.0;
-                    viscosity(i, j, k) = m_mu1 * H + m_mu2 * (1. - H);
-                } else if (phi(i, j, k) < -epsilon) {
-                    const amrex::Real H = 0.;
-                    viscosity(i, j, k) = m_mu1 * H + m_mu2 * (1. - H);
-                } else {
-                    const amrex::Real H =
-                        0.5 *
-                        (1 + phi(i, j, k) / (2 * epsilon) +
-                         1. / M_PI * std::sin(phi(i, j, k) * M_PI / epsilon));
-                    viscosity(i, j, k) = m_mu1 * H + m_mu2 * (1. - H);
-                    std::cout<<viscosity(i,j,k)<<std::endl;
-                }
+                viscosity(i,j,k)=m_mu1*F(i,j,k)+m_mu2*(1.-F(i,j,k));
             });
         }
         
@@ -117,6 +113,7 @@ private:
     FieldRepo& m_repo;
     
     Field& m_levelset;
+    Field& m_vof;
 
     amrex::Real m_mu1{1e-3};
     amrex::Real m_mu2{1.48e-5};
