@@ -22,7 +22,7 @@ void compute_curvature(FType& curvf, const Field& field)
         const amrex::Real idy = 1.0 / dy;
         const amrex::Real idz = 1.0 / dz;
 
-        for (amrex::MFIter mfi(curvf(lev)); mfi.isValid(); ++mfi) {
+        for (amrex::MFIter mfi(field(lev)); mfi.isValid(); ++mfi) {
             const auto& bx = mfi.tilebox();
             const auto& curv_arr = curvf(lev).array(mfi);
             const auto& field_arr = field(lev).const_array(mfi);
@@ -45,7 +45,6 @@ void compute_curvature(FType& curvf, const Field& field)
                     hi.setVal(idim, sm);
 
                     auto bxlo = amrex::Box(low, hi);
-                    //amrex::Print()<<bxlo<<std::endl;
 
                     amrex::ParallelFor(
                         bxlo, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
