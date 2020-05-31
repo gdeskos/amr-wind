@@ -30,14 +30,18 @@ public:
 
     void pre_advance_work() override;
 
-    void post_advance_work() override {}
+    void post_advance_work() override;
 
 private:
     const CFDSim& m_sim;
 
     void set_density(int level,const amrex::Geometry& geom);
+    
     void compute_normals_and_curvature();
+    
     void compute_surface_tension();
+
+    void reconstruct_vof();  
 
     Field& m_density;
     Field& m_velocity;

@@ -1,21 +1,21 @@
 #¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨#
 #            SIMULATION STOP            #
 #.......................................#
-time.stop_time               =   20        # Max (simulated) time to evolve
-time.max_step                =   1000        # Max number of time steps
+time.stop_time               =   2        # Max (simulated) time to evolve
+time.max_step                =   2000        # Max number of time steps
 
 #¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨#
 #         TIME STEP COMPUTATION         #
 #.......................................#
 time.fixed_dt         =   0.001        # Use this constant dt if > 0
-time.cfl              =   1.        # CFL factor
+time.cfl              =   0.5        # CFL factor
 
 #¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨#
 #            INPUT AND OUTPUT           #
 #.......................................#
 time.plot_interval  =  10   # Steps between plot files
 time.checkpoint_interval =   50  # Steps between checkpoint files
-io.restart   =   ""  # Checkpoint to restart from 
+io.restart_file   =   "chk01000"  # Checkpoint to restart from 
 amrex.throw_exception =1 
 amrex.signal_handling = 0
 io.outputs = ls_normal ls_curvature levelset vof velocity_src_term velocity_mueff 
@@ -35,7 +35,7 @@ incflo.surface_tension_coeff=0.0
 #¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨#
 #        ADAPTIVE MESH REFINEMENT       #
 #.......................................#
-amr.n_cell              =   128 16 128   # Grid cells at coarsest AMRlevel
+amr.n_cell              =   64 8 64   # Grid cells at coarsest AMRlevel
 amr.max_level           =   0           # Max AMR level in hierarchy 
 
 #¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨#
@@ -62,6 +62,6 @@ nodal_proj.mg_rtol=1e-4
 nodal_proj.mg_atol=1e-6
 nodal_proj.num_pre_smooth = 20
 nodal_proj.num_post_smooth = 20
-#nodal_proj.mg_max_coarsening_level = 10
+nodal_proj.mg_max_coarsening_level = 10
 mac_proj.num_pre_smooth = 20
 mac_proj.num_post_smooth = 20

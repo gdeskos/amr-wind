@@ -132,6 +132,30 @@ void Multiphase::pre_advance_work()
     
 }
 
+void Multiphase::post_advance_work()
+{
+    // Reconstruct volume of fluid 
+    const int nlevels = m_sim.repo().num_active_levels();
+    const auto& geom = m_sim.mesh().Geom();
+    
+    for(int lev=0; lev<nlevels; ++lev){ 
+        auto& vof = (*m_vof)(lev);
+
+        for (amrex::MFIter mfi(vof); mfi.isValid(); ++mfi) {
+            const auto& bx = mfi.tilebox();
+            auto F = vof.array(mfi);
+            amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {  
+                if (F(i,j,k) >1. ) {
+                    F(i, j, k) = 1.;
+                }else if (F(i,j,k)<0.){
+                    F(i, j, k) = 0.;
+                }
+            }); 
+        }
+        set_density(lev, geom[lev]); 
+    }
+}
+
 void Multiphase::compute_surface_tension()
 {
     const int nlevels = m_sim.repo().num_active_levels();
