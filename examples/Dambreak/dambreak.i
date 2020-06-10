@@ -15,7 +15,7 @@ time.cfl              =   0.5        # CFL factor
 #.......................................#
 time.plot_interval  =  10   # Steps between plot files
 time.checkpoint_interval =   50  # Steps between checkpoint files
-io.restart_file   =   "chk01000"  # Checkpoint to restart from 
+io.restart_file   =   ""  # Checkpoint to restart from 
 amrex.throw_exception =1 
 amrex.signal_handling = 0
 io.outputs = ls_normal ls_curvature levelset vof velocity_src_term velocity_mueff 
