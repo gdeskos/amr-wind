@@ -15,6 +15,7 @@ Multiphase::Multiphase(CFDSim& sim)
     , m_density(sim.repo().get_field("density"))
     , m_normal(sim.repo().declare_cc_field("normal",AMREX_SPACEDIM,1,1))
     , m_curvature(sim.repo().declare_cc_field("curvature",1,1,1))
+    , m_intercept(sim.repo().declare_cc_field("intercept",1,1,1))
     , m_levelset(sim.repo().declare_nd_field("levelset",1,1,1))
     , m_surface_tension(sim.repo().declare_cc_field("surface_tension",AMREX_SPACEDIM,1,1))
 {
@@ -153,31 +154,30 @@ void Multiphase::post_init_actions()
 void Multiphase::pre_advance_work()
 {
     
+    //(*m_vof).fillpatch(time);
+    
+    // Compute interface normal -- Needs work
+    compute_interface_normal();
+   
+    // Compute volume of fluid intercept
+    compute_fraction_intercept();
+
+    // Reconstruct the volume fractions
+    //reconstruct_volume(); 
+    
     const int nlevels = m_sim.repo().num_active_levels();
     const auto& geom = m_sim.mesh().Geom();
 
     for (int lev = 0; lev < nlevels; ++lev) {
         set_density(lev, geom[lev]); 
     }
-    
-    //(*m_vof).fillpatch(time);
-    compute_interface_normal();
-    
-    //compute_normals_and_curvature();
-   
-    /* Check the limits of levelset, lsnormal and curvature
-    for (int lev = 0; lev < nlevels; ++lev) { 
-        amrex::Print()<<(*m_levelset)(lev).min(0)<<" "<<(*m_levelset)(lev).max(0)<<std::endl; 
-        amrex::Print()<<(m_lsnormal)(lev).min(0)<<" "<<(m_lsnormal)(lev).max(0)<<std::endl; 
-        amrex::Print()<<(m_lscurv)(lev).min(0)<<" "<<(m_lscurv)(lev).max(0)<<std::endl; 
-    }
-    */
-    
+
 }
 
 void Multiphase::post_advance_work()
 {
     // Reconstruct volume of fluid 
+    /*
     const int nlevels = m_sim.repo().num_active_levels();
     const auto& geom = m_sim.mesh().Geom();
     
@@ -197,6 +197,7 @@ void Multiphase::post_advance_work()
         }
         set_density(lev, geom[lev]); 
     }
+    */
 }
 
 void Multiphase::compute_surface_tension()

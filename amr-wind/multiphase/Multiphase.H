@@ -47,7 +47,8 @@ private:
     void compute_interface_normal();
 
     void compute_fraction_intercept();
-    
+   
+    void reconstruct_volume();
 
     Field& m_density;
     Field& m_velocity;
@@ -58,6 +59,8 @@ private:
     Field& m_levelset;
     Field& m_normal;
     Field& m_curvature;
+    Field& m_intercept;
+
     Field& m_surface_tension;
 
     //! initial density value

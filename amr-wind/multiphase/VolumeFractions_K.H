@@ -169,19 +169,19 @@ AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 amrex::Real volume_fraction_intercept  (int i,  
                                         int j, 
                                         int k, 
-                                        amrex::Real idx, 
-                                        amrex::Real idy, 
-                                        amrex::Real idz, 
+                                        amrex::Real dx, 
+                                        amrex::Real dy, 
+                                        amrex::Real dz, 
                                         amrex::Array4<amrex::Real const> const& c,
-                                        amrex::Array4<amrex::Real> const& mxyz) noexcept
+                                        amrex::Array4<amrex::Real const> const& mxyz) noexcept
 {
     using namespace amrex;
   
     Real cch,c01,c02,c03,np1,np2,np3;
-    Real m1,m2,m3,m12,numer,denom,p,pst,q,arc,csarc;
+    Real m1,m2,m3,m12,numer,denom;
 
     // Define everything in a unit box (1x1x1)
-    np1=std::abs(mx);np2=std::abs(my);np3=std::abs(mz); 
+    np1=std::abs(mxyz(i,j,k,0)*dx);np2=std::abs(mxyz(i,j,k,1)*dy);np3=std::abs(mxyz(i,j,k,2)*dz); 
     m1=std::min(np1,np2);m3=std::max(np1,np2);
 
     if(np3<np1){
@@ -196,9 +196,9 @@ amrex::Real volume_fraction_intercept  (int i,
 
     Real eps0=std::numeric_limits<Real>::epsilon();
     denom = std::max(6.*m1*m2*m3,eps0);                          
-    cch = std::min(vof,1-vof); // limit to: 0 < cch < 1/2
-    c01 = m1*m1*m1/denom;      // get cch ranges
-    c02  = c01 + 0.5*(m2-m1)/m3;
+    cch = std::min(c(i,j,k),1-c(i,j,k));  // limit to: 0 < cch < 1/2
+    c01 = m1*m1*m1/denom;                 // get cch ranges
+    c02  = c01 + 0.5*(m2-m1)/std::max(m3,eps0);
     m12 = m1 + m2;
     if (m12 <= m3){
         c03 = 0.5*m12/m3;
@@ -207,34 +207,119 @@ amrex::Real volume_fraction_intercept  (int i,
         c03 = numer/denom;
     }
 
-    Real AlphaUnit,Alpha;
+    Real alpha,p,q,pst,arc,csarc;
+    // 1: C<=C1; 2: C1<=C<=C2; 3: C2<=C<=C3; 4: C3<=C<=1/2 (a: m12<=m3; b: m3<m12)) 
     if (cch <= c01){
-     AlphaUnit = std::pow(6.*m1*m2*m3,1./3.);  // case 1
+       alpha = std::pow(6.*m1*m2*m3,1./3.);  // case (1)
+    }else if (cch <= c02){
+       alpha = 0.5*(m1 + std::sqrt(m1*m1 + 8.*m2*m3*(cch-c01)));  // case (2)
+    }else if (cch <= c03){
+       p = 2.*m1*m2;
+       q = 1.5*m1*m2*(m12 - 2.*m3*cch);
+       pst = std::sqrt(p);
+       arc = 1./3.*std::acos(q/(p*pst));
+       csarc = std::cos(arc);
+       alpha = pst*(std::sqrt(3.*(1.-csarc*csarc)) - csarc) + m12;   //  case (3)
+    }else if (m12 <= m3){
+     alpha = m3*cch + 0.5*m12;                                       // case (4a)
+    }else{                                  
+     p = m12*m3 + m1*m2 - 0.25;                                     
+     q = 1.5*m1*m2*m3*(0.5-cch);
+     pst = std::sqrt(p);
+     arc = 1./3.*std::acos(q/(p*pst));
+     csarc = std::cos(arc);
+     alpha = pst*(std::sqrt(3.*(1.-csarc*csarc)) - csarc) + 0.5;     // case (4b)
     }
-    
-    return Alpha;
+
+    if (c(i,j,k)>0.5){ alpha = 1. - alpha;}
+  
+    // compute alpha for the given coefficients  
+    alpha = alpha + std::min(0.,mxyz(i,j,k,0)*dx) + std::min(0.,mxyz(i,j,k,1)*dy) + std::min(0.,mxyz(i,j,k,2)*dz);
+
+    return alpha;
 }
 
 /** Computes the volume fraction from the normal m, the intercept alpha
  *  and the hexahedron dimensions and starting point (x0,y0,z0)
  */
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
-amrex::Real compute_volume_fraction    (int i,  
-                                        int j, 
-                                        int k, 
-                                        amrex::Real x0, 
-                                        amrex::Real y0, 
-                                        amrex::Real z0, 
-                                        amrex::Real idx, 
-                                        amrex::Real idy, 
-                                        amrex::Real idz, 
-                                        amrex::Array4<amrex::Real const> const& mxyz,
-                                        amrex::Array4<amrex::Real const> const& alpha,
-                                        amrex::Array4<amrex::Real> const& c) noexcept
+void compute_volume_fraction    (int i,  
+                                 int j, 
+                                 int k, 
+                                 amrex::Real x0, 
+                                 amrex::Real y0, 
+                                 amrex::Real z0, 
+                                 amrex::Real dx, 
+                                 amrex::Real dy, 
+                                 amrex::Real dz, 
+                                 amrex::Array4<amrex::Real const> const& mxyz,
+                                 amrex::Array4<amrex::Real const> const& alpha,
+                                 amrex::Array4<amrex::Real> const& c) noexcept
 {
+    using namespace amrex;
     
+    // move origin to x0 
+    Real al = alpha(i,j,k) - mxyz(i,j,k,0)*x0 - mxyz(i,j,k,1)*y0 - mxyz(i,j,k,2)*z0;
+
+    // reflect the figure when negative coefficients
+    al = al + std::max(0.,-mxyz(i,j,k,0)*dx) + std::max(0.,-mxyz(i,j,k,1)*dy) + std::max(0.,-mxyz(i,j,k,2)*dz); 
+    
+    Real np1 = std::abs(mxyz(i,j,k,0));  // need positive coefficients
+    Real np2 = std::abs(mxyz(i,j,k,1));
+    Real np3 = std::abs(mxyz(i,j,k,2));
+    Real almax = np1*dx + np2*dy + np3*dz;                       
+    al  = std::max(0.,std::min(1.0,al/almax));         // get new al within safe limits
+    Real alh = std::min(al,1.0-al);                         // limit to: 0 < alh < 1/2
+
+    // normalized equation: m1*y1 + m2*y2 + m3*y3 = alh, with 0 <= m1 <= m2 <= m3 
+    // the problem is then solved again in the unit cube
+    np1 = np1/almax;
+    np2 = np2/almax;
+    np3 = np3/almax;
+
+    Real  m1,m2,m3;
+    m1 = std::min(np1*dx,np2*dy); // order coefficients
+    m3 = std::max(np1*dx,np2*dy);
+    Real top = np3*dz;
+  
+    if (top < m1){ 
+       m2 = m1;
+       m1 = top;
+    }else if (top >= m3){
+       m2 = m3;
+       m3 = top;
+    }else{
+       m2 = top;
+    }
+
+    Real m12 = m1 + m2;
+    Real mm = std::min(m12,m3);
+    Real eps0=std::numeric_limits<Real>::epsilon();
+    Real denom = std::max(6.*m1*m2*m3,eps0);
+
+    Real frac;
+    //1: al<=m1; 2: m1<=al<=m2; 3: m2<=al<=mm; 4: mm<=al<=1/2 (a:m12<=m3; b:m3<m12)) 
+  if (alh <= m1){
+     frac = alh*alh*alh/denom;                                         // case (1)
+  }else if (alh <= m2){
+     frac = 0.5*alh*(alh-m1)/(m2*m3) +  m1*m1*m1/denom;                // case (2)
+  }else if (alh <= mm){
+     top = alh*alh*(3.*m12-alh) + m1*m1*(m1-3.*alh);             
+     frac = (top + m2*m2*(m2-3.*alh))/denom;                           // case (3)
+  }else if (m12 <= m3){
+     frac = (alh - 0.5*m12)/m3;                                        // case (4a)
+  }else{
+     top = alh*alh*(3.-2.*alh) + m1*m1*(m1-3.*alh);             
+     frac = (top + m2*m2*(m2-3.*alh) + m3*m3*(m3-3.*alh))/denom;   // case (4b)
+  }
+  
+  top = dx*dy*dz; 
+  
+  if (al <= 0.5){
+     c(i,j,k) = frac*top;
+  }else{
+     c(i,j,k) = (1.-frac)*top;
+  }
 }
-
-
 
 #endif // VolumeFraction_K.H
