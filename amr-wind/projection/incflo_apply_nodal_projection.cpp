@@ -132,7 +132,7 @@ void incflo::ApplyProjection (Vector<MultiFab const*> density,
         }
     }
     
-    // Create source term in the right-hand-side (RHS)
+    // Create source term for the right-hand-side (RHS)
     auto& phy_mgr = m_sim.physics_manager();
     if (phy_mgr.contains("Multiphase")) {    
     }

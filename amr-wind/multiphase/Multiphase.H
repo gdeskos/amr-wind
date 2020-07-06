@@ -3,7 +3,6 @@
 
 #include "amr-wind/core/Physics.H"
 #include "amr-wind/core/Field.H"
-#include "amr-wind/equation_systems/clsvof/levelset.H"
 
 namespace amr_wind {
 
@@ -37,21 +36,28 @@ private:
 
     void set_density(int level,const amrex::Geometry& geom);
     
-    void compute_normals_and_curvature();
+    //void compute_normals_and_curvature();
     
+    void construct_fraction_from_levelset(int level,const amrex::Geometry& geom);
+
     void compute_surface_tension();
 
     void reconstruct_vof();  
+
+    void compute_interface_normal();
+
+    void compute_fraction_intercept();
+    
 
     Field& m_density;
     Field& m_velocity;
 
     // Define multiphase fields
-    Field* m_levelset{nullptr};
+    // Field* m_levelset{nullptr};
     Field* m_vof{nullptr};
-
-    Field& m_lsnormal;
-    Field& m_lscurv;
+    Field& m_levelset;
+    Field& m_normal;
+    Field& m_curvature;
     Field& m_surface_tension;
 
     //! initial density value
@@ -62,8 +68,8 @@ private:
     int m_multiphase_problem{1};
 
     // Cases parameters -- TODO this shouldnt be here
-    amrex::Real m_dambreak_d{0.1461};
-    amrex::Real m_dambreak_h{0.292};
+    amrex::Real m_dambreak_d{0.1};
+    amrex::Real m_dambreak_h{0.25};
 
 };
 

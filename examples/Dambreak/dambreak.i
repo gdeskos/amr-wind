@@ -18,7 +18,7 @@ time.checkpoint_interval =   50  # Steps between checkpoint files
 io.restart_file   =   ""  # Checkpoint to restart from 
 amrex.throw_exception =1 
 amrex.signal_handling = 0
-io.outputs = ls_normal ls_curvature levelset vof velocity_src_term velocity_mueff 
+io.outputs = normal curvature vof velocity_src_term velocity_mueff 
 #¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨#
 #               PHYSICS                 #
 #.......................................#
@@ -35,14 +35,14 @@ incflo.surface_tension_coeff=0.0
 #¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨#
 #        ADAPTIVE MESH REFINEMENT       #
 #.......................................#
-amr.n_cell              =   64 8 64   # Grid cells at coarsest AMRlevel
+amr.n_cell              =   64 16 64    # Grid cells at coarsest AMRlevel
 amr.max_level           =   0           # Max AMR level in hierarchy 
 
 #¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨#
 #              GEOMETRY                 #
 #.......................................#
 geometry.prob_lo        =   0   0.   0.  # Lo corner coordinates
-geometry.prob_hi        =   0.584   0.05  0.584  # Hi corner coordinates
+geometry.prob_hi        =   0.5   0.125  0.5  # Hi corner coordinates
 geometry.is_periodic    =   0   1   0   # Periodicity x y z (0/1)
 
 xlo.type =   "slip_wall"

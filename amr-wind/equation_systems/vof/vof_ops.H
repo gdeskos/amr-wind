@@ -1,10 +1,33 @@
 #ifndef VOF_OPS_H
 #define VOF_OPS_H
 
-#include "amr-wind/equation_systems/clsvof/vof.H"
+#include "amr-wind/equation_systems/vof/vof.H"
 
 namespace amr_wind {
 namespace pde {
+
+template<typename Scheme>
+struct FieldRegOp<VOF, Scheme>
+{
+    FieldRegOp(CFDSim& sim): repo(sim.repo()) {}
+
+    PDEFields  operator()(const SimTime& time, const int probtype)
+    {
+        auto fields = create_fields_instance<VOF, Scheme>(time, repo, probtype);
+        
+        auto& normal = repo.declare_cc_field("normal",AMREX_SPACEDIM,1,1);
+        auto& intercept = repo.declare_cc_field("intercept",1,1,1);
+        auto& curvature = repo.declare_cc_field("curvature",1,1,1);
+
+        normal.template register_fill_patch_op<FieldFillPatchOps<FieldBCNoOp>>(repo.mesh(),time,probtype);
+        curvature.template register_fill_patch_op<FieldFillPatchOps<FieldBCNoOp>>(repo.mesh(),time,probtype);
+        intercept.template register_fill_patch_op<FieldFillPatchOps<FieldBCNoOp>>(repo.mesh(),time,probtype);
+    
+        return fields;
+    }
+    FieldRepo& repo;
+};
+
 
 template<typename Scheme>
 struct ComputeRHSOp<VOF, Scheme>
