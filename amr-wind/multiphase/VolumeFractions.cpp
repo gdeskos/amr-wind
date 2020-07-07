@@ -2,14 +2,16 @@
 #include "amr-wind/multiphase/VolumeFractions_K.H"
 #include "amr-wind/CFDSim.H"
 #include "amr-wind/equation_systems/BCOps.H"
+#include "amr-wind/derive/derive_K.H"
 
 namespace amr_wind {
+
 // This should be templatized
-void Multiphase::compute_interface_normal()
-{
 /** Computes the normal vector based on the mixed-Youngs centered (MYC) method
  *  The implementation follows that of Aulisa et al. 2007
  */
+void Multiphase::compute_interface_normal()
+{
 
     const int nlevels = m_sim.repo().num_active_levels();
     const auto& geom = m_sim.mesh().Geom();
@@ -36,10 +38,8 @@ void Multiphase::compute_interface_normal()
                     mixed_Youngs_centered(i, j, k, idx, idy, idz, fraction_arr, normal_arr);
                     });
         }
-
     }
 }
-
 
 void Multiphase::compute_fraction_intercept()
 {
@@ -99,8 +99,8 @@ void Multiphase::reconstruct_volume()
             amrex::ParallelFor(
                 bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
                     amrex::Real x0=problo[0]+i*dx;
-                    amrex::Real y0=problo[1]+j*dx;
-                    amrex::Real z0=problo[2]+k*dx;
+                    amrex::Real y0=problo[1]+j*dy;
+                    amrex::Real z0=problo[2]+k*dz;
                     compute_volume_fraction(i,j,k,x0,y0,z0,dx,dy,dz,normal_arr,alpha_arr,fraction_arr);  
                     // Do clipping 
                     amrex::Real eps=1e-8;
@@ -113,6 +113,14 @@ void Multiphase::reconstruct_volume()
         }
     }
 
+}
+
+void Multiphase::construct_fraction_from_levelset(int level, const amrex::Geometry& geom)
+{
+
+    auto& vof = (*m_vof)(level);
+    auto& levelset = m_levelset(level);
+    
 }
 
 }

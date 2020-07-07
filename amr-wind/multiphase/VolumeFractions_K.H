@@ -25,7 +25,7 @@ void mixed_Youngs_centered (int i,
     /** Write the plane as: sgn(mx) X = my Y + mz Z + alpha  
      *                          m00 X = m01 Y + m02 Z + alpha 
      */
-    m1 = c(i0,j0+1,k0)   + c(i0,j0+1,k0+2) + c(i0,j0,k0+1) + c(i0,j0+2,k0+1) + c(i0,j0+1,k0+1);
+    m1 = c(i0,j0+1,k0) + c(i0,j0+1,k0+2) + c(i0,j0,k0+1) + c(i0,j0+2,k0+1) + c(i0,j0+1,k0+1);
     m2 = c(i0+2,j0+1,k0) + c(i0+2,j0+1,k0+2) + c(i0+2,j0,k0+1)+ c(i0+2,j0+2,k0+1) + c(i0+2,j0+1,k0+1);
     
     if(m1>m2){
@@ -44,8 +44,8 @@ void mixed_Youngs_centered (int i,
     
     m[0][2] = 0.5*(m1-m2);
 
-    /** Write the plane as: sgn(mx) Y = mx Y + mz Z + alpha  
-     *                          m11 Y = m10 Y + m12 Z + alpha 
+    /** Write the plane as: sgn(mx) Y = mx X + mz Z + alpha  
+     *                          m11 Y = m10 X + m12 Z + alpha 
      */
 
     m1 = c(i0,j0,k0+1)   + c(i0,j0+2,k0+1)   + c(i0,j0+1,k0+1);
@@ -117,9 +117,9 @@ void mixed_Youngs_centered (int i,
         cn=2;
     }
 
-    //Use the Youngs-CIAM scheme to compute the gradients
-    // Here we need to use the derive Stencils here 
-    m1 =    c(i0,j0,k0)   + c(i0,j0+2,k0)   + c(i0+0,j0,k0+2) + c(i0,j0+2,k0+2) +
+    // Compute gradients
+  
+    m1 =    c(i0,j0,k0)   + c(i0,j0+2,k0)   + c(i0,j0,k0+2) + c(i0,j0+2,k0+2) +
         2.*(c(i0,j0,k0+1) + c(i0,j0+2,k0+1) + c(i0,j0+1,k0)   + c(i0,j0+1,k0+2)) +
         4.*c(i0,j0+1,k0+1);
 
@@ -163,6 +163,7 @@ void mixed_Youngs_centered (int i,
     mxyz(i,j,k,2)=  m[cn][2];
 }
 
+
 /* Computes alpha from a volume fraction F and the surface outward normal vector m=(m1,m2,m3)^T
  */
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
@@ -176,29 +177,34 @@ amrex::Real volume_fraction_intercept  (int i,
                                         amrex::Array4<amrex::Real const> const& mxyz) noexcept
 {
     using namespace amrex;
-  
+
     Real cch,c01,c02,c03,np1,np2,np3;
     Real m1,m2,m3,m12,numer,denom;
 
     // Define everything in a unit box (1x1x1)
-    np1=std::abs(mxyz(i,j,k,0)*dx);np2=std::abs(mxyz(i,j,k,1)*dy);np3=std::abs(mxyz(i,j,k,2)*dz); 
-    m1=std::min(np1,np2);m3=std::max(np1,np2);
+    np1=std::abs(mxyz(i,j,k,0)*dx);
+    np2=std::abs(mxyz(i,j,k,1)*dy);
+    np3=std::abs(mxyz(i,j,k,2)*dz); 
+    m1=std::min(np1,np2);
+    m3=std::max(np1,np2);
 
     if(np3<np1){
-        m2=m1; m1=np3;
+        m2=m1; 
+        m1=np3;
     }
     else if(np3>=m3){
-        m2=m3;m3=np3;
+        m2=m3;
+        m3=np3;
     }
     else{
         m2=np3;
     }
 
-    Real eps0=std::numeric_limits<Real>::epsilon();
+    Real eps0=1e-50;
     denom = std::max(6.*m1*m2*m3,eps0);                          
-    cch = std::min(c(i,j,k),1-c(i,j,k));  // limit to: 0 < cch < 1/2
+    cch = std::min(c(i,j,k),1.-c(i,j,k));  // limit to: 0 < cch < 1/2
     c01 = m1*m1*m1/denom;                 // get cch ranges
-    c02  = c01 + 0.5*(m2-m1)/std::max(m3,eps0);
+    c02  = c01 + 0.5*(m2-m1)/m3;
     m12 = m1 + m2;
     if (m12 <= m3){
         c03 = 0.5*m12/m3;
@@ -206,11 +212,10 @@ amrex::Real volume_fraction_intercept  (int i,
         numer = m3*m3*(3.*m12-m3) + m1*m1*(m1-3.*m3) + m2*m2*(m2-3.*m3);
         c03 = numer/denom;
     }
-
     Real alpha,p,q,pst,arc,csarc;
     // 1: C<=C1; 2: C1<=C<=C2; 3: C2<=C<=C3; 4: C3<=C<=1/2 (a: m12<=m3; b: m3<m12)) 
     if (cch <= c01){
-       alpha = std::pow(6.*m1*m2*m3,1./3.);  // case (1)
+       alpha = std::pow(denom*cch,1./3.);  // case (1)
     }else if (cch <= c02){
        alpha = 0.5*(m1 + std::sqrt(m1*m1 + 8.*m2*m3*(cch-c01)));  // case (2)
     }else if (cch <= c03){
@@ -220,6 +225,7 @@ amrex::Real volume_fraction_intercept  (int i,
        arc = 1./3.*std::acos(q/(p*pst));
        csarc = std::cos(arc);
        alpha = pst*(std::sqrt(3.*(1.-csarc*csarc)) - csarc) + m12;   //  case (3)
+
     }else if (m12 <= m3){
      alpha = m3*cch + 0.5*m12;                                       // case (4a)
     }else{                                  
@@ -234,8 +240,7 @@ amrex::Real volume_fraction_intercept  (int i,
     if (c(i,j,k)>0.5){ alpha = 1. - alpha;}
   
     // compute alpha for the given coefficients  
-    alpha = alpha + std::min(0.,mxyz(i,j,k,0)*dx) + std::min(0.,mxyz(i,j,k,1)*dy) + std::min(0.,mxyz(i,j,k,2)*dz);
-
+    alpha = alpha + std::min(0.,mxyz(i,j,k,0)) + std::min(0.,mxyz(i,j,k,1)) + std::min(0.,mxyz(i,j,k,2));
     return alpha;
 }
 

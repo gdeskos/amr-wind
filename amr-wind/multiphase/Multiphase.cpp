@@ -134,9 +134,6 @@ void Multiphase::initialize_fields(int level, const amrex::Geometry& geom)
     compute_interface_normal();
     // compute density based on the volume fractions
     set_density(level, geom);
-
-
-
 }
 
 void Multiphase::post_init_actions()
@@ -153,8 +150,9 @@ void Multiphase::post_init_actions()
 
 void Multiphase::pre_advance_work()
 {
-    
-    //(*m_vof).fillpatch(time);
+    const auto& time = m_sim.time().current_time();
+ 
+    (*m_vof).fillpatch(time);
     
     // Compute interface normal -- Needs work
     compute_interface_normal();
@@ -163,7 +161,7 @@ void Multiphase::pre_advance_work()
     compute_fraction_intercept();
 
     // Reconstruct the volume fractions
-    //reconstruct_volume(); 
+    // reconstruct_volume(); 
     
     const int nlevels = m_sim.repo().num_active_levels();
     const auto& geom = m_sim.mesh().Geom();
@@ -171,33 +169,10 @@ void Multiphase::pre_advance_work()
     for (int lev = 0; lev < nlevels; ++lev) {
         set_density(lev, geom[lev]); 
     }
-
 }
 
 void Multiphase::post_advance_work()
 {
-    // Reconstruct volume of fluid 
-    /*
-    const int nlevels = m_sim.repo().num_active_levels();
-    const auto& geom = m_sim.mesh().Geom();
-    
-    for(int lev=0; lev<nlevels; ++lev){ 
-        auto& vof = (*m_vof)(lev);
-
-        for (amrex::MFIter mfi(vof); mfi.isValid(); ++mfi) {
-            const auto& bx = mfi.tilebox();
-            auto F = vof.array(mfi);
-            amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {  
-                if (F(i,j,k) >1. ) {
-                    F(i, j, k) = 1.;
-                }else if (F(i,j,k)<0){
-                    F(i, j, k) = 0.;
-                }
-            }); 
-        }
-        set_density(lev, geom[lev]); 
-    }
-    */
 }
 
 void Multiphase::compute_surface_tension()
@@ -239,71 +214,6 @@ void Multiphase::compute_surface_tension()
     }
     }
 }
-
-void Multiphase::construct_fraction_from_levelset(int level, const amrex::Geometry& geom)
-{
-    using namespace utils;
-
-    auto& vof = (*m_vof)(level);
-    auto& levelset = m_levelset(level);
-    
-    for (amrex::MFIter mfi(vof); mfi.isValid(); ++mfi){
-        const auto& vbx = mfi.validbox();
-
-        const auto& dx = geom.CellSizeArray();
-        const auto& problo = geom.ProbLoArray();
-        const auto& probhi = geom.ProbHiArray();
-        auto phi = levelset.array(mfi);
-        amrex::ParallelFor(
-            vbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-            amrex::Real px=0;
-            amrex::Real py=0;
-            amrex::Real pz=0;
-            // Find the px
-            if(phi(i,j,k)*phi(i+1,j,k)<0){
-                px = phi(i,j,k)/(phi(i,j,k) - phi(i+1,j,k));
-                if(phi(i,j,k)<0){
-                    px = 1-px;
-                }
-            }else{
-                px = (phi(i,j,k)> 0 || phi(i+1,j,k) > 0);
-            }
-            // Find the py
-            if(phi(i,j,k)*phi(i,j+1,k)<0){
-                py = phi(i,j,k)/(phi(i,j,k) - phi(i,j+1,k));
-                if(phi(i,j,k)<0){
-                    py = 1-py;
-                }
-            }else{
-                py = (phi(i,j,k)> 0 || phi(i+1,j,k) > 0);
-            }
-        });
-    }
-}
-/*
-void Multiphase::compute_normals_and_curvature()
-{
-
-    
-    const auto& time = m_sim.time().current_time();
-    (*m_vof).fillpatch(time);
-    compute_interface_normal();
-
-
-    const auto& time = m_sim.time().current_time();
-    (*m_levelset).fillpatch(time);
-    //populate gradient into lsnormal to avoid creating a temporary buffer     
-    compute_gradient(m_lsnormal,(*m_levelset));
-    
-    m_lsnormal.fillpatch(time);
-    m_lscurv.fillpatch(time);
-
-    compute_curvature(m_lscurv,m_lsnormal);
-    // now normalise the gradient of the levelset to get m_lsnormal
-    normalize_field(m_lsnormal);
- 
-}
-*/
 
 
 void Multiphase::set_density(int level, const amrex::Geometry& geom)
