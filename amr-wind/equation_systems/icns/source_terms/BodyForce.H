@@ -8,6 +8,12 @@ namespace amr_wind {
 namespace pde {
 namespace icns {
 
+/** Apply a user-defined body force as a source term
+ *  \ingroup icns_src
+ *
+ *  The implementation can apply either a constant source term, or a sinusoidal
+ *  term as a function of time.
+ */
 class BodyForce : public MomentumSource::Register<BodyForce>
 {
 public:
@@ -25,19 +31,17 @@ public:
         const amrex::Array4<amrex::Real>& src_term) const override;
 
 private:
-    const Field& m_density;
-   
+    //! Time
+    const SimTime& m_time;
+
     //! Forcing source term (pressure gradient)
     amrex::Vector<amrex::Real> m_body_force{{0.0, 0.0, 0.0}};
 
     //! Body Force Type
-    std::string m_type;
+    std::string m_type{"constant"};
 
     //! Angular frequency used in the oscillatory forcing
-    amrex::Real m_omega;
-
-    //! Time
-    const SimTime& m_time;
+    amrex::Real m_omega{0.0};
 };
 
 } // namespace icns
