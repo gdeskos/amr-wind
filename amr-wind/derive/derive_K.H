@@ -292,9 +292,9 @@ AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::Real curvature(
     if(phix*phiz*phiy*phiy+phiz*phiz<1e-16) curv=0.;
     // Make sure that curv<1/dx (where dx is the max(dx,dy,dz)
     Real min_dx=std::min(1./idx,std::max(1./idy,1./idz));
-    if(abs(curv)>1./min_dx && curv<0){
+    if(std::abs(curv)>1./min_dx && curv<0){
         curv=-1./min_dx;
-    }else if(abs(curv)>1./min_dx && curv>0){
+    }else if(std::abs(curv)>1./min_dx && curv>0){
         curv=1./min_dx;
     }
     
