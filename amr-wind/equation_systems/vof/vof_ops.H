@@ -16,9 +16,11 @@ struct FieldRegOp<VOF, Scheme>
         auto fields = create_fields_instance<VOF, Scheme>(time, repo, probtype);
         
         auto& normal = repo.declare_cc_field("normal",AMREX_SPACEDIM,1,1);
+        auto& levelset = repo.declare_cc_field("levelset",1,1,1);
         auto& intercept = repo.declare_cc_field("intercept",1,1,1);
         auto& curvature = repo.declare_cc_field("curvature",1,1,1);
 
+        levelset.template register_fill_patch_op<FieldFillPatchOps<FieldBCNoOp>>(repo.mesh(),time,probtype);
         normal.template register_fill_patch_op<FieldFillPatchOps<FieldBCNoOp>>(repo.mesh(),time,probtype);
         curvature.template register_fill_patch_op<FieldFillPatchOps<FieldBCNoOp>>(repo.mesh(),time,probtype);
         intercept.template register_fill_patch_op<FieldFillPatchOps<FieldBCNoOp>>(repo.mesh(),time,probtype);
