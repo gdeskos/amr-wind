@@ -24,10 +24,6 @@ void Multiphase::compute_interface_normal()
         const amrex::Real dy = geom[lev].CellSize()[1];
         const amrex::Real dz = geom[lev].CellSize()[2];
 
-        const amrex::Real idx = 1.0 / dx;
-        const amrex::Real idy = 1.0 / dy;
-        const amrex::Real idz = 1.0 / dz;
-
         for (amrex::MFIter mfi(vof); mfi.isValid(); ++mfi) {
             const auto& bx = mfi.tilebox();
             const auto& normal_arr = normal.array(mfi);
@@ -35,7 +31,7 @@ void Multiphase::compute_interface_normal()
 
             amrex::ParallelFor(
                 bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-                    mixed_Youngs_centered(i, j, k, idx, idy, idz, fraction_arr, normal_arr);
+                    mixed_Youngs_centered<StencilInterior>(i, j, k, dx, dy, dz, fraction_arr, normal_arr);
                     });
         }
     }
@@ -115,12 +111,35 @@ void Multiphase::reconstruct_volume()
 
 }
 
+void Multiphase::do_clipping()
+{
+    const int nlevels = m_sim.repo().num_active_levels();
+
+    for (int lev=0; lev < nlevels; ++lev) {
+    
+        auto& vof = (*m_vof)(lev);
+        
+        for (amrex::MFIter mfi(vof); mfi.isValid(); ++mfi) {
+            const auto& bx = mfi.tilebox();
+            const auto& fraction_arr = vof.array(mfi);
+
+            amrex::ParallelFor(
+                bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+                    amrex::Real eps=1e-8;
+                    if (fraction_arr(i,j,k)<eps){
+                        fraction_arr(i,j,k)=0.0;
+                    }else if (fraction_arr(i,j,k)>1.0-eps){
+                        fraction_arr(i,j,k)=1.0; 
+                    }
+            });
+        }
+    }
+}
+
 void Multiphase::construct_fraction_from_levelset(int level, const amrex::Geometry& geom)
 {
-
     auto& vof = (*m_vof)(level);
-    auto& levelset = m_levelset(level);
-    
+    auto& levelset = m_levelset(level);   
 }
 
 }

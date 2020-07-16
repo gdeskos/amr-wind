@@ -35,10 +35,8 @@ private:
     const CFDSim& m_sim;
 
     void set_density(int level,const amrex::Geometry& geom);
-    
-    //void compute_normals_and_curvature();
-    
-    void construct_fraction_from_levelset(int level,const amrex::Geometry& geom);
+     
+    void construct_fractions_from_levelset(int level,const amrex::Geometry& geom);
 
     void compute_surface_tension();
 
@@ -50,11 +48,11 @@ private:
    
     void reconstruct_volume();
 
+    void do_clipping();
+
     Field& m_density;
     Field& m_velocity;
 
-    // Define multiphase fields
-    // Field* m_levelset{nullptr};
     Field* m_vof{nullptr};
     Field& m_levelset;
     Field& m_normal;

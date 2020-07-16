@@ -16,12 +16,9 @@ Multiphase::Multiphase(CFDSim& sim)
     , m_normal(sim.repo().declare_cc_field("normal",AMREX_SPACEDIM,1,1))
     , m_curvature(sim.repo().declare_cc_field("curvature",1,1,1))
     , m_intercept(sim.repo().declare_cc_field("intercept",1,1,1))
-    , m_levelset(sim.repo().declare_nd_field("levelset",1,1,1))
+    , m_levelset(sim.repo().declare_cc_field("levelset",1,1,1))
     , m_surface_tension(sim.repo().declare_cc_field("surface_tension",AMREX_SPACEDIM,1,1))
 {
-    // Define the levelset equation system
-    // auto& ls_eqn = sim.pde_manager().register_transport_pde("LevelSet");
-    // m_levelset = &(ls_eqn.fields().field); 
 
     // Define the VOF equation system -- Apply Geometric VOF
     auto& vof_eqn = sim.pde_manager().register_transport_pde("VOF");
@@ -60,9 +57,9 @@ void Multiphase::initialize_fields(int level, const amrex::Geometry& geom)
 
         amrex::ParallelFor(
             vbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-                const amrex::Real x = problo[0] + i*dx[0];
-                const amrex::Real y = problo[1] + j*dx[1];
-                const amrex::Real z = problo[2] + k*dx[2];
+                const amrex::Real x = problo[0] + (i+0.5)*dx[0];
+                const amrex::Real y = problo[1] + (j+0.5)*dx[1];
+                const amrex::Real z = problo[2] + (k+0.5)*dx[2];
                 const amrex::Real x0 = 0.5 * (problo[0] + probhi[0]);
                 const amrex::Real y0 = 0.5 * (problo[1] + probhi[1]);
                 const amrex::Real z0 = 0.5 * (problo[2] + probhi[2]);
@@ -80,10 +77,13 @@ void Multiphase::initialize_fields(int level, const amrex::Geometry& geom)
                 }
             }
             });
-    } 
+        } 
 
-
-    for (amrex::MFIter mfi(vof); mfi.isValid(); ++mfi) {
+        if(m_multiphase_problem==1){ 
+        
+        }else if(m_multiphase_problem==2){
+        
+        for (amrex::MFIter mfi(vof); mfi.isValid(); ++mfi) {
         const auto& vbx = mfi.validbox();
 
         const auto& dx = geom.CellSizeArray();
@@ -104,9 +104,6 @@ void Multiphase::initialize_fields(int level, const amrex::Geometry& geom)
                 const amrex::Real x0 = 0.5 * (problo[0] + probhi[0]);
                 const amrex::Real y0 = 0.5 * (problo[1] + probhi[1]);
                 const amrex::Real z0 = 0.5 * (problo[2] + probhi[2]);
-           if(m_multiphase_problem==1){ 
-                    F(i,j,k)=0.;
-            }else if(m_multiphase_problem==2){
                 if (x<m_dambreak_d && z<m_dambreak_h){
                     //phi(i,j,k)=std::min(m_dambreak_d-x,m_dambreak_h-z); 
                     F(i,j,k)=1.;
@@ -120,12 +117,11 @@ void Multiphase::initialize_fields(int level, const amrex::Geometry& geom)
                     //phi(i,j,k)=std::min(m_dambreak_d-x,m_dambreak_h-z); 
                     F(i,j,k)=0.;
                 }
-
                 vel(i, j, k, 0) = 0.;
                 vel(i, j, k, 1) = 0.;
                 vel(i, j, k, 2) = 0.;
-            }
             });
+        }
     }
     
     // Construct volume fractions from the levelset function
@@ -154,25 +150,30 @@ void Multiphase::pre_advance_work()
  
     (*m_vof).fillpatch(time);
     
-    // Compute interface normal -- Needs work
-    compute_interface_normal();
-   
-    // Compute volume of fluid intercept
-    compute_fraction_intercept();
-
-    // Reconstruct the volume fractions
-    // reconstruct_volume(); 
-    
     const int nlevels = m_sim.repo().num_active_levels();
     const auto& geom = m_sim.mesh().Geom();
 
     for (int lev = 0; lev < nlevels; ++lev) {
         set_density(lev, geom[lev]); 
     }
+    // Compute surface tension
 }
 
 void Multiphase::post_advance_work()
 {
+    do_clipping();
+    
+    // Compute interface normal
+    compute_interface_normal();
+    
+    // Compute volume of fluid intercept
+    compute_fraction_intercept();
+    
+    // Reconstruct the volume fractions
+    //reconstruct_volume(); 
+    
+    do_clipping();
+
 }
 
 void Multiphase::compute_surface_tension()

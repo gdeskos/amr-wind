@@ -1,60 +1,105 @@
-#ifndef VolumeFraction_K_H_
+#ifndef VolumeFraction_K_H_ 
 #define VolumeFraction_K_H_
 
+#include "amr-wind/derive/derive_K.H"
 #include <AMReX_FArrayBox.H>
 #include <cmath>
 
+
+template <typename Stencil>
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE
 void mixed_Youngs_centered (int i,  
                             int j, 
                             int k, 
-                            amrex::Real idx, 
-                            amrex::Real idy, 
-                            amrex::Real idz, 
-                            amrex::Array4<amrex::Real const> const& c,
+                            amrex::Real dx, 
+                            amrex::Real dy, 
+                            amrex::Real dz, 
+                            amrex::Array4<amrex::Real const> const& C,
                             amrex::Array4<amrex::Real> const& mxyz) noexcept
 
 {
-    int i0=i-1; int j0=j-1; int k0=k-1; int cn;
-    amrex::Real m1,m2,t0,t1,t2;
+    amrex::Real c1,c2,c3; //Stencil coefficients for the differentiation
+    amrex::Real m1,m2,m3,t0,t1,t2;
     amrex::Vector<amrex::Vector<amrex::Real>> m{{0.0, 0.0, 0.0},
                                                 {0.0, 0.0, 0.0},
                                                 {0.0, 0.0, 0.0},
                                                 {0.0, 0.0, 0.0}};
+    
+    /**      3 x 3 x 3 BLOCK
+     *
+     *
+     *            o-------o-------o------o
+     *           /   X   /   X   /  X   /|  
+     *          o-------o-------o------o |
+     *         /   X   /   X   /  X   /| |
+     *        o-------o-------o------o | |
+     *       /   X   /   X   /  X   /| | |
+     *      o------o-------o-------o | | |
+     *      |      |       |       | | | o
+     *      |  X   |   X   |   X   | | |/|
+     *      |      |       |       | | / |
+     *      o------o-------o-------o / | |
+     *      |      |       |       | | | /
+     *      |  X   |   X   |   X   | | |/|
+     *      |      |       |       | |/| |
+     *      o------o-------o-------o/| | |
+     *      |      |       |       | | | /
+     *      |  X   |   X   |   X   | | /
+     *      |      |       |       | / 
+     *      o------o-------o-------o
+     *   z  y
+     *   | /
+     *   |/___ x   
+     *
+     *   Normal vector is computed for the middle cell (i,j,k) 
+     */
 
     /** Write the plane as: sgn(mx) X = my Y + mz Z + alpha  
      *                          m00 X = m01 Y + m02 Z + alpha 
      */
-    m1 = c(i0,j0+1,k0) + c(i0,j0+1,k0+2) + c(i0,j0,k0+1) + c(i0,j0+2,k0+1) + c(i0,j0+1,k0+1);
-    m2 = c(i0+2,j0+1,k0) + c(i0+2,j0+1,k0+2) + c(i0+2,j0,k0+1)+ c(i0+2,j0+2,k0+1) + c(i0+2,j0+1,k0+1);
+    m1 = C(i-1,j,k-1) + C(i-1,j,k+1) + C(i-1,j-1,k) + C(i-1,j+1,k) + C(i-1,j,k);
+    m2 = C(i+1,j,k-1) + C(i+1,j,k+1) + C(i+1,j-1,k) + C(i+1,j+1,k) + C(i+1,j,k);
     
+    // Check the sign of mx 
     if(m1>m2){
         m[0][0]=1.;
     }else{
         m[0][0]=-1.;
     } 
+ 
+    // We compute m01 and m02 based on the height function derivatives (central differences only for interior cells)
+    m1 = dx*(C(i-1,j-1,k) + C(i,j-1,k) + C(i+1,j-1,k));   // height function x_j-1,k
+    m2 = dx*(C(i-1,j  ,k) + C(i,j  ,k) + C(i+1,j  ,k));   // height function x_j,k
+    m3 = dx*(C(i-1,j+1,k) + C(i,j+1,k) + C(i+1,j+1,k));   // height function x_j+1,k
     
-    m1 = c(i0,j0,k0+1)    + c(i0+2,j0,k0+1) + c(i0+1,j0,k0+1);
-    m2 = c(i0,j0+2,k0+1)  + c(i0+2,j0+2,k0+1) + c(i0+1,j0+2,k0+1);
-    
-    m[0][1] = 0.5*(m1-m2);
+    c3 = Stencil::c10;
+    c2 = Stencil::c11;
+    c1 = Stencil::c12;
+    m[0][1] = (c3*m3+c2*m2+c1*m1)/dy; // local gradient my
 
-    m1 = c(i0,j0+1,k0)    + c(i0+2,j0+1,k0+0) + c(i0+1,j0+1,k0+0);
-    m2 = c(i0,j0+1,k0+2)  + c(i0+2,j0+1,k0+2) + c(i0+1,j0+1,k0+2);
+    m1 = dx*(C(i-1,j,k-1) + C(i,j,k-1) + C(i+1,j,k-1));  // height function for x_j,k-1
+    m2 = dx*(C(i-1,j,k  ) + C(i,j,k)   + C(i+1,j,k  ));  // height function for x_j,k
+    m3 = dx*(C(i-1,j,k+1) + C(i,j,k+1) + C(i+1,j,k+1));  // height function for x_j,k+1
     
-    m[0][2] = 0.5*(m1-m2);
-
-    /** Write the plane as: sgn(mx) Y = mx X + mz Z + alpha  
+    c3 = Stencil::c20;
+    c2 = Stencil::c21;
+    c1 = Stencil::c22;
+    m[0][2] = (c3*m3+c2*m2+c1*m1)/dz; // local gradient mz
+    
+    /** Write the plane as: sgn(my) Y = mx X + mz Z + alpha  
      *                          m11 Y = m10 X + m12 Z + alpha 
      */
+    m1 = dy*(C(i-1,j-1,k) + C(i-1,j,k) + C(i-1,j+1,k));   // height function for y_i-1,k
+    m2 = dy*(C(i  ,j-1,k) + C(i  ,j,k) + C(i  ,j+1,k));   // height function for y_i,k  
+    m3 = dy*(C(i+1,j-1,k) + C(i+1,j,k) + C(i+1,j+1,k));   // height function for y_i+1,k
 
-    m1 = c(i0,j0,k0+1)   + c(i0,j0+2,k0+1)   + c(i0,j0+1,k0+1);
-    m2 = c(i0+2,j0,k0+1) + c(i0+2,j0+2,k0+1) + c(i0+2,j0+1,k0+1);
-
-    m[1][0] = 0.5*(m1-m2);
+    c1 = Stencil::c02;
+    c2 = Stencil::c01;
+    c3 = Stencil::c00;
+    m[1][0] = (c1*m1+c2*m2+c3*m3)/dx;  //local gradient mx
     
-    m1 = c(i0+1,j0,k0+0) + c(i0+1,j0,k0+2)   + c(i0+2,j0,k0+1)   + c(i0,j0,k0+1) + c(i0+1,j0,k0+1);
-    m2 = c(i0+1,j0+2,k0) + c(i0+1,j0+2,k0+2) + c(i0+2,j0+2,k0+1) + c(i0,j0+2,k0+1) + c(i0+1,j0+2,k0+1);
+    m1 = C(i,j-1,k-1) + C(i,j-1,k+1) + C(i+1,j-1,k) + C(i-1,j-1,k) + C(i,j-1,k);
+    m2 = C(i,j+1,k-1) + C(i,j+1,k+1) + C(i+1,j+1,k) + C(i-1,j+1,k) + C(i,j+1,k);
 
     if(m1>m2){
         m[1][1] = 1.;
@@ -62,23 +107,37 @@ void mixed_Youngs_centered (int i,
         m[1][1] = -1.;
     }
 
-    m1 = c(i0+1,j0,k0)+ c(i0+1,j0+1,k0)+ c(i0+1,j0+2,k0);
-    m2 = c(i0+1,j0,k0+2)+ c(i0+1,j0+1,k0+2)+ c(i0+1,j0+2,k0+2);
-    m[1][2] = 0.5*(m1-m2);
+    m1 = dy*(C(i,j-1,k-1)   + C(i,j,k-1) + C(i,j+1,k-1));    // height function for y_i,k-1
+    m3 = dy*(C(i,j-1,k)     + C(i,j,k)   + C(i,j+1,k));      // height function for y_i,k
+    m3 = dy*(C(i,j-1,k+1)   + C(i,j,k+1) + C(i,j+1,k+1));    // height function for y_i,k+1
+ 
+    c1 = Stencil::c22;
+    c2 = Stencil::c21;
+    c3 = Stencil::c20;
+    m[1][2] = (c1*m1+c2*m2+c3*m3)/dz; //local gradient mz
 
     /**write the plane as: sgn(mz) Z =  mx X +  my Y + alpha 
      * m22 Z = m20 X + m21 Y + alpha
     */
-    m1 = c(i0,j0+1,k0)+ c(i0,j0+1,k0+2)+ c(i0,j0+1,k0+1);
-    m2 = c(i0+2,j0+1,k0)+ c(i0+2,j0+1,k0+2)+ c(i0+2,j0+1,k0+1);
-    m[2][0] = 0.5*(m1-m2);
+    m1 = dz*(C(i-1,j, k-1) + C(i-1,j,k)  + C(i-1,j, k+1));     // height function for z_i-1,j
+    m2 = dz*(C(i,j,k-1)    + C(i  ,j,k)  + C( i ,j, k+1));     // height function for z_i,j
+    m3 = dz*(C(i+1,j,k-1)  + C(i+1,j,k)  + C(i+1,j, k+1));     // height function for z_i+1,j
+    
+    c1 = Stencil::c02;
+    c2 = Stencil::c01;
+    c3 = Stencil::c00;
+    m[2][0] = (m1*c1+m2*c2+m3*c3)/dx;  // local gradient mx
 
-    m1 = c(i0+1,j0,k0)  + c(i0+1,j0,k0+2)+ c(i0+1,j0,k0+1);
-    m2 = c(i0+1,j0+2,k0)+ c(i0+1,j0+2,k0+2)+ c(i0+1,j0+2,k0+1);
-    m[2][1] = 0.5*(m1-m2);
+    m1 = dz*(C(i,j-1,k-1)   + C(i,j-1,k) + C(i,j-1,k+1));      // height function for z_i,j-1
+    m2 = dz*(C(i,j  ,k-1)   + C(i,j  ,k) + C(i,j  ,k+1));      // height function for z_i,j
+    m3 = dz*(C(i,j+1,k-1)   + C(i,j+1,k) + C(i,j+1,k+1));      // height function for z_i,j+1
+    c1 = Stencil::c02;
+    c2 = Stencil::c01;
+    c3 = Stencil::c00;
+    m[2][1] = (m1*c1+m2*c2+m3*c3)/dy;  //local gradient my
 
-    m1 = c(i0,j0+1,k0)   + c(i0+2,j0+1,k0)   + c(i0+1,j0,k0)   + c(i0+1,j0+2,k0)   + c(i0+1,j0+1,k0);
-    m2 = c(i0,j0+1,k0+2) + c(i0+2,j0+1,k0+2) + c(i0+1,j0,k0+2) + c(i0+1,j0+2,k0+2) + c(i0+1,j0+1,k0+2);
+    m1 = C(i-1,j,k-1)   + C(i+1,j,k-1)   + C(i,j-1,k-1)   + C(i,j+1,k-1)   + C(i,j,k-1);
+    m2 = C(i-1,j,k+1)   + C(i+1,j,k+1)   + C(i,j-1,k+1)   + C(i,j+1,k+1)   + C(i,j,k+1);
 
     if(m1>m2){
         m[2][2] = 1.;
@@ -107,7 +166,7 @@ void mixed_Youngs_centered (int i,
     t1 = std::abs(m[1][1]);
     t2 = std::abs(m[2][2]);
 
-    cn = 0;
+    int cn = 0;
     if (t1 > t0){
         t0 = t1;
         cn = 1;
@@ -117,30 +176,102 @@ void mixed_Youngs_centered (int i,
         cn=2;
     }
 
-    // Compute gradients
-  
-    m1 =    c(i0,j0,k0)   + c(i0,j0+2,k0)   + c(i0,j0,k0+2) + c(i0,j0+2,k0+2) +
-        2.*(c(i0,j0,k0+1) + c(i0,j0+2,k0+1) + c(i0,j0+1,k0)   + c(i0,j0+1,k0+2)) +
-        4.*c(i0,j0+1,k0+1);
+    // Compute gradients using simple upwind differeneces and cell averaging - Young's method
+    amrex::Vector<amrex::Vector<amrex::Real>> dCdx{{0.0, 0.0, 0.0},
+                                                   {0.0, 0.0, 0.0},
+                                                   {0.0, 0.0, 0.0},
+                                                   {0.0, 0.0, 0.0},
+                                                   {0.0, 0.0, 0.0},
+                                                   {0.0, 0.0, 0.0},
+                                                   {0.0, 0.0, 0.0},
+                                                   {0.0, 0.0, 0.0}};
 
-    m2 = c(i0+2,j0,k0)       + c(i0+2,j0+2,k0) + c(i0+2,j0+0,k0+2) + c(i0+2,j0+2,k0+2) +
-         2.*(c(i0+2,j0+0,k0+1) + c(i0+2,j0+2,k0+1) + c(i0+2,j0+1,k0)   + c(i0+2,j0+1,k0+2)) +
-         4.*c(i0+2,j0+1,k0+1);
-    m[3][0] = m1-m2;
-
-    m1 = c(i0,j0,k0) + c(i0,j0,k0+2) + c(i0+2,j0+0,k0) + c(i0+2,j0,k0+2) +
-         2.*(c(i0,j0,k0+1) + c(i0+2,j0,k0+1) + c(i0+1,j0,k0) + c(i0+1,j0,k0+2)) +4.*c(i0+1,j0,k0+1);
-    m2 =  c(i0,j0+2,k0) + c(i0,j0+2,k0+2) + c(i0+2,j0+2,k0) + c(i0+2,j0+2,k0+2) +2.*(c(i0,j0+2,k0+1) + 
-          c(i0+2,j0+2,k0+1) + c(i0+1,j0+2,k0+0) + c(i0+1,j0+2,k0+2)) +4.*c(i0+1,j0+2,k0+1);
-    m[3][1] = m1-m2;
-
-    m1 = c(i0,j0,k0) + c(i0,j0+2,k0) + c(i0+2,j0,k0) +    c(i0+2,j0+2,k0) +2.*(c(i0,j0+1,k0) + 
-         c(i0+2,j0+1,k0) + c(i0+1,j0,k0) + c(i0+1,j0+2,k0)) +4.*c(i0+1,j0+1,k0);
-
-    m2 = c(i0+0,j0,k0+2) + c(i0+0,j0+2,k0+2) + c(i0+2,j0+0,k0+2)  +   c(i0+2,j0+2,k0+2) +2.*(c(i0,j0+1,k0+2) + 
-         c(i0+2,j0+1,k0+2) + c(i0+1,j0+0,k0+2) + c(i0+1,j0+2,k0+2)) +4.*c(i0+1,j0+1,k0+2);
-
-    m[3][2]  = m1-m2;
+    amrex::Real Ci,Cip,Cj,Cjp,Ck,Ckp;
+    // Vertex 0 (i-1/2,j+1/2,k+1/2)
+    Ci = 0.25*(C(i-1,j,k)  +C(i-1,j+1,k)  +C(i-1,j,k+1)  +C(i-1,j+1,k+1));  
+    Cip= 0.25*(C(i,j,k)+C(i,j+1,k)+C(i,j,k+1)+C(i,j+1,k+1));                
+    Cj = 0.25*(C(i,j,k)+C(i-1,j,k)  +C(i,j,k+1)  +C(i-1,j,k+1));            
+    Cjp= 0.25*(C(i,j+1,k)+C(i-1,j+1,k)+C(i,j+1,k+1)+C(i-1,j+1,k+1));        
+    Ck = 0.25*(C(i,j,k)+C(i-1,j,k)  +C(i,j+1,k)  +C(i-1,j+1,k));            
+    Ckp= 0.25*(C(i,j,k+1)+C(i-1,j,k+1)+C(i,j+1,k+1)+C(i-1,j+1,k+1));        
+    dCdx[0][0]=-(Cip-Ci)/dx; 
+    dCdx[0][1]=-(Cjp-Cj)/dy; 
+    dCdx[0][2]=-(Ckp-Ck)/dz; 
+    // Vertex 1 (i+1/2,j+1/2,k+1/2)
+    Cip = 0.25*(C(i+1,j,k)  +C(i+1,j+1,k)  +C(i+1,j,k+1)  +C(i+1,j+1,k+1)); 
+    Ci  = 0.25*(C(i,j,k)+C(i,j+1,k)+C(i,j,k+1)+C(i,j+1,k+1));               
+    Cjp = 0.25*(C(i,j,k)+C(i+1,j,k)  +C(i,j,k+1)  +C(i+1,j,k+1));           
+    Cj  = 0.25*(C(i,j+1,k)+C(i+1,j+1,k)+C(i,j+1,k+1)+C(i+1,j+1,k+1));       
+    Ckp = 0.25*(C(i,j,k)+C(i+1,j,k)  +C(i,j+1,k)  +C(i+1,j+1,k));           
+    Ck  = 0.25*(C(i,j,k+1)+C(i+1,j,k+1)+C(i,j+1,k+1)+C(i+1,j+1,k+1));       
+    dCdx[1][0]=-(Cip-Ci)/dx; 
+    dCdx[1][1]=-(Cjp-Cj)/dy; 
+    dCdx[1][2]=-(Ckp-Ck)/dz; 
+    // Vertex 2 (i-1/2,j-1/2,k+1/2)
+    Ci  = 0.25*(C(i-1,j,k)  +C(i-1,j-1,k)  +C(i-1,j,k+1)  +C(i-1,j-1,k+1));  
+    Cip = 0.25*(C(i,j,k)+C(i,j-1,k)+C(i,j,k+1)+C(i,j-1,k+1));                
+    Cjp = 0.25*(C(i,j,k)+C(i-1,j,k)  +C(i,j,k+1)  +C(i-1,j,k+1));            
+    Cj  = 0.25*(C(i,j-1,k)+C(i-1,j-1,k)+C(i,j-1,k+1)+C(i-1,j-1,k+1));        
+    Ck  = 0.25*(C(i,j,k)+C(i-1,j,k)  +C(i,j-1,k)  +C(i-1,j-1,k));            
+    Ckp = 0.25*(C(i,j,k+1)+C(i-1,j,k+1)+C(i,j-1,k+1)+C(i-1,j-1,k+1));        
+    dCdx[2][0]=-(Cip-Ci)/dx; 
+    dCdx[2][1]=-(Cjp-Cj)/dy; 
+    dCdx[2][2]=-(Ckp-Ck)/dz;  
+    // Vertex 3 (i-1/2,j-1/2,k-1/2)
+    Ci  = 0.25*(C(i-1,j,k)  +C(i-1,j-1,k)  +C(i-1,j,k-1)  +C(i-1,j-1,k-1));  
+    Cip = 0.25*(C(i,j,k)+C(i,j-1,k)+C(i,j,k-1)+C(i,j-1,k-1));                
+    Cjp = 0.25*(C(i,j,k)+C(i-1,j,k)  +C(i,j,k-1)  +C(i-1,j,k-1));            
+    Cj  = 0.25*(C(i,j-1,k)+C(i-1,j-1,k)+C(i,j-1,k+1)+C(i-1,j-1,k+1));        
+    Ckp = 0.25*(C(i,j,k)+C(i-1,j,k)  +C(i,j-1,k)  +C(i-1,j-1,k));            
+    Ck  = 0.25*(C(i,j,k-1)+C(i-1,j,k-1)+C(i,j-1,k-1)+C(i-1,j-1,k-1));        
+    dCdx[3][0]=-(Cip-Ci)/dx; 
+    dCdx[3][1]=-(Cjp-Cj)/dy; 
+    dCdx[3][2]=-(Ckp-Ck)/dz;  
+    // Vertex 4 (i+1/2,j-1/2,k-1/2)
+    Cip = 0.25*(C(i+1,j,k)  +C(i+1,j-1,k)  +C(i+1,j,k-1)  +C(i+1,j-1,k-1)); 
+    Ci  = 0.25*(C(i,j,k)+C(i,j-1,k)+C(i,j,k-1)+C(i,j-1,k-1));               
+    Cjp = 0.25*(C(i,j,k)+C(i+1,j,k)  +C(i,j,k-1)  +C(i+1,j,k-1));           
+    Cj  = 0.25*(C(i,j-1,k)+C(i+1,j-1,k)+C(i,j-1,k-1)+C(i+1,j-1,k-1));       
+    Ckp = 0.25*(C(i,j,k)+C(i+1,j,k)  +C(i,j-1,k)  +C(i+1,j-1,k));           
+    Ck  = 0.25*(C(i,j,k-1)+C(i+1,j,k-1)+C(i,j-1,k-1)+C(i+1,j-1,k-1));       
+    dCdx[4][0]=-(Cip-Ci)/dx; 
+    dCdx[4][1]=-(Cjp-Cj)/dy; 
+    dCdx[4][2]=-(Ckp-Ck)/dz;  
+    // Vertex 5 (i-1/2,j-1/2,k+1/2)
+    Ci  = 0.25*(C(i-1,j,k)  +C(i-1,j-1,k)  +C(i-1,j,k+1)  +C(i-1,j-1,k+1));  
+    Cip = 0.25*(C(i,j,k)+C(i,j-1,k)+C(i,j,k+1)+C(i,j-1,k+1));                
+    Cjp = 0.25*(C(i,j,k)+C(i-1,j,k)  +C(i,j,k+1)  +C(i-1,j,k+1));            
+    Cj  = 0.25*(C(i,j-1,k)+C(i-1,j-1,k)+C(i,j-1,k+1)+C(i-1,j-1,k+1));        
+    Ck  = 0.25*(C(i,j,k)+C(i-1,j,k)  +C(i,j-1,k)  +C(i-1,j-1,k));            
+    Ckp = 0.25*(C(i,j,k-1)+C(i-1,j,k+1)+C(i,j-1,k+1)+C(i-1,j-1,k+1));        
+    dCdx[5][0]=-(Cip-Ci)/dx; 
+    dCdx[5][1]=-(Cjp-Cj)/dy; 
+    dCdx[5][2]=-(Ckp-Ck)/dz;  
+    // Vertex 6 (i+1/2,j-1/2,k+1/2)
+    Cip = 0.25*(C(i+1,j,k)  +C(i+1,j-1,k)  +C(i+1,j,k+1)  +C(i+1,j-1,k+1)); 
+    Ci  = 0.25*(C(i,j,k)+C(i,j-1,k)+C(i,j,k+1)+C(i,j-1,k+1));               
+    Cjp = 0.25*(C(i,j,k)+C(i+1,j,k)  +C(i,j,k+1)  +C(i+1,j,k+1));           
+    Cj  = 0.25*(C(i,j-1,k)+C(i+1,j-1,k)+C(i,j-1,k+1)+C(i+1,j-1,k+1));       
+    Ck  = 0.25*(C(i,j,k)+C(i+1,j,k)  +C(i,j-1,k)  +C(i+1,j-1,k));           
+    Ckp = 0.25*(C(i,j,k+1)+C(i+1,j,k+1)+C(i,j-1,k+1)+C(i+1,j-1,k+1));       
+    dCdx[6][0]=-(Cip-Ci)/dx; 
+    dCdx[6][1]=-(Cjp-Cj)/dy; 
+    dCdx[6][2]=-(Ckp-Ck)/dz;  
+    // Vertex 7 (i-1/2,j+1/2,k-1/2)
+    Ci  = 0.25*(C(i-1,j,k)  +C(i-1,j+1,k)  +C(i-1,j,k-1)  +C(i-1,j+1,k-1));  
+    Cip = 0.25*(C(i,j,k)+C(i,j+1,k)+C(i,j,k-1)+C(i,j+1,k-1));                
+    Cj  = 0.25*(C(i,j,k)+C(i-1,j,k)  +C(i,j,k-1)  +C(i-1,j,k-1));            
+    Cjp = 0.25*(C(i,j+1,k)+C(i-1,j+1,k)+C(i,j+1,k+1)+C(i-1,j+1,k+1));        
+    Ckp = 0.25*(C(i,j,k)+C(i-1,j,k)  +C(i,j+1,k)  +C(i-1,j+1,k));            
+    Ck  = 0.25*(C(i,j,k-1)+C(i-1,j,k-1)+C(i,j+1,k-1)+C(i-1,j+1,k-1));        
+    dCdx[7][0]=-(Cip-Ci)/dx; 
+    dCdx[7][1]=-(Cjp-Cj)/dy; 
+    dCdx[7][2]=-(Ckp-Ck)/dz;  
+    
+    // Average over the 8 vertices !!!
+    m[3][0]=1.0/8.0*(dCdx[0][0]+dCdx[1][0]+dCdx[2][0]+dCdx[3][0]+dCdx[4][0]+dCdx[5][0]+dCdx[6][0]+dCdx[7][0]);
+    m[3][1]=1.0/8.0*(dCdx[0][1]+dCdx[1][1]+dCdx[2][1]+dCdx[3][1]+dCdx[4][1]+dCdx[5][1]+dCdx[6][1]+dCdx[7][1]);
+    m[3][2]=1.0/8.0*(dCdx[0][2]+dCdx[1][2]+dCdx[2][2]+dCdx[3][2]+dCdx[4][2]+dCdx[5][2]+dCdx[6][2]+dCdx[7][2]);
 
     // normalize the set (mx,my,mz): |mx|+|my|+|mz| = 1 
     amrex::Real NOT_ZERO =1e-16;
@@ -148,7 +279,7 @@ void mixed_Youngs_centered (int i,
     m[3][0] = m[3][0]/t0;
     m[3][1] = m[3][1]/t0;
     m[3][2] = m[3][2]/t0;
-    // choose between the previous choice and Youngs-CIAM 
+    // choose between the previous choice and Youngs-PLIC 
     t0 = std::abs(m[3][0]);
     t1 = std::abs(m[3][1]);
     t2 = std::abs(m[3][2]);
@@ -180,16 +311,18 @@ amrex::Real volume_fraction_intercept  (int i,
 
     Real cch,c01,c02,c03,np1,np2,np3;
     Real m1,m2,m3,m12,numer,denom;
+    Real dx1,dx2,dx3;
 
-    // Define everything in a unit box (1x1x1)
     np1=std::abs(mxyz(i,j,k,0)*dx);
     np2=std::abs(mxyz(i,j,k,1)*dy);
     np3=std::abs(mxyz(i,j,k,2)*dz); 
+    // Sorting our the normals (from the smaller to the larger component).
+    // We need to re-arrange them so that m1*dx1<=m2*dx2<=m3*dx3
     m1=std::min(np1,np2);
     m3=std::max(np1,np2);
 
     if(np3<np1){
-        m2=m1; 
+        m2=m1;
         m1=np3;
     }
     else if(np3>=m3){
@@ -203,7 +336,7 @@ amrex::Real volume_fraction_intercept  (int i,
     Real eps0=1e-50;
     denom = std::max(6.*m1*m2*m3,eps0);                          
     cch = std::min(c(i,j,k),1.-c(i,j,k));  // limit to: 0 < cch < 1/2
-    c01 = m1*m1*m1/denom;                 // get cch ranges
+    c01 = m1*m1*m1/denom;                  // get cch ranges
     c02  = c01 + 0.5*(m2-m1)/m3;
     m12 = m1 + m2;
     if (m12 <= m3){
@@ -215,7 +348,8 @@ amrex::Real volume_fraction_intercept  (int i,
     Real alpha,p,q,pst,arc,csarc;
     // 1: C<=C1; 2: C1<=C<=C2; 3: C2<=C<=C3; 4: C3<=C<=1/2 (a: m12<=m3; b: m3<m12)) 
     if (cch <= c01){
-       alpha = std::pow(denom*cch,1./3.);  // case (1)
+       alpha = std::pow(denom*cch,1./3.);                          // case (1)
+       //amrex::Print()<<"alpha=  "<<alpha<<", denom =  "<<denom<<", cch = "<<cch<<std::endl;
     }else if (cch <= c02){
        alpha = 0.5*(m1 + std::sqrt(m1*m1 + 8.*m2*m3*(cch-c01)));  // case (2)
     }else if (cch <= c03){
@@ -240,7 +374,7 @@ amrex::Real volume_fraction_intercept  (int i,
     if (c(i,j,k)>0.5){ alpha = 1. - alpha;}
   
     // compute alpha for the given coefficients  
-    alpha = alpha + std::min(0.,mxyz(i,j,k,0)) + std::min(0.,mxyz(i,j,k,1)) + std::min(0.,mxyz(i,j,k,2));
+    alpha = alpha + std::min(0.,mxyz(i,j,k,0)*dx) + std::min(0.,mxyz(i,j,k,1)*dy) + std::min(0.,mxyz(i,j,k,2)*dz);
     return alpha;
 }
 
