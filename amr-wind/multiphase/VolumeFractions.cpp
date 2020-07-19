@@ -87,19 +87,14 @@ void Multiphase::reconstruct_volume()
         const auto& probhi = geom[lev].ProbHiArray();
 
         for (amrex::MFIter mfi(vof); mfi.isValid(); ++mfi) {
-            const auto& bx = mfi.tilebox();
-            const auto& normal_arr = normal.const_array(mfi);
-            const auto& fraction_arr = vof.array(mfi);
-            const auto& alpha_arr = intercept.const_array(mfi);
+            const auto& bx = mfi.growntilebox(-1);
+            const auto& mxyz = normal.const_array(mfi);
+            const auto& cc = vof.array(mfi);
+            const auto& alpha = intercept.const_array(mfi);
 
             amrex::ParallelFor(
                 bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-                    amrex::Real x0 = problo[0] + i * dx;
-                    amrex::Real y0 = problo[1] + j * dy;
-                    amrex::Real z0 = problo[2] + k * dz;
-                    compute_volume_fraction(
-                        i, j, k, x0, y0, z0, dx, dy, dz, normal_arr, alpha_arr,
-                        fraction_arr);
+                    cc(i,j,k)=FL3D(i, j, k, mxyz, alpha(i,j,k) ,0.0,1.0);
                 });
         }
     }
@@ -132,50 +127,86 @@ void Multiphase::do_clipping()
 
 void Multiphase::levelset2vof()
 {
-    // Precompute the volume fraction in cell using the normal vector 
-    precompute_volume_fractions_from_levelset();
-    do_clipping();
-    compute_interface_normal();
-    // Compute volume of fluid intercept
-    compute_fraction_intercept();
-    // Reconstruct the volume fractions
-    //reconstruct_volume();
-}
-
-void Multiphase::precompute_volume_fractions_from_levelset()
-{
+    // Convert level set phi to VOF function
     const int nlevels = m_sim.repo().num_active_levels();
     const auto& geom = m_sim.mesh().Geom();
-
+    /** We make our calculations from 1 to n-1 using growntilebox(-1)
+     *  1) Compute the normal vector mx,my,mz using the levelset function
+     *  2) Normalise the normal vector so that mx,my,mz>0 and mx+my+mz=1;
+     *  3) Shift alpha to origin
+     *  4) Get the fraction volume from alpha
+     *  5) Do clipping - make sure that Volume fraction are between 0 and 1
+    */
 
     for (int lev = 0; lev < nlevels; ++lev) {
       auto& vof = (*m_vof)(lev);
       auto& levelset = m_levelset(lev);
-      const amrex::Real dx = geom[lev].CellSize()[0];
-      const amrex::Real dy = geom[lev].CellSize()[1];
-      const amrex::Real dz = geom[lev].CellSize()[2];
+      auto& normal = m_normal(lev);
+      auto& intercept = m_intercept(lev);
 
       for (amrex::MFIter mfi(vof); mfi.isValid(); ++mfi) {
           const auto& bx = mfi.tilebox();
-          const auto& fraction_arr = vof.array(mfi);
-          const auto& phi_arr = levelset.array(mfi);
-
+          const auto& cc = vof.array(mfi);
+          const auto& ls = levelset.array(mfi);
+          const auto& mxyz = normal.array(mfi);
+          const auto& alpha_arr = intercept.array(mfi);
           amrex::ParallelFor(
               bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-                  amrex::Real Delta=std::sqrt(dx*dx+dy*dy+dz*dz); 
-                  amrex::Real ratio = std::abs(phi_arr(i,j,k)/Delta);
-                  if (phi_arr(i,j,k)>0.0 && ratio>1.0) {
-                      fraction_arr(i, j, k) = 1.0;
-                  } else if (phi_arr(i, j, k)>0.0 && ratio<1.0) {
-                      fraction_arr(i, j, k) = ratio+0.5;
-                  } else if (phi_arr(i,j,k)<0.0 && ratio<1.0){
-                      fraction_arr(i,j,k) = 0.5-ratio;
-                  } else if (phi_arr(i,j,k)<0.0 && ratio>1.0){
-                      fraction_arr(i,j,k) = 0.0;
+                 // Step (1) -- compute normals
+                 // Compute x-direction normal 
+                 amrex::Real mm1,mm2,mx,my,mz;
+                 mm1 =  ls(i-1,j-1,k-1)+ls(i-1,j-1,k+1)+ls(i-1,j+1,k-1)
+                        +ls(i-1,j+1,k+1)+2.0*(ls(i-1,j-1,k)+ls(i-1,j+1,k)
+                         +ls(i-1,j,k-1)+ls(i-1,j,k+1))+4.0*ls(i-1,j,k);
+                  mm2 = ls(i+1,j-1,k-1)+ls(i+1,j-1,k+1)+ls(i+1,j+1,k-1)
+                        +ls(i+1,j+1,k+1)+2.0*(ls(i+1,j-1,k)+ls(i+1,j+1,k)
+                        +ls(i+1,j,k-1)+ls(i+1,j,k+1))+4.0*ls(i+1,j,k);
+                  mx = (mm1 - mm2)/32.0;
+                 // Compute y-direction normal
+                  mm1 = ls(i-1,j-1,k-1)+ls(i-1,j-1,k+1)+ls(i+1,j-1,k-1)
+                        +ls(i+1,j-1,k+1)+2.0*(ls(i-1,j-1,k)+ls(i+1,j-1,k)
+                        +ls(i,j-1,k-1)+ls(i,j-1,k+1))+4.0*ls(i,j-1,k);
+                  mm2 = ls(i-1,j+1,k-1)+ls(i-1,j+1,k+1)+ls(i+1,j+1,k-1)
+                        +ls(i+1,j+1,k+1)+2.0*(ls(i-1,j+1,k)+ls(i+1,j+1,k)
+                        +ls(i,j+1,k-1)+ls(i,j+1,k+1))+4.0*ls(i,j+1,k);
+                  my = (mm1 - mm2)/32.0;
+                 // Compute z-direction normal
+                  mm1 = ls(i-1,j-1,k-1)+ls(i-1,j+1,k-1)+ls(i+1,j-1,k-1)
+                        +ls(i+1,j+1,k-1)+2.0*(ls(i-1,j,k-1)+ls(i+1,j,k-1)
+                        +ls(i,j-1,k-1)+ls(i,j+1,k-1))+4.0*ls(i,j,k-1);
+                  mm2 = ls(i-1,j-1,k+1)+ls(i-1,j+1,k+1)+ls(i+1,j-1,k+1)
+                         +ls(i+1,j+1,k+1)+2.0*(ls(i-1,j,k+1)+ls(i+1,j,k+1)
+                         +ls(i,j-1,k+1)+ls(i,j+1,k+1))+4.0*ls(i,j,k+1);
+                  mz = (mm1 - mm2)/32.0;
+                  // Step (2) 
+                  mx=std::abs(mx);
+                  my=std::abs(my);
+                  mz=std::abs(mz);
+                  amrex::Real normL1=mx+my+mz;
+                  mx=mx/normL1;
+                  my=my/normL1;
+                  mz=mz/normL1;
+
+                  mxyz(i,j,k,0)=mx;
+                  mxyz(i,j,k,1)=my;
+                  mxyz(i,j,k,2)=mz;
+
+                  amrex::Real alpha =ls(i,j,k)/normL1;
+                  alpha=alpha+0.50;
+
+                  alpha_arr(i,j,k)=alpha;
+
+                  if(alpha>=1.0){
+                      cc(i,j,k)=1.0;
+                  }else if (alpha<=0.0){
+                      cc(i,j,k)=0.0;
+                  }else{
+                      cc(i,j,k)=FL3D(i, j, k, mxyz, alpha, 0.0, 1.0);
                   }
               });
-      } 
-    } 
+        }
+    }
+    do_clipping();
 }
 
 } // namespace amr_wind

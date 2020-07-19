@@ -35,8 +35,6 @@ private:
 
     void levelset2vof();
 
-    void precompute_volume_fractions_from_levelset();
-
     void compute_surface_tension();
 
     void reconstruct_vof();
