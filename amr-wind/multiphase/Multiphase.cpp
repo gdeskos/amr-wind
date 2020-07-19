@@ -131,10 +131,10 @@ void Multiphase::post_advance_work()
     compute_interface_normal();
 
     // Compute volume of fluid intercept
-    //compute_fraction_intercept();
+    compute_fraction_intercept();
 
     // Reconstruct the volume fractions
-    // reconstruct_volume();
+    //reconstruct_volume();
 
     do_clipping();
 }

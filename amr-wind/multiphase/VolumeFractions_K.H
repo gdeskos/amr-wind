@@ -391,13 +391,42 @@ AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::Real volume_fraction_intercept(
     Real m1, m2, m3, m12, numer, denom;
     Real dx1, dx2, dx3;
 
-    np1 = std::abs(mxyz(i, j, k, 0) * dx);
-    np2 = std::abs(mxyz(i, j, k, 1) * dy);
-    np3 = std::abs(mxyz(i, j, k, 2) * dz);
-    // Sorting our the normals (from the smaller to the larger component).
+    np1 = std::abs(mxyz(i, j, k, 0));
+    np2 = std::abs(mxyz(i, j, k, 1));
+    np3 = std::abs(mxyz(i, j, k, 2));
+    // Sorting out the normals (from the smaller to the larger component).
     // We need to re-arrange them so that m1*dx1<=m2*dx2<=m3*dx3
     m1 = std::min(np1, np2);
     m3 = std::max(np1, np2);
+    //if(np1*dx>=np2*dy && np1*dx<np3*dz){
+    //    m1=np2; dx1=dy;
+    //    m2=np1; dx2=dx;
+    //    m3=np3; dx3=dz;
+    //}else if(np1*dx>=np3*dz && np1*dx<np2*dy){
+    //    m1=np3; dx1=dz;
+    //    m2=np1; dx2=dx;
+    //    m3=np2; dx3=dy;
+    //}else if(np2*dy>=np3*dz && np2*dy<np1*dx){
+    //    m1=np3; dx1=dz;
+    //    m2=np2; dx2=dy;
+    //    m3=np1; dx3=dx;
+    //}else if(np2*dy>=np1*dx && np2*dy<np3*dz){
+    //    m1=np1; dx1=dx;
+    //    m2=np2; dx2=dy;
+    //    m3=np3; dx3=dz;    
+    //}else if(np3*dz>=np1*dx && np3*dz<np2*dy){
+    //    m1=np1; dx1=dx;
+    //    m2=np3; dx2=dz;
+    //    m3=np2; dx3=dy;
+    //}else if(np3*dz>=np2*dy && np3*dz<np1*dx){
+    //    m1=np2; dx1=dy;
+    //    m2=np3; dx2=dz;
+    //    m3=np1; dx3=dx;
+    //}else{
+    //    m1=np1;m2=np2;m3=np3;
+    //    dx1=dx;dx2=dy;dx3=dz;
+    //}
+
 
     if (np3 < np1) {
         m2 = m1;
@@ -412,11 +441,11 @@ AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::Real volume_fraction_intercept(
     Real eps0 = 1e-50;
     denom = std::max(6. * m1 * m2 * m3, eps0);
     cch = std::min(c(i, j, k), 1. - c(i, j, k)); // limit to: 0 < cch < 1/2
-    c01 = m1 * m1 * m1 / denom;                  // get cch ranges
-    c02 = c01 + 0.5 * (m2 - m1) / m3;
-    m12 = m1 + m2;
+    c01 = m1 *m1 * m1 / denom;                  // get cch ranges
+    c02 = c01 + (m2*dx2 - m1*dx1) / std::max(2.0*m2*dx3,eps0);
+    m12 = m1*dx1 + m2*dx2;
     if (m12 <= m3) {
-        c03 = 0.5 * m12 / m3;
+        c03 = 0.5 * m12 / (m3*dx3);
     } else {
         numer = m3 * m3 * (3. * m12 - m3) + m1 * m1 * (m1 - 3. * m3) +
                 m2 * m2 * (m2 - 3. * m3);
@@ -432,10 +461,10 @@ AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::Real volume_fraction_intercept(
     } else if (cch <= c02) {
         alpha =
             0.5 *
-            (m1 + std::sqrt(m1 * m1 + 8. * m2 * m3 * (cch - c01))); // case (2)
+            (m1*dx1 + std::sqrt(m1 * m1*dx1*dx1 + 8. * m2*dx2 * m3*dx3 * (cch - c01))); // case (2)
     } else if (cch <= c03) {
-        p = 2. * m1 * m2;
-        q = 1.5 * m1 * m2 * (m12 - 2. * m3 * cch);
+        p = 2. * m1*dx1 * m2*dx2;
+        q = 1.5 * m1 *dx1* m2*dx2 * (m12 - 2. * m3*dx3 * cch);
         pst = std::sqrt(p);
         arc = 1. / 3. * std::acos(q / (p * pst));
         csarc = std::cos(arc);
@@ -443,10 +472,10 @@ AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::Real volume_fraction_intercept(
                 m12; //  case (3)
 
     } else if (m12 <= m3) {
-        alpha = m3 * cch + 0.5 * m12; // case (4a)
+        alpha = m3 *dx3* cch + 0.5 * m12; // case (4a)
     } else {
-        p = m12 * m3 + m1 * m2 - 0.25;
-        q = 1.5 * m1 * m2 * m3 * (0.5 - cch);
+        p = m12 * m3*dx3 + m1*dx1 * m2*dx2 - 0.25;
+        q = 1.5 * m1*dx1 * m2*dx2 * m3*dx3 * (0.5 - cch);
         pst = std::sqrt(p);
         arc = 1. / 3. * std::acos(q / (p * pst));
         csarc = std::cos(arc);
@@ -455,13 +484,13 @@ AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::Real volume_fraction_intercept(
     }
 
     if (c(i, j, k) > 0.5) {
-        alpha = 1. - alpha;
+        alpha = 1.0 - alpha;
     }
 
     // compute alpha for the given coefficients
-    alpha = alpha + std::min(0., mxyz(i, j, k, 0) * dx) +
-            std::min(0., mxyz(i, j, k, 1) * dy) +
-            std::min(0., mxyz(i, j, k, 2) * dz);
+    //alpha = alpha + std::min(0., mxyz(i, j, k, 0) * dx) +
+    //        std::min(0., mxyz(i, j, k, 1) * dy) +
+    //        std::min(0., mxyz(i, j, k, 2) * dz);
     return alpha;
 }
 

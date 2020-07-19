@@ -137,7 +137,7 @@ void Multiphase::levelset2vof()
     do_clipping();
     compute_interface_normal();
     // Compute volume of fluid intercept
-    //compute_fraction_intercept();
+    compute_fraction_intercept();
     // Reconstruct the volume fractions
     //reconstruct_volume();
 }
