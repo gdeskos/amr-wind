@@ -1,3 +1,4 @@
 CEXE_headers += vof.H
+CEXE_headers += VolumeFractions_K.H
 
 CEXE_sources += vof.cpp

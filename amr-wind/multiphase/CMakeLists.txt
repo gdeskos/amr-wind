@@ -7,7 +7,5 @@ target_sources(${amr_wind_lib_name}
     #Headers
     Multiphase.H
     SurfaceTension.H
-    VolumeFractions_K.H
-
 )
 
