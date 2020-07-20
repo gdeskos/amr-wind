@@ -15,7 +15,6 @@ AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE void mixed_Youngs_centered(
     amrex::Real dz,
     amrex::Array4<amrex::Real const> const& C,
     amrex::Array4<amrex::Real> const& mxyz) noexcept
-
 {
     amrex::Real c1, c2, c3; // Stencil coefficients for the differentiation
     amrex::Real m1, m2, m3, t0, t1, t2;
@@ -417,10 +416,12 @@ AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE void compute_normals(
           4.0 * c(i, j, k + 1);
     mz = mm1 - mm2;
 
+    amrex::Real mmag = std::sqrt(mx*mx+my*my+mz*mz);
+
     // Assign to array mxyz
-    mxyz(i, j, k, 0) = mx;
-    mxyz(i, j, k, 1) = my;
-    mxyz(i, j, k, 2) = mz;
+    mxyz(i, j, k, 0) = mx/mmag;
+    mxyz(i, j, k, 1) = my/mmag;
+    mxyz(i, j, k, 2) = mz/mmag;
 }
 /* Computes alpha: m1*x1 + m2* x2 + m3*x3 = alpha
  * given that m1+m2+m3=1 (m1,m2,m3>0) and the volumetric fraction cc
@@ -453,7 +454,7 @@ AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::Real AL3D(
         tmp = m1;
         m1 = m2;
         m2 = tmp;
-    } else if (m2 >= m3) {
+    } else if (m2 > m3) {
         tmp = m3;
         m3 = m2;
         m2 = tmp;
@@ -468,8 +469,7 @@ AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::Real AL3D(
     if (m3 < m12) {
         mm = m3;
         V3 = (m3 * m3 * (3.0 * m12 - m3) + m1 * m1 * (m1 - 3.0 * m3) +
-              m2 * m2 * (m2 - 3.0 * m3)) /
-             pr;
+              m2 * m2 * (m2 - 3.0 * m3)) / pr;
     } else {
         mm = m12;
         V3 = 0.5 * mm / m3;
@@ -490,7 +490,7 @@ AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::Real AL3D(
         teta = std::acos(q / (p * p12)) / 3.0;
         cs = std::cos(teta);
         AL3D = p12 * (std::sqrt(3.0 * (1.0 - cs * cs)) - cs) + m12;
-    } else if (m12 <= m3) {
+    } else if (m12 < m3) {
         AL3D = m3 * ch + 0.5 * mm;
     } else {
         p = m1 * (m2 + m3) + m2 * m3 - 0.25;

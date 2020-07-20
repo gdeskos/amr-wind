@@ -27,7 +27,7 @@ AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE void lagrangian_advection(
     amrex::Real const_tiny = std::numeric_limits<amrex::Real>::epsilon();
 
     if (d == 0) {
-        a1 = velocity(i, j, k) * dt / dx;
+        a1 = 0.5*(velocity(i-1, j, k)+velocity(i,j,l)) * dt / dx;
         a2 = velocity(i + 1, j, k) * dt / dx;
     } else if (d == 1) {
         a1 = velocity(i, j, k) * dt / dy;
@@ -49,10 +49,11 @@ AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE void lagrangian_advection(
 
         // (1) normal vector: mx,my,mz;
         //mixed_Youngs_centered<amr_wind::StencilInterior>(i, j, k, dx,dy,dz,cc, mxyz);
+        mxyz(i,j,k,0) = 0.0; mxyz(i,j,k,1) = 0.0; mxyz(i,j,k,2) = 0.0; 
         compute_normals(i,j,k,cc,mxyz);
 
         // (2) mx,my,mz>0. and mx+my+mz = 1.0;
-        amrex::Real mx, my, mz, invx, invy, invz;
+        amrex::Real mx, my, mz, invx, invy, invz, mmag;
         mx = mxyz(i, j, k, 0);
         my = mxyz(i, j, k, 1);
         mz = mxyz(i, j, k, 2);
@@ -150,4 +151,4 @@ AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE void apply_fluxes(
     // Apply BCs to the volume fractions cc
 }
 
-#endif // Sweep_K.H
+#endif // LAGRANGIAN_ADVECTION_K.H
