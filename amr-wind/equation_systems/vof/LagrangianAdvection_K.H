@@ -48,7 +48,8 @@ AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE void lagrangian_advection(
     } else if (cc(i, j, k) > 0.0) {
 
         // (1) normal vector: mx,my,mz;
-        compute_normals(i, j, k, cc, mxyz);
+        //mixed_Youngs_centered<amr_wind::StencilInterior>(i, j, k, dx,dy,dz,cc, mxyz);
+        compute_normals(i,j,k,cc,mxyz);
 
         // (2) mx,my,mz>0. and mx+my+mz = 1.0;
         amrex::Real mx, my, mz, invx, invy, invz;
@@ -76,9 +77,7 @@ AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE void lagrangian_advection(
         mx = mx / mm2;
         my = my / mm2;
         mz = mz / mm2;
-        mxyz(i, j, k, 0) = mx;
-        mxyz(i, j, k, 1) = my;
-        mxyz(i, j, k, 2) = mz;
+        
         amrex::Real alpha = AL3D(i, j, k, mxyz, cc);
         // (4) Back to original plane
         mx = invx * mx;
