@@ -419,9 +419,9 @@ AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE void compute_normals(
     amrex::Real mmag = std::sqrt(mx*mx+my*my+mz*mz);
 
     // Assign to array mxyz
-    mxyz(i, j, k, 0) = mx/mmag;
-    mxyz(i, j, k, 1) = my/mmag;
-    mxyz(i, j, k, 2) = mz/mmag;
+    mxyz(i, j, k, 0) = mx;
+    mxyz(i, j, k, 1) = my;
+    mxyz(i, j, k, 2) = mz;
 }
 /* Computes alpha: m1*x1 + m2* x2 + m3*x3 = alpha
  * given that m1+m2+m3=1 (m1,m2,m3>0) and the volumetric fraction cc

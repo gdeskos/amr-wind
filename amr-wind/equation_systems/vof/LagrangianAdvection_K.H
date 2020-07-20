@@ -23,18 +23,18 @@ AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE void lagrangian_advection(
     amrex::Array4<amrex::Real const> const& velocity,
     amrex::Array4<amrex::Real> const& cc) noexcept
 {
-    amrex::Real a1, a2;
+    amrex::Real aL, aR;
     amrex::Real const_tiny = std::numeric_limits<amrex::Real>::epsilon();
 
     if (d == 0) {
-        a1 = 0.5*(velocity(i-1, j, k)+velocity(i,j,l)) * dt / dx;
-        a2 = velocity(i + 1, j, k) * dt / dx;
+        aL = velocity(i, j, k) * dt / dx;
+        aR = velocity(i + 1, j, k) * dt / dx;
     } else if (d == 1) {
-        a1 = velocity(i, j, k) * dt / dy;
-        a2 = velocity(i, j + 1, k) * dt / dy;
+        aL = velocity(i, j, k) * dt / dy;
+        aR = velocity(i, j + 1, k) * dt / dy;
     } else if (d == 2) {
-        a1 = velocity(i, j, k) * dt / dz;
-        a2 = velocity(i, j, k + 1) * dt / dz;
+        aL = velocity(i, j, k) * dt / dz;
+        aR = velocity(i, j, k + 1) * dt / dz;
     }
     // 3 cases: 1: DEFAULT (c=0.0 and fluxes=0.0); 2: c=1.0; 3: c>0.0
     flux(i, j, k, 0) = 0.0;
@@ -42,9 +42,9 @@ AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE void lagrangian_advection(
     flux(i, j, k, 2) = 0.0;
 
     if (cc(i, j, k) > 1.0 - const_tiny) {
-        flux(i, j, k, 0) = std::max(-a1, 0.0);
-        flux(i, j, k, 1) = 1.0 - std::max(a1, 0.0) + std::min(a2, 0.0);
-        flux(i, j, k, 2) = std::max(a2, 0.0);
+        flux(i, j, k, 0) = std::max(-aL, 0.0);
+        flux(i, j, k, 1) = 1.0 - std::max(aL, 0.0) + std::min(aR, 0.0);
+        flux(i, j, k, 2) = std::max(aR, 0.0);
     } else if (cc(i, j, k) > 0.0) {
 
         // (1) normal vector: mx,my,mz;
@@ -88,36 +88,36 @@ AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE void lagrangian_advection(
             alpha + std::min(0.0, mx) + std::min(0.0, my) + std::min(0.0, mz);
 
         // (5) Lagrangian Advection
-        amrex::Real mm1 = std::max(a1, 0.0);
-        mm2 = 1.0 - mm1 + std::min(0.0, a2);
+        amrex::Real mm1 = std::max(aL, 0.0);
+        mm2 = 1.0 - mm1 + std::min(0.0, aR);
         if (d == 0) {
-            mx = mx / (1.0 - a1 + a2);
-            alpha = alpha + mx * a1;
-            if (a1 < 0.0) {
-                flux(i, j, k, 0) = FL3D(i, j, k, mx, my, mz, alpha, a1, -a1);
+            mx = mx / (1.0 - aL + aR);
+            alpha = alpha + mx * aL;
+            if (aL < 0.0) {
+                flux(i, j, k, 0) = FL3D(i, j, k, mx, my, mz, alpha, aL, -aL);
             }
-            if (a2 > 0.0) {
-                flux(i, j, k, 2) = FL3D(i, j, k, mx, my, mz, alpha, 1.0, a2);
+            if (aR > 0.0) {
+                flux(i, j, k, 2) = FL3D(i, j, k, mx, my, mz, alpha, 1.0, aR);
                 flux(i, j, k, 1) = FL3D(i, j, k, mx, my, mz, alpha, mm1, mm2);
             }
         } else if (d == 1) {
-            my = my / (1.0 - a1 + a2);
-            alpha = alpha + my * a1;
-            if (a1 < 0.0) {
-                flux(i, j, k, 0) = FL3D(i, j, k, my, mz, mx, alpha, a1, -a1);
+            my = my / (1.0 - aL + aR);
+            alpha = alpha + my * aL;
+            if (aL < 0.0) {
+                flux(i, j, k, 0) = FL3D(i, j, k, my, mz, mx, alpha, aL, -aL);
             }
-            if (a2 > 0.0) {
-                flux(i, j, k, 2) = FL3D(i, j, k, my, mz, mx, alpha, 1.0, a2);
+            if (aR > 0.0) {
+                flux(i, j, k, 2) = FL3D(i, j, k, my, mz, mx, alpha, 1.0, aR);
                 flux(i, j, k, 1) = FL3D(i, j, k, my, mz, mx, alpha, mm1, mm2);
             }
         } else if (d == 2) {
-            mz = mz / (1.0 - a1 + a2);
-            alpha = alpha + mz * a1;
-            if (a1 < 0.0) {
-                flux(i, j, k, 0) = FL3D(i, j, k, mz, mx, my, alpha, a1, -a1);
+            mz = mz / (1.0 - aL + aR);
+            alpha = alpha + mz * aL;
+            if (aL < 0.0) {
+                flux(i, j, k, 0) = FL3D(i, j, k, mz, mx, my, alpha, aL, -aL);
             }
-            if (a2 > 0.0) {
-                flux(i, j, k, 2) = FL3D(i, j, k, mz, mx, my, alpha, 1.0, a2);
+            if (aR > 0.0) {
+                flux(i, j, k, 2) = FL3D(i, j, k, mz, mx, my, alpha, 1.0, aR);
                 flux(i, j, k, 1) = FL3D(i, j, k, mz, mx, my, alpha, mm1, mm2);
             }
         }

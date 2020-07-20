@@ -98,17 +98,13 @@ void Multiphase::post_init_actions()
     // From levelset to vof
     levelset2vof();
 
-    m_normal.fillpatch(time);
-
     BCSrcTerm bc_normal(m_normal);
     bc_normal();
     BCSrcTerm bc_curv(m_curvature);
     bc_curv();
     BCSrcTerm bc_surface_tension(m_surface_tension);
     bc_surface_tension();
-    
      
- 
     const int nlevels = m_sim.repo().num_active_levels();
     const auto& geom = m_sim.mesh().Geom();
     for (int lev = 0; lev < nlevels; ++lev) {
@@ -121,7 +117,7 @@ void Multiphase::pre_advance_work()
     const auto& time = m_sim.time().current_time();
 
     (*m_vof).fillpatch(time);
-
+    
     const int nlevels = m_sim.repo().num_active_levels();
     const auto& geom = m_sim.mesh().Geom();
 

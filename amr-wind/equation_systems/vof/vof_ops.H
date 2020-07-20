@@ -92,7 +92,7 @@ public:
             const amrex::Real dy = geom[lev].CellSize()[1];
             const amrex::Real dz = geom[lev].CellSize()[2];
             for (amrex::MFIter mfi(field(lev)); mfi.isValid(); ++mfi) {
-                const auto& bx = mfi.tilebox();
+                const auto& vbx = mfi.validbox();
                 auto vof = field(lev).array(mfi);
                 const auto vof_o = field_old(lev).const_array(mfi);
                 const auto ddt_o = conv_term(lev).const_array(mfi);
@@ -103,29 +103,29 @@ public:
                 const auto uz = w_mac(lev).const_array(mfi);
                 // X-direction
                 amrex::ParallelFor(
-                    bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+                    vbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
                         lagrangian_advection(i, j, k, 0, dt, dx, dy, dz, mxyz, flux, ux,vof);
                     });
                 amrex::ParallelFor(
-                    bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {        
+                    vbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {        
                     apply_fluxes(i, j, k, 0, flux, vof);
                     });
                 // Y-direction 
                 amrex::ParallelFor(
-                    bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+                    vbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
                         lagrangian_advection(i, j, k, 1, dt, dx, dy, dz, mxyz, flux, uy,vof);
                     });
                 amrex::ParallelFor(
-                    bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {        
+                    vbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {        
                     apply_fluxes(i, j, k, 1, flux, vof);
                     });
                 // Z-direction
                 amrex::ParallelFor(
-                    bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+                    vbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
                         lagrangian_advection(i, j, k, 2, dt, dx, dy, dz, mxyz, flux, uz, vof);
                     });
                 amrex::ParallelFor(
-                    bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {        
+                    vbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {        
                     apply_fluxes(i, j, k, 2, flux, vof);
                     });
                     //vof(i, j, k) = vof_o(i, j, k) + dt * ddt_o(i, j, k);

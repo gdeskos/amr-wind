@@ -47,11 +47,11 @@ void Multiphase::do_clipping()
         auto& vof = (*m_vof)(lev);
 
         for (amrex::MFIter mfi(vof); mfi.isValid(); ++mfi) {
-            const auto& bx = mfi.tilebox();
+            const auto& vbx = mfi.validbox();
             const auto& fraction_arr = vof.array(mfi);
 
             amrex::ParallelFor(
-                bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+                vbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
                     amrex::Real eps = 1e-8;
                     if (fraction_arr(i, j, k) < eps) {
                         fraction_arr(i, j, k) = 0.0;
@@ -82,25 +82,33 @@ void Multiphase::levelset2vof()
       auto& normal = m_normal(lev);
       auto& intercept = m_intercept(lev);
 
+      const amrex::Real dx = geom[lev].CellSize()[0];
+      const amrex::Real dy = geom[lev].CellSize()[1];
+      const amrex::Real dz = geom[lev].CellSize()[2];
+
+      const amrex::Real idx = 1.0 / dx;
+      const amrex::Real idy = 1.0 / dy;
+      const amrex::Real idz = 1.0 / dz;
+
       for (amrex::MFIter mfi(levelset); mfi.isValid(); ++mfi) {
-          const auto& bx = mfi.tilebox();
+          const auto& vbx = mfi.validbox();
           const auto& cc = vof.array(mfi);
           const auto& ls = levelset.array(mfi);
           const auto& mxyz = normal.array(mfi);
           const auto& alpha_arr = intercept.array(mfi);
           amrex::ParallelFor(
-              bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-                 // Step (1) -- compute normals
-                 // Compute x-direction normal 
-                 amrex::Real mm1,mm2,mx,my,mz;
-                 mm1 =  ls(i-1,j-1,k-1)+ls(i-1,j-1,k+1)+ls(i-1,j+1,k-1)
+              vbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+                  // Step (1) -- compute normals
+                  // Compute x-direction normal 
+                  amrex::Real mm1,mm2,mx,my,mz;
+                  mm1 =  ls(i-1,j-1,k-1)+ls(i-1,j-1,k+1)+ls(i-1,j+1,k-1)
                         +ls(i-1,j+1,k+1)+2.0*(ls(i-1,j-1,k)+ls(i-1,j+1,k)
                         +ls(i-1,j,k-1)+ls(i-1,j,k+1))+4.0*ls(i-1,j,k);
                   mm2 = ls(i+1,j-1,k-1)+ls(i+1,j-1,k+1)+ls(i+1,j+1,k-1)
                         +ls(i+1,j+1,k+1)+2.0*(ls(i+1,j-1,k)+ls(i+1,j+1,k)
                         +ls(i+1,j,k-1)+ls(i+1,j,k+1))+4.0*ls(i+1,j,k);
                   mx = (mm1 - mm2)/32.0;
-                 // Compute y-direction normal
+                  // Compute y-direction normal
                   mm1 = ls(i-1,j-1,k-1)+ls(i-1,j-1,k+1)+ls(i+1,j-1,k-1)
                         +ls(i+1,j-1,k+1)+2.0*(ls(i-1,j-1,k)+ls(i+1,j-1,k)
                         +ls(i,j-1,k-1)+ls(i,j-1,k+1))+4.0*ls(i,j-1,k);
@@ -108,7 +116,7 @@ void Multiphase::levelset2vof()
                         +ls(i+1,j+1,k+1)+2.0*(ls(i-1,j+1,k)+ls(i+1,j+1,k)
                         +ls(i,j+1,k-1)+ls(i,j+1,k+1))+4.0*ls(i,j+1,k);
                   my = (mm1 - mm2)/32.0;
-                 // Compute z-direction normal
+                  // Compute z-direction normal
                   mm1 = ls(i-1,j-1,k-1)+ls(i-1,j+1,k-1)+ls(i+1,j-1,k-1)
                         +ls(i+1,j+1,k-1)+2.0*(ls(i-1,j,k-1)+ls(i+1,j,k-1)
                         +ls(i,j-1,k-1)+ls(i,j+1,k-1))+4.0*ls(i,j,k-1);
@@ -116,6 +124,11 @@ void Multiphase::levelset2vof()
                         +ls(i+1,j+1,k+1)+2.0*(ls(i-1,j,k+1)+ls(i+1,j,k+1)
                         +ls(i,j-1,k+1)+ls(i,j+1,k+1))+4.0*ls(i,j,k+1);
                   mz = (mm1 - mm2)/32.0;
+                  
+                  mxyz(i,j,k,0)=mx;  
+                  mxyz(i,j,k,1)=my;  
+                  mxyz(i,j,k,2)=mz;  
+                  
                   // Step (2) 
                   mx=std::abs(mx);
                   my=std::abs(my);
@@ -124,11 +137,7 @@ void Multiphase::levelset2vof()
                   mx=mx/normL1;
                   my=my/normL1;
                   mz=mz/normL1;
-
-                  mxyz(i,j,k,0)=mx;
-                  mxyz(i,j,k,1)=my;
-                  mxyz(i,j,k,2)=mz;
-
+                  
                   amrex::Real alpha = ls(i,j,k)/normL1;
                   alpha=alpha+0.50;
 
