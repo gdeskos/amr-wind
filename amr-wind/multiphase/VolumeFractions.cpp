@@ -10,95 +10,33 @@ namespace amr_wind {
 /** Computes the normal vector based on the mixed-Youngs centered (MYC) method
  *  The implementation follows that of Aulisa et al. 2007
  */
-void Multiphase::compute_interface_normal()
-{
-
-    const int nlevels = m_sim.repo().num_active_levels();
-    const auto& geom = m_sim.mesh().Geom();
-
-    for (int lev = 0; lev < nlevels; ++lev) {
-
-        auto& vof = (*m_vof)(lev);
-        auto& normal = m_normal(lev);
-        const amrex::Real dx = geom[lev].CellSize()[0];
-        const amrex::Real dy = geom[lev].CellSize()[1];
-        const amrex::Real dz = geom[lev].CellSize()[2];
-
-        for (amrex::MFIter mfi(vof); mfi.isValid(); ++mfi) {
-            const auto& bx = mfi.tilebox();
-            const auto& normal_arr = normal.array(mfi);
-            const auto& fraction_arr = vof.const_array(mfi);
-
-            amrex::ParallelFor(
-                bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-                    mixed_Youngs_centered<StencilInterior>(
-                        i, j, k, dx, dy, dz, fraction_arr, normal_arr);
-                });
-        }
-    }
-}
-
-void Multiphase::compute_fraction_intercept()
-{
-    /** Computes the fraction intercept alpha
-     */
-
-    const int nlevels = m_sim.repo().num_active_levels();
-    const auto& geom = m_sim.mesh().Geom();
-
-    for (int lev = 0; lev < nlevels; ++lev) {
-
-        auto& vof = (*m_vof)(lev);
-        auto& normal = m_normal(lev);
-        auto& intercept = m_intercept(lev);
-        const amrex::Real dx = geom[lev].CellSize()[0];
-        const amrex::Real dy = geom[lev].CellSize()[1];
-        const amrex::Real dz = geom[lev].CellSize()[2];
-
-        for (amrex::MFIter mfi(vof); mfi.isValid(); ++mfi) {
-            const auto& bx = mfi.tilebox();
-            const auto& normal_arr = normal.const_array(mfi);
-            const auto& fraction_arr = vof.const_array(mfi);
-            const auto& alpha_arr = intercept.array(mfi);
-            amrex::ParallelFor(
-                bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-                    alpha_arr(i, j, k) = volume_fraction_intercept(
-                        i, j, k, dx, dy, dz, fraction_arr, normal_arr);
-                });
-        }
-    }
-}
-
-void Multiphase::reconstruct_volume()
-{
-
-    const int nlevels = m_sim.repo().num_active_levels();
-    const auto& geom = m_sim.mesh().Geom();
-
-    for (int lev = 0; lev < nlevels; ++lev) {
-
-        auto& vof = (*m_vof)(lev);
-        auto& normal = m_normal(lev);
-        auto& intercept = m_intercept(lev);
-        const amrex::Real dx = geom[lev].CellSize()[0];
-        const amrex::Real dy = geom[lev].CellSize()[1];
-        const amrex::Real dz = geom[lev].CellSize()[2];
-        const auto& problo = geom[lev].ProbLoArray();
-        const auto& probhi = geom[lev].ProbHiArray();
-
-        for (amrex::MFIter mfi(vof); mfi.isValid(); ++mfi) {
-            const auto& bx = mfi.growntilebox(-1);
-            const auto& mxyz = normal.const_array(mfi);
-            const auto& cc = vof.array(mfi);
-            const auto& alpha = intercept.const_array(mfi);
-
-            amrex::ParallelFor(
-                bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-                    cc(i,j,k)=FL3D(i, j, k, mxyz, alpha(i,j,k) ,0.0,1.0);
-                });
-        }
-    }
-}
+//void Multiphase::compute_interface_normal()
+//{
+//
+//    const int nlevels = m_sim.repo().num_active_levels();
+//    const auto& geom = m_sim.mesh().Geom();
+//
+//    for (int lev = 0; lev < nlevels; ++lev) {
+//
+//        auto& vof = (*m_vof)(lev);
+//        auto& normal = m_normal(lev);
+//        const amrex::Real dx = geom[lev].CellSize()[0];
+//        const amrex::Real dy = geom[lev].CellSize()[1];
+//        const amrex::Real dz = geom[lev].CellSize()[2];
+//
+//        for (amrex::MFIter mfi(vof); mfi.isValid(); ++mfi) {
+//            const auto& bx = mfi.tilebox();
+//            const auto& normal_arr = normal.array(mfi);
+//            const auto& fraction_arr = vof.const_array(mfi);
+//
+//            amrex::ParallelFor(
+//                bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+//                    mixed_Youngs_centered<StencilInterior>(
+//                        i, j, k, dx, dy, dz, fraction_arr, normal_arr);
+//                });
+//        }
+//    }
+//}
 
 void Multiphase::do_clipping()
 {
@@ -144,7 +82,7 @@ void Multiphase::levelset2vof()
       auto& normal = m_normal(lev);
       auto& intercept = m_intercept(lev);
 
-      for (amrex::MFIter mfi(vof); mfi.isValid(); ++mfi) {
+      for (amrex::MFIter mfi(levelset); mfi.isValid(); ++mfi) {
           const auto& bx = mfi.tilebox();
           const auto& cc = vof.array(mfi);
           const auto& ls = levelset.array(mfi);
@@ -157,7 +95,7 @@ void Multiphase::levelset2vof()
                  amrex::Real mm1,mm2,mx,my,mz;
                  mm1 =  ls(i-1,j-1,k-1)+ls(i-1,j-1,k+1)+ls(i-1,j+1,k-1)
                         +ls(i-1,j+1,k+1)+2.0*(ls(i-1,j-1,k)+ls(i-1,j+1,k)
-                         +ls(i-1,j,k-1)+ls(i-1,j,k+1))+4.0*ls(i-1,j,k);
+                        +ls(i-1,j,k-1)+ls(i-1,j,k+1))+4.0*ls(i-1,j,k);
                   mm2 = ls(i+1,j-1,k-1)+ls(i+1,j-1,k+1)+ls(i+1,j+1,k-1)
                         +ls(i+1,j+1,k+1)+2.0*(ls(i+1,j-1,k)+ls(i+1,j+1,k)
                         +ls(i+1,j,k-1)+ls(i+1,j,k+1))+4.0*ls(i+1,j,k);
@@ -175,8 +113,8 @@ void Multiphase::levelset2vof()
                         +ls(i+1,j+1,k-1)+2.0*(ls(i-1,j,k-1)+ls(i+1,j,k-1)
                         +ls(i,j-1,k-1)+ls(i,j+1,k-1))+4.0*ls(i,j,k-1);
                   mm2 = ls(i-1,j-1,k+1)+ls(i-1,j+1,k+1)+ls(i+1,j-1,k+1)
-                         +ls(i+1,j+1,k+1)+2.0*(ls(i-1,j,k+1)+ls(i+1,j,k+1)
-                         +ls(i,j-1,k+1)+ls(i,j+1,k+1))+4.0*ls(i,j,k+1);
+                        +ls(i+1,j+1,k+1)+2.0*(ls(i-1,j,k+1)+ls(i+1,j,k+1)
+                        +ls(i,j-1,k+1)+ls(i,j+1,k+1))+4.0*ls(i,j,k+1);
                   mz = (mm1 - mm2)/32.0;
                   // Step (2) 
                   mx=std::abs(mx);
@@ -191,7 +129,7 @@ void Multiphase::levelset2vof()
                   mxyz(i,j,k,1)=my;
                   mxyz(i,j,k,2)=mz;
 
-                  amrex::Real alpha =ls(i,j,k)/normL1;
+                  amrex::Real alpha = ls(i,j,k)/normL1;
                   alpha=alpha+0.50;
 
                   alpha_arr(i,j,k)=alpha;
@@ -201,7 +139,7 @@ void Multiphase::levelset2vof()
                   }else if (alpha<=0.0){
                       cc(i,j,k)=0.0;
                   }else{
-                      cc(i,j,k)=FL3D(i, j, k, mxyz, alpha, 0.0, 1.0);
+                      cc(i,j,k)=FL3D(i, j, k, mx, my, mz,alpha, 0.0, 1.0);
                   }
               });
         }

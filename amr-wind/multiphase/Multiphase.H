@@ -37,14 +37,6 @@ private:
 
     void compute_surface_tension();
 
-    void reconstruct_vof();
-
-    void compute_interface_normal();
-
-    void compute_fraction_intercept();
-
-    void reconstruct_volume();
-
     void do_clipping();
 
     Field& m_density;

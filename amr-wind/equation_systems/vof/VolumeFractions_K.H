@@ -372,126 +372,129 @@ AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE void mixed_Youngs_centered(
     mxyz(i, j, k, 2) = m[cn][2];
 }
 
-/* Computes alpha from a volume fraction F and the surface outward normal vector
- * m=(m1,m2,m3)^T
- */
-AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::Real volume_fraction_intercept(
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE void compute_normals(
     int i,
     int j,
     int k,
-    amrex::Real dx,
-    amrex::Real dy,
-    amrex::Real dz,
     amrex::Array4<amrex::Real const> const& c,
-    amrex::Array4<amrex::Real const> const& mxyz) noexcept
+    amrex::Array4<amrex::Real> const& mxyz) noexcept
+{
+    amrex::Real mm1,mm2,mx,my,mz; 
+
+    mm1 = c(i-1,j-1,k-1)+c(i-1,j-1,k+1)+c(i-1,j+1,k-1)
+         +c(i-1,j+1,k+1)+2.0*(c(i-1,j-1,k)+c(i-1,j+1,k)
+         +c(i-1,j,k-1)+c(i-1,j,k+1))+4.0*c(i-1,j,k);
+    mm2 = c(i+1,j-1,k-1)+c(i+1,j-1,k+1)+c(i+1,j+1,k-1)
+         +c(i+1,j+1,k+1)+2.0*(c(i+1,j-1,k)+c(i+1,j+1,k)
+         +c(i+1,j,k-1)+c(i+1,j,k+1))+4.0*c(i+1,j,k);
+    mx = mm1 - mm2;
+    
+    mm1 = c(i-1,j-1,k-1)+c(i-1,j-1,k+1)+c(i+1,j-1,k-1)
+         +c(i+1,j-1,k+1)+2.0*(c(i-1,j-1,k)+c(i+1,j-1,k)
+         +c(i,j-1,k-1)+c(i,j-1,k+1))+4.0*c(i,j-1,k);
+    mm2 = c(i-1,j+1,k-1)+c(i-1,j+1,k+1)+c(i+1,j+1,k-1)
+         +c(i+1,j+1,k+1)+2.0*(c(i-1,j+1,k)+c(i+1,j+1,k)
+         +c(i,j+1,k-1)+c(i,j+1,k+1))+4.0*c(i,j+1,k);
+    my = mm1 - mm2;
+    
+    mm1 = c(i-1,j-1,k-1)+c(i-1,j+1,k-1)+c(i+1,j-1,k-1)
+         +c(i+1,j+1,k-1)+2.0*(c(i-1,j,k-1)+c(i+1,j,k-1)
+         +c(i,j-1,k-1)+c(i,j+1,k-1))+4.0*c(i,j,k-1);
+    mm2 = c(i-1,j-1,k+1)+c(i-1,j+1,k+1)+c(i+1,j-1,k+1)
+         +c(i+1,j+1,k+1)+2.0*(c(i-1,j,k+1)+c(i+1,j,k+1)
+         +c(i,j-1,k+1)+c(i,j+1,k+1))+4.0*c(i,j,k+1);
+    mz = mm1 - mm2;
+
+    // Assign to array mxyz
+    mxyz(i,j,k,0)=mx;
+    mxyz(i,j,k,1)=my;
+    mxyz(i,j,k,2)=mz;
+
+}
+/* Computes alpha: m1*x1 + m2* x2 + m3*x3 = alpha
+ * given that m1+m2+m3=1 (m1,m2,m3>0) and the volumetric fraction cc
+ */
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::Real AL3D(
+    int i,
+    int j,
+    int k,
+    amrex::Array4<amrex::Real const> const& mxyz,
+    amrex::Array4<amrex::Real const> const& cc) noexcept
 {
     using namespace amrex;
 
-    Real cch, c01, c02, c03, np1, np2, np3;
-    Real m1, m2, m3, m12, numer, denom;
-    Real dx1, dx2, dx3;
+    amrex::Real const_tiny = std::numeric_limits<amrex::Real>::epsilon();
+    amrex::Real b1=mxyz(i,j,k,0);
+    amrex::Real b2=mxyz(i,j,k,1);
+    amrex::Real b3=mxyz(i,j,k,2);
+    // (1) order coefficients: m1<m2<m3; 
+    // (2) get ranges: V1<V2<v3;
+    // (3) limit ch (0.d0 < ch < 0.5d0); 
+    // (4) calculate alpha
 
-    np1 = std::abs(mxyz(i, j, k, 0));
-    np2 = std::abs(mxyz(i, j, k, 1));
-    np3 = std::abs(mxyz(i, j, k, 2));
-    // Sorting out the normals (from the smaller to the larger component).
-    // We need to re-arrange them so that m1*dx1<=m2*dx2<=m3*dx3
-    m1 = std::min(np1, np2);
-    m3 = std::max(np1, np2);
-    //if(np1*dx>=np2*dy && np1*dx<np3*dz){
-    //    m1=np2; dx1=dy;
-    //    m2=np1; dx2=dx;
-    //    m3=np3; dx3=dz;
-    //}else if(np1*dx>=np3*dz && np1*dx<np2*dy){
-    //    m1=np3; dx1=dz;
-    //    m2=np1; dx2=dx;
-    //    m3=np2; dx3=dy;
-    //}else if(np2*dy>=np3*dz && np2*dy<np1*dx){
-    //    m1=np3; dx1=dz;
-    //    m2=np2; dx2=dy;
-    //    m3=np1; dx3=dx;
-    //}else if(np2*dy>=np1*dx && np2*dy<np3*dz){
-    //    m1=np1; dx1=dx;
-    //    m2=np2; dx2=dy;
-    //    m3=np3; dx3=dz;    
-    //}else if(np3*dz>=np1*dx && np3*dz<np2*dy){
-    //    m1=np1; dx1=dx;
-    //    m2=np3; dx2=dz;
-    //    m3=np2; dx3=dy;
-    //}else if(np3*dz>=np2*dy && np3*dz<np1*dx){
-    //    m1=np2; dx1=dy;
-    //    m2=np3; dx2=dz;
-    //    m3=np1; dx3=dx;
-    //}else{
-    //    m1=np1;m2=np2;m3=np3;
-    //    dx1=dx;dx2=dy;dx3=dz;
-    //}
+    amrex::Real m1,m2,m3;
+    m1 = std::min(b1, b2);
+    m3 = std::max(b1, b2);
+    m2 = b3;
 
-
-    if (np3 < np1) {
-        m2 = m1;
-        m1 = np3;
-    } else if (np3 >= m3) {
-        m2 = m3;
-        m3 = np3;
-    } else {
-        m2 = np3;
+    amrex::Real tmp; 
+    if (m2 < m1) {
+        tmp = m1;
+        m1  = m2;
+        m2  = tmp;
+    } else if (m2 >= m3) {
+        tmp = m3;
+        m3 = m2;
+        m2 = tmp;
+    }
+    
+    amrex::Real m12 = m1 + m2;
+    amrex::Real pr = std::max(6. * m1 * m2 * m3, const_tiny);
+    amrex::Real V1 = m1 * m1 * m1 / pr;
+    amrex::Real V2 = V1 + 0.5* ( m2 - m1) / m3;
+    
+    amrex::Real mm,V3;
+    if (m3 < m12){
+        mm = m3;
+        V3 = (m3*m3*(3.0*m12-m3) + m1*m1*(m1-3.0*m3) +
+              m2*m2*(m2-3.0*m3))/pr;
+    }else{
+        mm = m12;
+        V3 = 0.5*mm/m3;
     }
 
-    Real eps0 = 1e-50;
-    denom = std::max(6. * m1 * m2 * m3, eps0);
-    cch = std::min(c(i, j, k), 1. - c(i, j, k)); // limit to: 0 < cch < 1/2
-    c01 = m1 *m1 * m1 / denom;                  // get cch ranges
-    c02 = c01 + (m2*dx2 - m1*dx1) / std::max(2.0*m2*dx3,eps0);
-    m12 = m1*dx1 + m2*dx2;
-    if (m12 <= m3) {
-        c03 = 0.5 * m12 / (m3*dx3);
-    } else {
-        numer = m3 * m3 * (3. * m12 - m3) + m1 * m1 * (m1 - 3. * m3) +
-                m2 * m2 * (m2 - 3. * m3);
-        c03 = numer / denom;
-    }
-    Real alpha, p, q, pst, arc, csarc;
-    // 1: C<=C1; 2: C1<=C<=C2; 3: C2<=C<=C3; 4: C3<=C<=1/2 (a: m12<=m3; b:
-    // m3<m12))
-    if (cch <= c01) {
-        alpha = std::pow(denom * cch, 1. / 3.); // case (1)
-        // amrex::Print()<<"alpha=  "<<alpha<<", denom =  "<<denom<<", cch =
-        // "<<cch<<std::endl;
-    } else if (cch <= c02) {
-        alpha =
-            0.5 *
-            (m1*dx1 + std::sqrt(m1 * m1*dx1*dx1 + 8. * m2*dx2 * m3*dx3 * (cch - c01))); // case (2)
-    } else if (cch <= c03) {
-        p = 2. * m1*dx1 * m2*dx2;
-        q = 1.5 * m1 *dx1* m2*dx2 * (m12 - 2. * m3*dx3 * cch);
-        pst = std::sqrt(p);
-        arc = 1. / 3. * std::acos(q / (p * pst));
-        csarc = std::cos(arc);
-        alpha = pst * (std::sqrt(3. * (1. - csarc * csarc)) - csarc) +
-                m12; //  case (3)
-
+    amrex::Real ch=std::min(cc(i,j,k),1.0-cc(i,j,k));
+    
+    // Original method
+    amrex::Real AL3D, p, q, p12, teta, cs; 
+    if (ch < V1) {
+        AL3D = std::pow(pr * ch, 1. / 3.); // case (1)
+    } else if (ch < V2) {
+        AL3D = 0.50*(m1 + std::sqrt(m1*m1 + 8.0*m2*m3*(ch-V1))); 
+    } else if (ch < V3) {
+        p = 2.0*m1*m2;
+        q = 1.5*m1*m2*(m12 - 2.0*m3*ch);
+        p12 = std::sqrt(p);
+        teta = std::acos(q/(p*p12))/3.0;
+        cs = std::cos(teta);
+        AL3D = p12*(std::sqrt(3.0*(1.0-cs*cs)) - cs) + m12;
     } else if (m12 <= m3) {
-        alpha = m3 *dx3* cch + 0.5 * m12; // case (4a)
+        AL3D = m3*ch + 0.5*mm;
     } else {
-        p = m12 * m3*dx3 + m1*dx1 * m2*dx2 - 0.25;
-        q = 1.5 * m1*dx1 * m2*dx2 * m3*dx3 * (0.5 - cch);
-        pst = std::sqrt(p);
-        arc = 1. / 3. * std::acos(q / (p * pst));
-        csarc = std::cos(arc);
-        alpha = pst * (std::sqrt(3. * (1. - csarc * csarc)) - csarc) +
-                0.5; // case (4b)
+        p = m1*(m2+m3) + m2*m3 - 0.25;
+        q = 1.5*m1*m2*m3*(0.5-ch);
+        p12 = std::sqrt(p);
+        teta = std::acos(q/(p*p12))/3.0;
+        cs = std::cos(teta);
+        AL3D = p12*(std::sqrt(3.0*(1.0-cs*cs)) - cs) + 0.5;
     }
 
-    if (c(i, j, k) > 0.5) {
-        alpha = 1.0 - alpha;
+    if (cc(i, j, k) > 0.5) {
+        AL3D = 1.0 - AL3D;
     }
+    
+    return AL3D;
 
-    // compute alpha for the given coefficients
-    //alpha = alpha + std::min(0., mxyz(i, j, k, 0) * dx) +
-    //        std::min(0., mxyz(i, j, k, 1) * dy) +
-    //        std::min(0., mxyz(i, j, k, 2) * dz);
-    return alpha;
 }
 
 /** Computes the "CUT VOLUME" V0 given r0, dr0 and 
@@ -506,17 +509,16 @@ AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::Real FL3D(
     int i,
     int j,
     int k,
-    amrex::Array4<amrex::Real const> const& mxyz,
+    amrex::Real m1,
+    amrex::Real m2,
+    amrex::Real m3,
     amrex::Real alpha,
     amrex::Real r0,
     amrex::Real dr0) noexcept
 {
 
     amrex::Real const_tiny = std::numeric_limits<amrex::Real>::epsilon();
-    amrex::Real m1,m2,m3; // normal vectors to work with
     amrex::Real al;
-
-    m1=mxyz(i,j,k,0);m2=mxyz(i,j,k,1);m3=mxyz(i,j,k,2);
 
     // move origin to x0
     al = alpha - m1*r0;

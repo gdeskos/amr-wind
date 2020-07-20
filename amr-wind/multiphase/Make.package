@@ -4,4 +4,3 @@ CEXE_sources += VolumeFractions.cpp
 
 CEXE_headers += Multiphase.H
 CEXE_headers += SurfaceTension.H
-CEXE_headers += VolumeFractions_K.H

@@ -65,8 +65,9 @@ void Multiphase::initialize_fields(int level, const amrex::Geometry& geom)
                 const amrex::Real y0 = 0.5 * (problo[1] + probhi[1]);
                 const amrex::Real z0 = 0.5 * (problo[2] + probhi[2]);
                 if (m_multiphase_problem == 1) { // Sphere
-                    phi(i, j, k) = 0.325*0.325 - (x - x0) * (x - x0) -
-                                   (y - y0) * (y - y0) - (z - z0) * (z - z0);
+                    amrex::Real R=0.15;
+                    phi(i, j, k) = R*R - (x -x0+R) * (x - x0+R) -
+                                   (y - y0+R) * (y - y0+R) - (z - z0+R) * (z - z0+R);
                 } else if (m_multiphase_problem == 2) {
                     if (x < m_dambreak_d && z < m_dambreak_h) {
                         phi(i, j, k) =
@@ -87,19 +88,27 @@ void Multiphase::initialize_fields(int level, const amrex::Geometry& geom)
 
 void Multiphase::post_init_actions()
 {
+    const auto& time = m_sim.time().current_time();
+
+    
     // Apply BC so that all fields are updated
     BCSrcTerm bc_levelset(m_levelset);
     bc_levelset();
+    
+    // From levelset to vof
+    levelset2vof();
+
+    m_normal.fillpatch(time);
+
     BCSrcTerm bc_normal(m_normal);
     bc_normal();
     BCSrcTerm bc_curv(m_curvature);
     bc_curv();
     BCSrcTerm bc_surface_tension(m_surface_tension);
     bc_surface_tension();
-
-    // From levelset to vof
-    levelset2vof();
     
+     
+ 
     const int nlevels = m_sim.repo().num_active_levels();
     const auto& geom = m_sim.mesh().Geom();
     for (int lev = 0; lev < nlevels; ++lev) {
