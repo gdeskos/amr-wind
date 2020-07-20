@@ -8,35 +8,43 @@
 namespace amr_wind {
 namespace pde {
 
-template<typename Scheme>
+template <typename Scheme>
 struct FieldRegOp<VOF, Scheme>
 {
-    FieldRegOp(CFDSim& sim): repo(sim.repo()) {}
+    FieldRegOp(CFDSim& sim) : repo(sim.repo()) {}
 
-    PDEFields  operator()(const SimTime& time, const int probtype)
+    PDEFields operator()(const SimTime& time, const int probtype)
     {
         auto fields = create_fields_instance<VOF, Scheme>(time, repo, probtype);
-        
-        auto& normal = repo.declare_cc_field("normal",AMREX_SPACEDIM,1,1);
-        auto& volume_flux = repo.declare_cc_field("volume_flux",AMREX_SPACEDIM,1,1);
-        auto& levelset = repo.declare_cc_field("levelset",1,1,1);
-        auto& intercept = repo.declare_cc_field("intercept",1,1,1);
-        auto& curvature = repo.declare_cc_field("curvature",1,1,1);
 
-        levelset.template register_fill_patch_op<FieldFillPatchOps<FieldBCNoOp>>(repo.mesh(),time,probtype);
-        normal.template register_fill_patch_op<FieldFillPatchOps<FieldBCNoOp>>(repo.mesh(),time,probtype);
-        volume_flux.template register_fill_patch_op<FieldFillPatchOps<FieldBCNoOp>>(repo.mesh(),time,probtype);
-        curvature.template register_fill_patch_op<FieldFillPatchOps<FieldBCNoOp>>(repo.mesh(),time,probtype);
-        intercept.template register_fill_patch_op<FieldFillPatchOps<FieldBCNoOp>>(repo.mesh(),time,probtype);
-     
+        auto& normal = repo.declare_cc_field("normal", AMREX_SPACEDIM, 1, 1);
+        auto& volume_flux =
+            repo.declare_cc_field("volume_flux", AMREX_SPACEDIM, 1, 1);
+        auto& levelset = repo.declare_cc_field("levelset", 1, 1, 1);
+        auto& intercept = repo.declare_cc_field("intercept", 1, 1, 1);
+        auto& curvature = repo.declare_cc_field("curvature", 1, 1, 1);
+
+        levelset
+            .template register_fill_patch_op<FieldFillPatchOps<FieldBCNoOp>>(
+                repo.mesh(), time, probtype);
+        normal.template register_fill_patch_op<FieldFillPatchOps<FieldBCNoOp>>(
+            repo.mesh(), time, probtype);
+        volume_flux
+            .template register_fill_patch_op<FieldFillPatchOps<FieldBCNoOp>>(
+                repo.mesh(), time, probtype);
+        curvature
+            .template register_fill_patch_op<FieldFillPatchOps<FieldBCNoOp>>(
+                repo.mesh(), time, probtype);
+        intercept
+            .template register_fill_patch_op<FieldFillPatchOps<FieldBCNoOp>>(
+                repo.mesh(), time, probtype);
+
         return fields;
     }
     FieldRepo& repo;
-
 };
 
-
-template<typename Scheme>
+template <typename Scheme>
 struct ComputeRHSOp<VOF, Scheme>
 {
 private:
@@ -46,18 +54,17 @@ private:
     Field& v_mac;
     Field& w_mac;
 
-    int tswap=0;
+    int tswap = 0;
 
 public:
-    ComputeRHSOp(PDEFields& fields_in) 
-    : fields(fields_in) 
-    ,normal(fields_in.repo.get_field("normal")) 
-    ,volume_flux(fields_in.repo.get_field("volume_flux")) 
-    ,u_mac(fields_in.repo.get_field("u_mac")) 
-    ,v_mac(fields_in.repo.get_field("v_mac")) 
-    ,w_mac(fields_in.repo.get_field("w_mac"))
+    ComputeRHSOp(PDEFields& fields_in)
+        : fields(fields_in)
+        , normal(fields_in.repo.get_field("normal"))
+        , volume_flux(fields_in.repo.get_field("volume_flux"))
+        , u_mac(fields_in.repo.get_field("u_mac"))
+        , v_mac(fields_in.repo.get_field("v_mac"))
+        , w_mac(fields_in.repo.get_field("w_mac"))
     {}
-    
 
     void predictor_rhs(const DiffusionType, const amrex::Real dt)
     {
@@ -75,9 +82,8 @@ public:
 
         auto& geom = fields.repo.mesh().Geom();
 
-
         // Do the temporal swap
-        tswap = tswap +1;
+        tswap = tswap + 1;
 
         for (int lev = 0; lev < nlevels; ++lev) {
 #ifdef _OPENMP
@@ -91,42 +97,60 @@ public:
                 auto vof = field(lev).array(mfi);
                 const auto vof_o = field_old(lev).const_array(mfi);
                 const auto ddt_o = conv_term(lev).const_array(mfi);
-                const auto mxyz  = normal(lev).array(mfi);                 
-                const auto flux  = volume_flux(lev).array(mfi);                 
-                const auto ux    = u_mac(lev).const_array(mfi);                 
-                const auto uy    = v_mac(lev).const_array(mfi);                 
-                const auto uz    = w_mac(lev).const_array(mfi);
+                const auto mxyz = normal(lev).array(mfi);
+                const auto flux = volume_flux(lev).array(mfi);
+                const auto ux = u_mac(lev).const_array(mfi);
+                const auto uy = v_mac(lev).const_array(mfi);
+                const auto uz = w_mac(lev).const_array(mfi);
                 amrex::ParallelFor(
-                    bx,
-                    [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-                        if(tswap>3){
-                            tswap=1;
+                    bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+                        if (tswap > 3) {
+                            tswap = 1;
                         }
-                        if(tswap%3==0){
-                            lagrangian_advection(i,j,k,2,dt,dx,dy,dz,mxyz,flux,uz,vof);
-                            apply_fluxes(i,j,k,2,flux,vof);
-                            lagrangian_advection(i,j,k,0,dt,dx,dy,dz,mxyz,flux,ux,vof);
-                            apply_fluxes(i,j,k,0,flux,vof);
-                            lagrangian_advection(i,j,k,1,dt,dx,dy,dz,mxyz,flux,uy,vof);
-                            apply_fluxes(i,j,k,1,flux,vof);
-                        }else if (tswap%2==0){
-                            lagrangian_advection(i,j,k,1,dt,dx,dy,dz,mxyz,flux,uy,vof);
-                            apply_fluxes(i,j,k,1,flux,vof);
-                            lagrangian_advection(i,j,k,2,dt,dx,dy,dz,mxyz,flux,uz,vof);
-                            apply_fluxes(i,j,k,2,flux,vof);
-                            lagrangian_advection(i,j,k,0,dt,dx,dy,dz,mxyz,flux,ux,vof);
-                            apply_fluxes(i,j,k,0,flux,vof);
-                        }else if (tswap%3==0){
-                            lagrangian_advection(i,j,k,0,dt,dx,dy,dz,mxyz,flux,ux,vof);
-                            apply_fluxes(i,j,k,0,flux,vof);
-                            lagrangian_advection(i,j,k,1,dt,dx,dy,dz,mxyz,flux,uy,vof);
-                            apply_fluxes(i,j,k,1,flux,vof);
-                            lagrangian_advection(i,j,k,2,dt,dx,dy,dz,mxyz,flux,uz,vof);
-                            apply_fluxes(i,j,k,2,flux,vof);
+                        if (tswap % 3 == 0) {
+                            lagrangian_advection(
+                                i, j, k, 2, dt, dx, dy, dz, mxyz, flux, uz,
+                                vof);
+                            apply_fluxes(i, j, k, 2, flux, vof);
+                            lagrangian_advection(
+                                i, j, k, 0, dt, dx, dy, dz, mxyz, flux, ux,
+                                vof);
+                            apply_fluxes(i, j, k, 0, flux, vof);
+                            lagrangian_advection(
+                                i, j, k, 1, dt, dx, dy, dz, mxyz, flux, uy,
+                                vof);
+                            apply_fluxes(i, j, k, 1, flux, vof);
+                        } else if (tswap % 2 == 0) {
+                            lagrangian_advection(
+                                i, j, k, 1, dt, dx, dy, dz, mxyz, flux, uy,
+                                vof);
+                            apply_fluxes(i, j, k, 1, flux, vof);
+                            lagrangian_advection(
+                                i, j, k, 2, dt, dx, dy, dz, mxyz, flux, uz,
+                                vof);
+                            apply_fluxes(i, j, k, 2, flux, vof);
+                            lagrangian_advection(
+                                i, j, k, 0, dt, dx, dy, dz, mxyz, flux, ux,
+                                vof);
+                            apply_fluxes(i, j, k, 0, flux, vof);
+                        } else if (tswap % 3 == 0) {
+                            lagrangian_advection(
+                                i, j, k, 0, dt, dx, dy, dz, mxyz, flux, ux,
+                                vof);
+                            apply_fluxes(i, j, k, 0, flux, vof);
+                            lagrangian_advection(
+                                i, j, k, 1, dt, dx, dy, dz, mxyz, flux, uy,
+                                vof);
+                            apply_fluxes(i, j, k, 1, flux, vof);
+                            lagrangian_advection(
+                                i, j, k, 2, dt, dx, dy, dz, mxyz, flux, uz,
+                                vof);
+                            apply_fluxes(i, j, k, 2, flux, vof);
                         }
                         // vof(i, j, k) = vof_o(i, j, k) + dt * ddt_o(i, j, k);
                         // Defer n+1/2 update to the time-stepping algorithm
-                        // vof_nph(i, j, k) = 0.5 * (vof(i, j, k) + vof_o(i, j, k));
+                        // vof_nph(i, j, k) = 0.5 * (vof(i, j, k) + vof_o(i, j,
+                        // k));
                     });
             }
         }
@@ -167,7 +191,7 @@ public:
     // data members
     PDEFields& fields;
 };
-}
-}
+} // namespace pde
+} // namespace amr_wind
 
 #endif /* VOF_OPS_H */
