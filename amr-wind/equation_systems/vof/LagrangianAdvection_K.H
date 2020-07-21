@@ -123,6 +123,22 @@ AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE void lagrangian_advection(
         }
     }
 }
+// This applies boundary condition to the volume fluxes
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE void bc_fluxes(
+    int i,
+    int j,
+    int k,
+    int d,
+    amrex::Array4<amrex::Real> const& flux) noexcept
+{
+    if(d==0){
+        flux(0,j,k,2)=0.0;
+    }else if (d==1){
+        flux(i,0,k,2)=0.0; 
+    }else if (d==2){
+        flux(i,j,0,2)=0.0;
+    }
+}
 
 // This applies boundary condition to the volume fluxes
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE void apply_fluxes(
@@ -133,7 +149,6 @@ AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE void apply_fluxes(
     amrex::Array4<amrex::Real> const& flux,
     amrex::Array4<amrex::Real> const& cc) noexcept
 {
-    // Apply BCs to fluxes
 
     // Compute new values of cc and then do clipping
     if (d == 0) {

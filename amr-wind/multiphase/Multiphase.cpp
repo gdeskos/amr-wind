@@ -55,7 +55,7 @@ void Multiphase::initialize_fields(int level, const amrex::Geometry& geom)
         const auto& problo = geom.ProbLoArray();
         const auto& probhi = geom.ProbHiArray();
         auto phi = levelset.array(mfi);
-
+        //auto vel = velocity.array(mfi);
         amrex::ParallelFor(
             vbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
                 const amrex::Real x = problo[0] + (i + 0.5) * dx[0];
@@ -66,8 +66,14 @@ void Multiphase::initialize_fields(int level, const amrex::Geometry& geom)
                 const amrex::Real z0 = 0.5 * (problo[2] + probhi[2]);
                 if (m_multiphase_problem == 1) { // Sphere
                     amrex::Real R=0.15;
-                    phi(i, j, k) = R*R - (x -x0+R) * (x - x0+R) -
-                                   (y - y0+R) * (y - y0+R) - (z - z0+R) * (z - z0+R);
+                    phi(i, j, k) = R - std::sqrt((x -x0+R) * (x - x0+R) + 
+                                   (y - y0+R) * (y - y0+R) + (z - z0+R) * (z - z0+R));
+                    //vel(i,j,k,0) = 2.0*std::sin(M_PI*x)*std::sin(M_PI*x)*std::sin(2.0*M_PI*y)*
+                    //                   std::sin(2.0*M_PI*z);
+                    //vel(i,j,k,1) =    -std::sin(2.0*M_PI*x)*std::sin(M_PI*y)*std::sin(M_PI*y)*
+                    //                   std::sin(2.0*M_PI*z);
+                    //vel(i,j,k,2) =    -std::sin(2.0*M_PI*x)*std::sin(2.0*M_PI*y)*std::sin(M_PI*z)*
+                    //                   std::sin(M_PI*z);
                 } else if (m_multiphase_problem == 2) {
                     if (x < m_dambreak_d && z < m_dambreak_h) {
                         phi(i, j, k) =

@@ -82,13 +82,13 @@ void Multiphase::levelset2vof()
       auto& normal = m_normal(lev);
       auto& intercept = m_intercept(lev);
 
-      const amrex::Real dx = geom[lev].CellSize()[0];
-      const amrex::Real dy = geom[lev].CellSize()[1];
-      const amrex::Real dz = geom[lev].CellSize()[2];
+      //const amrex::Real dx = geom[lev].CellSize()[0];
+      //const amrex::Real dy = geom[lev].CellSize()[1];
+      //const amrex::Real dz = geom[lev].CellSize()[2];
 
-      const amrex::Real idx = 1.0 / dx;
-      const amrex::Real idy = 1.0 / dy;
-      const amrex::Real idz = 1.0 / dz;
+      //const amrex::Real idx = 1.0 / dx;
+      //const amrex::Real idy = 1.0 / dy;
+      //const amrex::Real idz = 1.0 / dz;
 
       for (amrex::MFIter mfi(levelset); mfi.isValid(); ++mfi) {
           const auto& vbx = mfi.validbox();
@@ -139,9 +139,10 @@ void Multiphase::levelset2vof()
                   mz=mz/normL1;
                   
                   amrex::Real alpha = ls(i,j,k)/normL1;
-                  alpha=alpha+0.50;
-
+                  
                   alpha_arr(i,j,k)=alpha;
+                  
+                  alpha=alpha+0.50;
 
                   if(alpha>=1.0){
                       cc(i,j,k)=1.0;

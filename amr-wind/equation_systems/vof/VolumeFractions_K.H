@@ -541,9 +541,9 @@ AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::Real FL3D(
     // normalized equation: m1*y1 + m2*y2 + m3*y3 = alh, with 0 <= m1 <= m2 <=
     // m3 the problem is then solved again in the unit cube
     amrex::Real tmp = std::abs(m1) * dr0 + std::abs(m2) + std::abs(m3);
-    amrex::Real n1 = std::abs(m1); // need positive coefficients
-    amrex::Real n2 = std::abs(m2);
-    amrex::Real n3 = std::abs(m3);
+    amrex::Real n1 = std::abs(m1)/tmp; // need positive coefficients
+    amrex::Real n2 = std::abs(m2)/tmp;
+    amrex::Real n3 = std::abs(m3)/tmp;
     al =
         std::max(0.0, std::min(1.0, al / tmp)); // get new al within safe limits
     amrex::Real al0 = std::min(al, 1.0 - al);   // limit to: 0 < alh < 1/2
@@ -578,7 +578,7 @@ AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::Real FL3D(
 
     if (a > 0.0) {
         if (a < vm1) {
-            v = a * a * a / (6 * vm1 * vm2 * vm3);
+            v = a * a * a / (6.0 * vm1 * vm2 * vm3);
         } else if (a < vm2) {
             v = a * (a - vm1) / (2.0 * vm2 * vm3) +
                 vm1 * vm1 / (6.0 * vm2 * vm3 + const_tiny);

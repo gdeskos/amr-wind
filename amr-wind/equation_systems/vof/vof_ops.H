@@ -108,6 +108,10 @@ public:
                     });
                 amrex::ParallelFor(
                     vbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {        
+                    bc_fluxes(i, j, k, 0, flux);
+                    });
+                amrex::ParallelFor(
+                    vbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {        
                     apply_fluxes(i, j, k, 0, flux, vof);
                     });
                 // Y-direction 
@@ -117,12 +121,20 @@ public:
                     });
                 amrex::ParallelFor(
                     vbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {        
+                    bc_fluxes(i, j, k, 1, flux);
+                    });
+                amrex::ParallelFor(
+                    vbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {        
                     apply_fluxes(i, j, k, 1, flux, vof);
                     });
                 // Z-direction
                 amrex::ParallelFor(
                     vbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
                         lagrangian_advection(i, j, k, 2, dt, dx, dy, dz, mxyz, flux, uz, vof);
+                    });
+                amrex::ParallelFor(
+                    vbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {        
+                    bc_fluxes(i, j, k, 2, flux);
                     });
                 amrex::ParallelFor(
                     vbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {        
