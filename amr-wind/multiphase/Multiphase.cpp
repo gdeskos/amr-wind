@@ -11,7 +11,8 @@ namespace amr_wind {
 
 Multiphase::Multiphase(CFDSim& sim)
     : m_sim(sim)
-    , m_velocity(sim.pde_manager().icns().fields().field)
+    //, m_velocity(sim.pde_manager().icns().fields().field)
+    , m_velocity(sim.repo().get_field("velocity"))
     , m_density(sim.repo().get_field("density"))
     , m_normal(sim.repo().declare_cc_field("normal", AMREX_SPACEDIM, 1, 1))
     , m_curvature(sim.repo().declare_cc_field("curvature", 1, 1, 1))
