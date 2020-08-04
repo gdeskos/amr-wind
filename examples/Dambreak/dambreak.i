@@ -2,7 +2,7 @@
 #            SIMULATION STOP            #
 #.......................................#
 time.stop_time               =   2        # Max (simulated) time to evolve
-time.max_step                =   10        # Max number of time steps
+time.max_step                =   1000        # Max number of time steps
 
 #¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨#
 #         TIME STEP COMPUTATION         #
@@ -13,7 +13,7 @@ time.cfl              =   0.5        # CFL factor
 #¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨#
 #            INPUT AND OUTPUT           #
 #.......................................#
-time.plot_interval  =  10   # Steps between plot files
+time.plot_interval  =  1   # Steps between plot files
 time.checkpoint_interval =   50  # Steps between checkpoint files
 io.restart_file   =   ""  # Checkpoint to restart from 
 amrex.throw_exception =1 
