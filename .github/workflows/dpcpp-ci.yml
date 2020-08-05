@@ -24,6 +24,9 @@ on:
 
 jobs:
   dpcpp:
+    # Follow AMReX and turn of DPC++ for now
+    # https://github.com/intel/llvm/issues/2187
+    if: false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -41,7 +44,7 @@ jobs:
       - name: Configure and build
         run: |
           set +e
-          source /opt/intel/inteloneapi/setvars.sh
+          source /opt/intel/oneapi/setvars.sh
           set -e
           cmake -Bbuild \
             -DCMAKE_CXX_COMPILER=$(which dpcpp) \
