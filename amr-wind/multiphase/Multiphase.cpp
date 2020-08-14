@@ -1,5 +1,5 @@
 #include "amr-wind/multiphase/Multiphase.H"
-#include "amr-wind/equation_systems/vof/VolumeFractions_K.H"
+#include "amr-wind/multiphase/VolumeFractions_K.H"
 #include "amr-wind/CFDSim.H"
 #include "AMReX_ParmParse.H"
 #include "amr-wind/utilities/trig_ops.H"

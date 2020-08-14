@@ -2,8 +2,6 @@
 #define VOF_OPS_H
 
 #include "amr-wind/equation_systems/vof/vof.H"
-#include "amr-wind/equation_systems/vof/VolumeFractions_K.H"
-#include "amr-wind/equation_systems/vof/LagrangianAdvection_K.H"
 
 namespace amr_wind {
 namespace pde {
@@ -18,9 +16,7 @@ struct FieldRegOp<VOF, Scheme>
         auto fields = create_fields_instance<VOF, Scheme>(time, repo, probtype);
 
         auto& normal = repo.declare_cc_field("normal", AMREX_SPACEDIM, 1, 1);
-        auto& volume_flux = repo.declare_cc_field("volume_flux", AMREX_SPACEDIM, 1, 1);
         auto& levelset = repo.declare_cc_field("levelset", 1, 1, 1);
-        auto& intercept = repo.declare_cc_field("intercept", 1, 1, 1);
         auto& curvature = repo.declare_cc_field("curvature", 1, 1, 1);
 
         levelset
@@ -28,13 +24,7 @@ struct FieldRegOp<VOF, Scheme>
                 repo.mesh(), time, probtype);
         normal.template register_fill_patch_op<FieldFillPatchOps<FieldBCNoOp>>(
             repo.mesh(), time, probtype);
-        volume_flux
-            .template register_fill_patch_op<FieldFillPatchOps<FieldBCNoOp>>(
-                repo.mesh(), time, probtype);
         curvature
-            .template register_fill_patch_op<FieldFillPatchOps<FieldBCNoOp>>(
-                repo.mesh(), time, probtype);
-        intercept
             .template register_fill_patch_op<FieldFillPatchOps<FieldBCNoOp>>(
                 repo.mesh(), time, probtype);
 
@@ -46,24 +36,7 @@ struct FieldRegOp<VOF, Scheme>
 template <typename Scheme>
 struct ComputeRHSOp<VOF, Scheme>
 {
-private:
-    Field& normal;
-    Field& volume_flux;
-    Field& u_mac;
-    Field& v_mac;
-    Field& w_mac;
-
-    int tswap = 0;
-
-public:
-    ComputeRHSOp(PDEFields& fields_in)
-        : fields(fields_in)
-        , normal(fields_in.repo.get_field("normal"))
-        , volume_flux(fields_in.repo.get_field("volume_flux"))
-        , u_mac(fields_in.repo.get_field("u_mac"))
-        , v_mac(fields_in.repo.get_field("v_mac"))
-        , w_mac(fields_in.repo.get_field("w_mac"))
-    {}
+    ComputeRHSOp(PDEFields& fields_in) : fields(fields_in) {}
 
     void predictor_rhs(const DiffusionType, const amrex::Real dt)
     {
@@ -74,75 +47,26 @@ public:
                           : FieldState::Old;
 
         const int nlevels = fields.repo.num_active_levels();
-
         auto& field = fields.field;
         auto& field_old = field.state(FieldState::Old);
         auto& conv_term = fields.conv_term.state(fstate);
-
-        auto& geom = fields.repo.mesh().Geom();
-
-        // Do the temporal swap
-        tswap = tswap + 1;
 
         for (int lev = 0; lev < nlevels; ++lev) {
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-            const amrex::Real dx = geom[lev].CellSize()[0];
-            const amrex::Real dy = geom[lev].CellSize()[1];
-            const amrex::Real dz = geom[lev].CellSize()[2];
             for (amrex::MFIter mfi(field(lev)); mfi.isValid(); ++mfi) {
-                const auto& vbx = mfi.validbox();
+                const auto& bx = mfi.tilebox();
                 auto vof = field(lev).array(mfi);
                 const auto vof_o = field_old(lev).const_array(mfi);
                 const auto ddt_o = conv_term(lev).const_array(mfi);
-                const auto mxyz = normal(lev).array(mfi);
-                const auto flux = volume_flux(lev).array(mfi);
-                const auto ux = u_mac(lev).const_array(mfi);
-                const auto uy = v_mac(lev).const_array(mfi);
-                const auto uz = w_mac(lev).const_array(mfi);
-                // X-direction
+                    
                 amrex::ParallelFor(
-                    vbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-                        lagrangian_advection(i, j, k, 0, dt, dx, dy, dz, mxyz, flux, ux,vof);
-                    });
-                amrex::ParallelFor(
-                    vbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {        
-                    bc_fluxes(i, j, k, 0, flux);
-                    });
-                amrex::ParallelFor(
-                    vbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {        
-                    apply_fluxes(i, j, k, 0, flux, vof);
-                    });
-                // Y-direction 
-                amrex::ParallelFor(
-                    vbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-                        lagrangian_advection(i, j, k, 1, dt, dx, dy, dz, mxyz, flux, uy,vof);
-                    });
-                amrex::ParallelFor(
-                    vbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {        
-                    bc_fluxes(i, j, k, 1, flux);
-                    });
-                amrex::ParallelFor(
-                    vbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {        
-                    apply_fluxes(i, j, k, 1, flux, vof);
-                    });
-                // Z-direction
-                amrex::ParallelFor(
-                    vbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-                        lagrangian_advection(i, j, k, 2, dt, dx, dy, dz, mxyz, flux, uz, vof);
-                    });
-                amrex::ParallelFor(
-                    vbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {        
-                    bc_fluxes(i, j, k, 2, flux);
-                    });
-                amrex::ParallelFor(
-                    vbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {        
-                    apply_fluxes(i, j, k, 2, flux, vof);
-                    });
-                    //vof(i, j, k) = vof_o(i, j, k) + dt * ddt_o(i, j, k);
-                    // Defer n+1/2 update to the time-stepping algorithm
-                    // vof_nph(i, j, k) = 0.5 * (vof(i, j, k) + vof_o(i, j,k));
+                    bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+                vof(i, j, k) = vof_o(i, j, k) + dt * ddt_o(i, j, k);
+                // Defer n+1/2 update to the time-stepping algorithm
+                // vof_nph(i, j, k) = 0.5 * (vof(i, j, k) + vof_o(i, j,k));
+                });
             }
         }
     }
