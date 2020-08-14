@@ -1,36 +1,84 @@
 #ifndef VOF_OPS_H
 #define VOF_OPS_H
 
+#include "amr-wind/equation_systems/PDETraits.H"
+#include "amr-wind/equation_systems/PDEOps.H"
+#include "amr-wind/equation_systems/PDEHelpers.H"
+#include "amr-wind/equation_systems/AdvOp_Godunov.H"
+#include "amr-wind/equation_systems/AdvOp_MOL.H"
+#include "amr-wind/equation_systems/DiffusionOps.H"
 #include "amr-wind/equation_systems/vof/vof.H"
+#include "AMReX_MultiFabUtil.H"
 
 namespace amr_wind {
 namespace pde {
 
+void compression_mac_project(FieldRepo& repo, FieldState fstate, const bool);
+
 template <typename Scheme>
 struct FieldRegOp<VOF, Scheme>
 {
-    FieldRegOp(CFDSim& sim) : repo(sim.repo()) {}
+    FieldRegOp(CFDSim& sim) :  repo(sim.repo()) {}
 
     PDEFields operator()(const SimTime& time, const int probtype)
     {
+        
         auto fields = create_fields_instance<VOF, Scheme>(time, repo, probtype);
 
         auto& normal = repo.declare_cc_field("normal", AMREX_SPACEDIM, 1, 1);
         auto& levelset = repo.declare_cc_field("levelset", 1, 1, 1);
         auto& curvature = repo.declare_cc_field("curvature", 1, 1, 1);
+        repo.declare_face_normal_field(
+            {"u_mac", "v_mac", "w_mac"}, 1, Scheme::nghost_mac, 1);
 
-        levelset
-            .template register_fill_patch_op<FieldFillPatchOps<FieldBCNoOp>>(
-                repo.mesh(), time, probtype);
+        levelset.template register_fill_patch_op<FieldFillPatchOps<FieldBCNoOp>>(
+            repo.mesh(), time, probtype);
         normal.template register_fill_patch_op<FieldFillPatchOps<FieldBCNoOp>>(
             repo.mesh(), time, probtype);
-        curvature
-            .template register_fill_patch_op<FieldFillPatchOps<FieldBCNoOp>>(
-                repo.mesh(), time, probtype);
+        curvature.template register_fill_patch_op<FieldFillPatchOps<FieldBCNoOp>>(
+            repo.mesh(), time, probtype);
 
         return fields;
     }
     FieldRepo& repo;
+};
+
+template<>
+struct SrcTermOp<VOF> : SrcTermOpBase<VOF>
+{
+    SrcTermOp(PDEFields& fields_in)
+    : SrcTermOpBase<VOF>(fields_in)
+    , fields(fields_in)
+    , u_mac(fields_in.repo.get_field("u_mac"))
+    , v_mac(fields_in.repo.get_field("v_mac"))
+    , w_mac(fields_in.repo.get_field("w_mac"))
+    {}
+
+    void operator() (const FieldState fstate)
+    {
+        auto& repo = fields.repo;
+        auto& geom = repo.mesh().Geom();
+        
+        // Start by computing the normal vector
+        
+
+        const int nlevels = this->fields.repo.num_active_levels();
+        
+        for (int lev=0; lev < nlevels; ++lev) {
+            auto& src_term = this->fields.src_term(lev);
+#ifdef _OPENMP
+#pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
+#endif
+        
+        }
+
+    }
+
+    PDEFields& fields;
+    Field& u_mac;
+    Field& v_mac;
+    Field& w_mac;
+
 };
 
 template <typename Scheme>
@@ -106,6 +154,9 @@ struct ComputeRHSOp<VOF, Scheme>
     // data members
     PDEFields& fields;
 };
+
+
+
 } // namespace pde
 } // namespace amr_wind
 
