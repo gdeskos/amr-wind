@@ -8,6 +8,9 @@
 #include "amr-wind/equation_systems/AdvOp_MOL.H"
 #include "amr-wind/equation_systems/DiffusionOps.H"
 #include "amr-wind/equation_systems/vof/vof.H"
+#include "amr-wind/core/field_ops.H"
+#include "amr-wind/fvm/gradient.H"
+
 #include "AMReX_MultiFabUtil.H"
 
 namespace amr_wind {
@@ -49,6 +52,7 @@ struct SrcTermOp<VOF> : SrcTermOpBase<VOF>
     SrcTermOp(PDEFields& fields_in)
     : SrcTermOpBase<VOF>(fields_in)
     , fields(fields_in)
+    , normal(fields_in.repo.get_field("normal"))
     , u_mac(fields_in.repo.get_field("u_mac"))
     , v_mac(fields_in.repo.get_field("v_mac"))
     , w_mac(fields_in.repo.get_field("w_mac"))
@@ -56,25 +60,33 @@ struct SrcTermOp<VOF> : SrcTermOpBase<VOF>
 
     void operator() (const FieldState fstate)
     {
-        auto& repo = fields.repo;
-        auto& geom = repo.mesh().Geom();
-        
+        auto& field = fields.field;
         // Start by computing the normal vector
+        fvm::gradient(normal,field);
+        //field_ops::normalize_field(normal);
         
+        auto& src_term = fields.src_term;
 
         const int nlevels = this->fields.repo.num_active_levels();
         
+        for (int lev = 0; lev < nlevels; ++lev) {
+            u_mac(lev).setBndry(0.0);
+            v_mac(lev).setBndry(0.0);
+            w_mac(lev).setBndry(0.0);
+        }
+
+
         for (int lev=0; lev < nlevels; ++lev) {
-            auto& src_term = this->fields.src_term(lev);
 #ifdef _OPENMP
 #pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
 #endif
-        
+
         }
 
     }
 
     PDEFields& fields;
+    Field& normal;
     Field& u_mac;
     Field& v_mac;
     Field& w_mac;
