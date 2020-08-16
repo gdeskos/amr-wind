@@ -8,6 +8,9 @@
 #include "amr-wind/equation_systems/AdvOp_MOL.H"
 #include "amr-wind/equation_systems/DiffusionOps.H"
 #include "amr-wind/equation_systems/vof/vof.H"
+#include "amr-wind/core/field_ops.H"
+#include "amr-wind/fvm/gradient.H"
+
 #include "AMReX_MultiFabUtil.H"
 
 namespace amr_wind {
@@ -49,35 +52,50 @@ struct SrcTermOp<VOF> : SrcTermOpBase<VOF>
     SrcTermOp(PDEFields& fields_in)
     : SrcTermOpBase<VOF>(fields_in)
     , fields(fields_in)
-    , u_mac(fields_in.repo.get_field("u_mac"))
-    , v_mac(fields_in.repo.get_field("v_mac"))
-    , w_mac(fields_in.repo.get_field("w_mac"))
+    , normal(fields_in.repo.get_field("normal"))
+    , uc_mac(fields_in.repo.get_field("u_mac"))
+    , vc_mac(fields_in.repo.get_field("v_mac"))
+    , wc_mac(fields_in.repo.get_field("w_mac"))
     {}
 
     void operator() (const FieldState fstate)
     {
         auto& repo = fields.repo;
         auto& geom = repo.mesh().Geom();
-        
+
+        auto& src_term = fields.src_term;
+        auto& conv_term = fields.conv_term;
+        auto& dof_field = fields.field.state(fstate);
+
         // Start by computing the normal vector
+        fvm::gradient(normal,dof_field);
+        field_ops::normalize_field(normal);
         
 
-        const int nlevels = this->fields.repo.num_active_levels();
-        
-        for (int lev=0; lev < nlevels; ++lev) {
-            auto& src_term = this->fields.src_term(lev);
+        for (int lev = 0; lev < repo.num_active_levels(); ++lev) {
+            amrex::MFItInfo mfi_info;
+        if (amrex::Gpu::notInLaunchRegion())
+            mfi_info.EnableTiling(amrex::IntVect(1024, 1024, 1024))
+                .SetDynamic(true);
 #ifdef _OPENMP
 #pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
 #endif
-        
+            for (amrex::MFIter mfi(dof_field(lev),mfi_info); mfi.isValid(); ++mfi)
+            {
+                const auto& bx = mfi.tilebox();
+
+            }
         }
+
+
 
     }
 
     PDEFields& fields;
-    Field& u_mac;
-    Field& v_mac;
-    Field& w_mac;
+    Field& normal;
+    Field& uc_mac;
+    Field& vc_mac;
+    Field& wc_mac;
 
 };
 

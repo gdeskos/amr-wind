@@ -325,6 +325,44 @@ inline void lower_bound(
 
 }
 
+/** Normalizes a field using its magnitude   
+  * \ingroup field_ops
+  * 
+  * \param [in] min_value Minimum value for a given field
+  * \param [in] icomp Component to set the minimum bound
+  */
+ template<typename FType>
+ inline void normalize_field(FType& field)
+ {
+     const auto& repo = field.repo();
+     const auto ncomp = field.num_comp();
+
+     const int nlevels = repo.num_active_levels();
+     for (int lev=0; lev < nlevels; ++lev) {
+
+     for (amrex::MFIter mfi(field(lev)); mfi.isValid(); ++mfi) {
+       const auto& bx = mfi.tilebox();
+       const auto& field_arr = field(lev).array(mfi);
+
+       amrex::ParallelFor(
+         bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+             //Compute magnitude
+             amrex::Real mag=0.;
+             for (int icomp=0;icomp<ncomp;++icomp){
+                 mag=mag+field_arr(i,j,k,icomp)*field_arr(i,j,k,icomp);
+             }
+             if(mag>1e-12){
+                 for (int icomp=0;icomp<ncomp;++icomp){
+                     field_arr(i,j,k,icomp)=field_arr(i,j,k,icomp)/std::sqrt(mag);
+                 }
+             }
+       });
+     }
+   }
+
+ }
+
+
 } // namespace field_ops
 } // namespace amr_wind
 
