@@ -83,7 +83,22 @@ struct SrcTermOp<VOF> : SrcTermOpBase<VOF>
             for (amrex::MFIter mfi(dof_field(lev),mfi_info); mfi.isValid(); ++mfi)
             {
                 const auto& bx = mfi.tilebox();
+                // Define the compression velocity first at the faces
+                // uc_mac=min(Ca*|u_mac|,u_mac|) etc
 
+                auto normal_arr = normal(lev).array(mfi);
+                auto vof_arr = dof_field(lev).array(mfi);
+                amrex::FArrayBox compvelfab;
+                amrex::Array4<amrex::Real> velc;
+                auto compvel_box = amrex::grow(bx, fvm::Godunov::nghost_state);
+                compvelfab.resize(compvel_box, 1);
+                velc = compvelfab.array();
+                
+                amrex::ParallelFor(
+                        compvel_box, 1,
+                        [=] AMREX_GPU_DEVICE(int i, int j, int k, int n) noexcept {
+                        velc(i,j,k)=vof_arr(i,j,k)*(1.-vof_arr(i,j,k))*normal_arr(i,j,k);
+                        });
             }
         }
 
