@@ -325,11 +325,34 @@ inline void lower_bound(
 
 }
 
-/** Normalizes a field using its magnitude   
+template<typename FType>
+inline void field_global_maximum(
+    FType& field,
+    const amrex::Real min_value,
+    const int icomp = 0)
+{
+     const auto& repo = field.repo();
+     const auto ncomp = field.num_comp();
+
+     const int nlevels = repo.num_active_levels();
+     for (int lev=0; lev < nlevels; ++lev) {
+
+        for (amrex::MFIter mfi(field(lev)); mfi.isValid(); ++mfi) {
+            const auto& bx = mfi.tilebox();
+            const auto& field_arr = field(lev).array(mfi);
+            amrex::ParallelFor(
+                bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+                    
+            });
+
+        }
+     }
+}
+
+/** Normalises a field using its magnitude   
   * \ingroup field_ops
   * 
-  * \param [in] min_value Minimum value for a given field
-  * \param [in] icomp Component to set the minimum bound
+  * \param [in] field that needs to be normalised 
   */
  template<typename FType>
  inline void normalize_field(FType& field)
@@ -361,6 +384,8 @@ inline void lower_bound(
    }
 
  }
+
+
 
 
 } // namespace field_ops

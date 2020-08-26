@@ -10,7 +10,7 @@
 #include "amr-wind/equation_systems/vof/vof.H"
 #include "amr-wind/core/field_ops.H"
 #include "amr-wind/fvm/gradient.H"
-
+#include "amr-wind/fvm/divergence.H"
 #include "AMReX_MultiFabUtil.H"
 
 namespace amr_wind {
@@ -31,8 +31,7 @@ struct FieldRegOp<VOF, Scheme>
         auto& normal = repo.declare_cc_field("normal", AMREX_SPACEDIM, 1, 1);
         auto& levelset = repo.declare_cc_field("levelset", 1, 1, 1);
         auto& curvature = repo.declare_cc_field("curvature", 1, 1, 1);
-        repo.declare_face_normal_field(
-            {"u_mac", "v_mac", "w_mac"}, 1, Scheme::nghost_mac, 1);
+        auto& velc = repo.declare_cc_field("compress_velocity", AMREX_SPACEDIM, 1, 1);
 
         levelset.template register_fill_patch_op<FieldFillPatchOps<FieldBCNoOp>>(
             repo.mesh(), time, probtype);
@@ -53,9 +52,8 @@ struct SrcTermOp<VOF> : SrcTermOpBase<VOF>
     : SrcTermOpBase<VOF>(fields_in)
     , fields(fields_in)
     , normal(fields_in.repo.get_field("normal"))
-    , uc_mac(fields_in.repo.get_field("u_mac"))
-    , vc_mac(fields_in.repo.get_field("v_mac"))
-    , wc_mac(fields_in.repo.get_field("w_mac"))
+    , velc(fields_in.repo.get_field("compress_velocity"))
+    , vel(fields_in.repo.get_field("velocity"))
     {}
 
     void operator() (const FieldState fstate)
@@ -64,13 +62,12 @@ struct SrcTermOp<VOF> : SrcTermOpBase<VOF>
         auto& geom = repo.mesh().Geom();
 
         auto& src_term = fields.src_term;
-        auto& conv_term = fields.conv_term;
         auto& dof_field = fields.field.state(fstate);
 
         // Start by computing the normal vector
         fvm::gradient(normal,dof_field);
         field_ops::normalize_field(normal);
-        
+        //amrex::Real maxVel=field_ops::max_field_mag(vel);
 
         for (int lev = 0; lev < repo.num_active_levels(); ++lev) {
             amrex::MFItInfo mfi_info;
@@ -80,6 +77,7 @@ struct SrcTermOp<VOF> : SrcTermOpBase<VOF>
 #ifdef _OPENMP
 #pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
 #endif
+
             for (amrex::MFIter mfi(dof_field(lev),mfi_info); mfi.isValid(); ++mfi)
             {
                 const auto& bx = mfi.tilebox();
@@ -88,29 +86,25 @@ struct SrcTermOp<VOF> : SrcTermOpBase<VOF>
 
                 auto normal_arr = normal(lev).array(mfi);
                 auto vof_arr = dof_field(lev).array(mfi);
-                amrex::FArrayBox compvelfab;
-                amrex::Array4<amrex::Real> velc;
-                auto compvel_box = amrex::grow(bx, fvm::Godunov::nghost_state);
-                compvelfab.resize(compvel_box, 1);
-                velc = compvelfab.array();
-                
+                auto vel_arr = vel(lev).array(mfi);
+                auto velc_arr = velc(lev).array(mfi);
                 amrex::ParallelFor(
-                        compvel_box, 1,
-                        [=] AMREX_GPU_DEVICE(int i, int j, int k, int n) noexcept {
-                        velc(i,j,k)=vof_arr(i,j,k)*(1.-vof_arr(i,j,k))*normal_arr(i,j,k);
+                    bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+                        amrex::Real magV=std::sqrt(vel_arr(i,j,k,0)*vel_arr(i,j,k,0)
+                                                +  vel_arr(i,j,k,1)*vel_arr(i,j,k,1)
+                                                +  vel_arr(i,j,k,2)*vel_arr(i,j,k,2));
+                        amrex::Real VC = magV;
+                        velc_arr(i,j,k)=normal_arr(i,j,k)*VC*vof_arr(i,j,k)*(1.0-vof_arr(i,j,k));
                         });
             }
         }
-
-
-
+        fvm::divergence(src_term,velc);
     }
 
     PDEFields& fields;
     Field& normal;
-    Field& uc_mac;
-    Field& vc_mac;
-    Field& wc_mac;
+    Field& vel;
+    Field& velc;
 
 };
 

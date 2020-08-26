@@ -2,7 +2,6 @@
 #include "amr-wind/multiphase/VolumeFractions_K.H"
 #include "amr-wind/CFDSim.H"
 #include "amr-wind/equation_systems/BCOps.H"
-#include "amr-wind/derive/derive_K.H"
 
 namespace amr_wind {
 

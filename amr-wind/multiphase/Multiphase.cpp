@@ -3,7 +3,6 @@
 #include "amr-wind/CFDSim.H"
 #include "AMReX_ParmParse.H"
 #include "amr-wind/utilities/trig_ops.H"
-#include "amr-wind/derive/derive_K.H"
 #include "amr-wind/utilities/tensor_ops.H"
 #include "amr-wind/equation_systems/BCOps.H"
 

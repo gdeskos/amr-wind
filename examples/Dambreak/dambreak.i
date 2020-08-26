@@ -18,7 +18,7 @@ time.checkpoint_interval =   50  # Steps between checkpoint files
 io.restart_file   =   ""  # Checkpoint to restart from 
 amrex.throw_exception =1 
 amrex.signal_handling = 0
-io.outputs = normal vof velocity_src_term velocity_mueff 
+io.outputs = normal vof vof_src_term velocity_src_term velocity_mueff 
 #¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨#
 #               PHYSICS                 #
 #.......................................#
