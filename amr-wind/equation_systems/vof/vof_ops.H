@@ -66,9 +66,10 @@ struct SrcTermOp<VOF> : SrcTermOpBase<VOF>
 
         // Start by computing the normal vector
         fvm::gradient(normal,dof_field);
-        field_ops::normalize_field(normal);
+        field_ops::normalize(normal);
         //amrex::Real maxVel=field_ops::max_field_mag(vel);
-
+        amrex::Real globalVelMag;
+        field_ops::global_max_magnitude(vel,globalVelMag);
         for (int lev = 0; lev < repo.num_active_levels(); ++lev) {
             amrex::MFItInfo mfi_info;
         if (amrex::Gpu::notInLaunchRegion())
@@ -93,7 +94,8 @@ struct SrcTermOp<VOF> : SrcTermOpBase<VOF>
                         amrex::Real magV=std::sqrt(vel_arr(i,j,k,0)*vel_arr(i,j,k,0)
                                                 +  vel_arr(i,j,k,1)*vel_arr(i,j,k,1)
                                                 +  vel_arr(i,j,k,2)*vel_arr(i,j,k,2));
-                        amrex::Real VC = magV;
+                        amrex::Real C=1.5;
+                        amrex::Real VC = std::min(C*magV,globalVelMag);
                         velc_arr(i,j,k)=normal_arr(i,j,k)*VC*vof_arr(i,j,k)*(1.0-vof_arr(i,j,k));
                         });
             }

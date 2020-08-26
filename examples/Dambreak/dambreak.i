@@ -54,12 +54,13 @@ zhi.type =   "slip_wall"
 #¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨#
 #          INITIAL CONDITIONS           #
 #.......................................#
-incflo.probtype         =   0
+incflo.probtype = 0
 incflo.physics = Multiphase
 incflo.multiphase_problem = 2
 incflo.verbose=3
-nodal_proj.mg_rtol=1e-4
-nodal_proj.mg_atol=1e-6
+nodal_proj.verbose=3
+#nodal_proj.mg_rtol=1e-4
+#nodal_proj.mg_atol=1e-6
 nodal_proj.num_pre_smooth = 20
 nodal_proj.num_post_smooth = 20
 nodal_proj.mg_max_coarsening_level = 10
