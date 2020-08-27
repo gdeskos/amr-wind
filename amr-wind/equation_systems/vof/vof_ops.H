@@ -69,7 +69,6 @@ struct SrcTermOp<VOF> : SrcTermOpBase<VOF>
         field_ops::normalize(normal);
         //amrex::Real maxVel=field_ops::max_field_mag(vel);
         amrex::Real globalVelMag=field_ops::global_max_magnitude(vel);
-
         for (int lev = 0; lev < repo.num_active_levels(); ++lev) {
             amrex::MFItInfo mfi_info;
         if (amrex::Gpu::notInLaunchRegion())
