@@ -35,6 +35,8 @@ public:
 
     void set_multiphase_properties(int level, const amrex::Geometry& geom);
 
+    void levelset2vof();
+
 private:
     const CFDSim& m_sim;
 
@@ -44,6 +46,8 @@ private:
 
     // Pointer to the levelset
     Field* m_levelset{nullptr};
+    // Pointer to the vof
+    Field* m_vof{nullptr};
 
     // Density value for Fluid 1
     amrex::Real m_rho1{10.0};
