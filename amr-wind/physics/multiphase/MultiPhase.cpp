@@ -71,7 +71,7 @@ void MultiPhase::set_multiphase_properties(
         const amrex::Array4<amrex::Real>& phi = levelset.array(mfi);
         const amrex::Array4<amrex::Real>& rho = density.array(mfi);
         const amrex::Array4<amrex::Real>& mu = mueff.array(mfi);
-        const amrex::Real eps = 2. * std::cbrt(dx[0] * dx[1] * dx[2]);
+        const amrex::Real eps = std::cbrt(2. * dx[0] * dx[1] * dx[2]);
         const amrex::Real rho1 = m_rho1;
         const amrex::Real rho2 = m_rho2;
         const amrex::Real mu1 = m_mu1;
@@ -97,7 +97,6 @@ void MultiPhase::set_multiphase_properties(
 
 void MultiPhase::levelset2vof()
 {
-
     // Compute normal vectors
     auto& normal = m_sim.repo().get_field("interface_normal");
     fvm::gradient(normal, (*m_levelset));
