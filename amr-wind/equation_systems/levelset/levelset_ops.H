@@ -2,6 +2,7 @@
 #define LEVELSET_OPS_H
 
 #include "amr-wind/equation_systems/levelset/levelset.H"
+#include "amr-wind/fvm/gradient.H"
 
 namespace amr_wind {
 namespace pde {
@@ -29,6 +30,9 @@ struct FieldRegOp<Levelset, Scheme>
         curvature
             .template register_fill_patch_op<FieldFillPatchOps<FieldBCNoOp>>(
                 repo.mesh(), time, probtype);
+
+        normal.fillpatch(time.current_time());
+        curvature.fillpatch(time.current_time());
 
         // Register fields for output/restart
         auto& iomgr = sim.io_manager();
@@ -82,6 +86,57 @@ struct ComputeRHSOp<Levelset, Scheme>
                     });
             }
         }
+    
+    // Re-initialize the levelset so that $|\nabla \cdot \phi| = 1$
+    field.advance_states();
+    field.state(amr_wind::FieldState::New).fillpatch(0.0);
+    field_old.state(amr_wind::FieldState::Old).fillpatch(0.0);
+    const auto& geom = fields.repo.mesh().Geom();
+    auto& normal=fields.repo.get_field("interface_normal");
+    int Niter =20;
+    for (int iter=0; iter <Niter ; ++iter){
+        fvm::gradient(normal,field);
+        for (int lev = 0; lev < nlevels; ++lev) {
+#ifdef _OPENMP
+#pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
+#endif
+        for (amrex::MFIter mfi(field(lev)); mfi.isValid(); ++mfi) {
+            const auto& bx = mfi.tilebox();
+            auto phi = field(lev).array(mfi);
+            auto dphi = normal(lev).array(mfi);
+            const auto phi_o = field_old(lev).const_array(mfi);
+            const auto& dx = geom[lev].CellSizeArray();
+            amrex::Real eps = 1.0e-6;
+            amrex::Real dl = std::sqrt(dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2]);
+
+            amrex::ParallelFor(
+            bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+            amrex::Real sign = std::copysign(1.0,phi_o(i,j,k));
+
+                if(phi_o(i,j,k)*phi_o(i-1,j,k)<0 || 
+                   phi_o(i,j,k)*phi_o(i+1,j,k)<0 ||
+                   phi_o(i,j,k)*phi_o(i,j-1,k)<0 ||
+                   phi_o(i,j,k)*phi_o(i,j+1,k)<0 ||
+                   phi_o(i,j,k)*phi_o(i,j,k-1)<0 ||
+                   phi_o(i,j,k)*phi_o(i,j,k+1)<0)
+                {
+                    amrex::Real Dijk = phi_o(i,j,k) / std::max(std::sqrt(dphi(i,j,k,0)*dphi(i,j,k,0)
+                                                  +dphi(i,j,k,1)*dphi(i,j,k,1)
+                                                  +dphi(i,j,k,2)*dphi(i,j,k,2)), eps);
+
+                    phi(i,j,k) = phi(i,j,k) - dt/dl*(sign*amrex::Math::abs(phi(i,j,k))-Dijk);
+                }else{
+                    amrex::Real Gijk=interface_gradients(i, j, k, phi_o(i,j,k), dx[0], dx[1],dx[2],phi);
+                    phi(i,j,k) = phi(i,j,k) - dt*sign*Gijk;
+                }
+            
+            });
+    }
+
+    }
+
+    }
+
     }
 
     void corrector_rhs(const DiffusionType, const amrex::Real dt)
@@ -114,6 +169,32 @@ struct ComputeRHSOp<Levelset, Scheme>
                     });
             }
         }
+    }
+
+    amrex::Real interface_gradients(int i, 
+                                    int j, 
+                                    int k, 
+                                    amrex::Real phi0,
+                                    amrex::Real dx,
+                                    amrex::Real dy,
+                                    amrex::Real dz,                        
+                                    const amrex::Array4<amrex::Real>& phi)
+    {
+        amrex::Real a = (phi(i,j,k)-phi(i-1,j,k))/dx;
+        amrex::Real b = (phi(i+1,j,k)-phi(i,j,k))/dx;
+        amrex::Real c = (phi(i,j,k)-phi(i,j-1,k))/dy;
+        amrex::Real d = (phi(i,j+1,k)-phi(i,j,k))/dy;
+        amrex::Real e = (phi(i,j,k)-phi(i,j,k-1))/dz;
+        amrex::Real f = (phi(i,j,k+1)-phi(i,j,k))/dz;
+        amrex::Real ap = std::max(a,0.0); amrex::Real am = std::min(a,0.0);
+        amrex::Real bp = std::max(b,0.0); amrex::Real bm = std::min(b,0.0);
+        amrex::Real cp = std::max(c,0.0); amrex::Real cm = std::min(c,0.0);
+        amrex::Real dp = std::max(d,0.0); amrex::Real dm = std::min(d,0.0);
+        amrex::Real ep = std::max(e,0.0); amrex::Real em = std::min(e,0.0);
+        amrex::Real fp = std::max(f,0.0); amrex::Real fm = std::min(f,0.0);
+
+        return (phi0 > 0.0) ? std::sqrt(amrex::max(ap*ap,bm*bm)+amrex::max(cp*cp,dm*dm)+amrex::max(ep*ep,fm*fm))-1 
+                          : std::sqrt(amrex::max(am*am,bp*bp)+amrex::max(cm*cm,dp*dp)+amrex::max(em*em,fp*fp))-1 ;
     }
 
     // data members
