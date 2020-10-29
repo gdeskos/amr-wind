@@ -138,8 +138,7 @@ struct ComputeRHSOp<Levelset, Scheme>
                 }else{
                     amrex::Real Gijk=interface_gradients(i, j, k, phi_o(i,j,k), dx[0], dx[1],dx[2],phi);
                     phi(i,j,k) = phi(i,j,k) - dt*sign*Gijk;
-                }
-            
+                }        
             });
         } // mfi loop
 

@@ -17,7 +17,7 @@ public:
     TaylorGreenVortex(const CFDSim& sim);
 
     virtual ~TaylorGreenVortex() = default;
-    //! Initialize the temperature and velocity fields for BoussinesqBubble
+    //! Initialize the temperature and velocity fields for Taylor Green Vortex
     //! simulations
     void initialize_fields(int level, const amrex::Geometry& geom) override;
 

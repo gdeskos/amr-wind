@@ -4,4 +4,6 @@ target_sources(${amr_wind_lib_name}
   VortexPatch.cpp
   ZalesakDisk.cpp
   DamBreak.cpp
+  ZalesakDiskFieldInit.cpp
+  Ellipsoid.cpp
   )
