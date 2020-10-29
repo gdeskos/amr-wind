@@ -34,7 +34,11 @@ struct Levelset : ScalarTransport
     static constexpr bool has_diffusion = false;
 
     static constexpr amrex::Real default_bc_value = 0.0;
+
 };
+
+bool do_reinit = false;
+int  max_reinit_iter = 10;
 
 } // namespace pde
 } // namespace amr_wind

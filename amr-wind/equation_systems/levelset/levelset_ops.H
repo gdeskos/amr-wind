@@ -34,6 +34,11 @@ struct FieldRegOp<Levelset, Scheme>
         normal.fillpatch(time.current_time());
         curvature.fillpatch(time.current_time());
 
+        // Read input parameters
+        amrex::ParmParse pp_levelset("LevelSet");
+        pp_levelset.query("reinit",do_reinit);
+        pp_levelset.query("reinit_max_iter",max_reinit_iter);
+
         // Register fields for output/restart
         auto& iomgr = sim.io_manager();
         iomgr.register_io_var(fields.field.name());
@@ -93,10 +98,17 @@ struct ComputeRHSOp<Levelset, Scheme>
     field_old.state(amr_wind::FieldState::Old).fillpatch(0.0);
     const auto& geom = fields.repo.mesh().Geom();
     auto& normal=fields.repo.get_field("interface_normal");
-    int Niter =20;
-    for (int iter=0; iter <Niter ; ++iter){
-        fvm::gradient(normal,field);
-        for (int lev = 0; lev < nlevels; ++lev) {
+    fvm::gradient(normal,field_old);
+    int iter=0;
+    bool converged=false;
+    while(!converged){
+    // test convergence
+    if (iter>max_reinit_iter-1 || !do_reinit)
+        break;
+
+    iter = iter + 1;
+
+    for (int lev = 0; lev < nlevels; ++lev) {
 #ifdef _OPENMP
 #pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
 #endif
@@ -111,7 +123,8 @@ struct ComputeRHSOp<Levelset, Scheme>
 
             amrex::ParallelFor(
             bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-            amrex::Real sign = std::copysign(1.0,phi_o(i,j,k));
+            amrex::Real Dphi2 = dphi(i,j,k,0)*dphi(i,j,k,0)+dphi(i,j,k,1)*dphi(i,j,k,1)+dphi(i,j,k,2)*dphi(i,j,k,2);
+            amrex::Real sign = phi_o(i,j,k)/std::sqrt(phi_o(i,j,k)*phi_o(i,j,k)+Dphi2*dl*dl);
 
                 if(phi_o(i,j,k)*phi_o(i-1,j,k)<0 || 
                    phi_o(i,j,k)*phi_o(i+1,j,k)<0 ||
@@ -120,10 +133,7 @@ struct ComputeRHSOp<Levelset, Scheme>
                    phi_o(i,j,k)*phi_o(i,j,k-1)<0 ||
                    phi_o(i,j,k)*phi_o(i,j,k+1)<0)
                 {
-                    amrex::Real Dijk = phi_o(i,j,k) / std::max(std::sqrt(dphi(i,j,k,0)*dphi(i,j,k,0)
-                                                  +dphi(i,j,k,1)*dphi(i,j,k,1)
-                                                  +dphi(i,j,k,2)*dphi(i,j,k,2)), eps);
-
+                    amrex::Real Dijk = phi_o(i,j,k) / std::max(std::sqrt(Dphi2), eps);
                     phi(i,j,k) = phi(i,j,k) - dt/dl*(sign*amrex::Math::abs(phi(i,j,k))-Dijk);
                 }else{
                     amrex::Real Gijk=interface_gradients(i, j, k, phi_o(i,j,k), dx[0], dx[1],dx[2],phi);
@@ -131,11 +141,14 @@ struct ComputeRHSOp<Levelset, Scheme>
                 }
             
             });
-    }
+        } // mfi loop
 
-    }
+    } // level loop
 
-    }
+
+
+    }// while loop end
+    amrex::Print()<<"  Level set re-initialization "<<std::setw(4)<<iter<<std::endl;       
 
     }
 
