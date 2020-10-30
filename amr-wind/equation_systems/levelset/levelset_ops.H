@@ -156,7 +156,7 @@ struct PostSolveOp<Levelset>
             if (iter>max_reinit_iter-1 || !do_reinit)
                 break;
 
-        iter = iter + 1;
+            iter = iter + 1;
 
         const int nlevels = fields.repo.num_active_levels();
 
@@ -170,11 +170,12 @@ struct PostSolveOp<Levelset>
                 auto dphi = normal(lev).array(mfi);
                 const auto phi_o = field_old(lev).const_array(mfi);
                 const auto& dx = geom[lev].CellSizeArray();
-                amrex::Real eps = 1.0e-16;
+                amrex::Real eps = 1.0e-12;
                 amrex::Real dl = std::max(dx[0],std::max(dx[1],dx[2]));
-                amrex::Real dt = 0.25*dl;
+                amrex::Real dt = 0.5*dl;
                 amrex::ParallelFor(
                     bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+
                     if (phi_o(i,j,k)*phi_o(i-1,j,k)<0 || 
                         phi_o(i,j,k)*phi_o(i+1,j,k)<0 ||
                         phi_o(i,j,k)*phi_o(i,j-1,k)<0 ||
@@ -188,8 +189,8 @@ struct PostSolveOp<Levelset>
                         phi(i,j,k) = phi(i,j,k) - dt/dl*(sign*amrex::Math::abs(phi(i,j,k))-Dijk);
                     }else{
                         amrex::Real sign = amrex::Math::copysign(1.0,phi_o(i,j,k));
-                        amrex::Real Gijk=interface_gradients(i, j, k, phi_o(i,j,k), dx[0], dx[1],dx[2],phi);
-                        phi(i,j,k) = phi(i,j,k) - dt*sign*Gijk;
+                        amrex::Real Gijk=upwind_gradient_mag(i, j, k, phi_o(i,j,k),dx[0],dx[1],dx[2],phi);
+                        phi(i,j,k) = phi(i,j,k) - dt*sign*(Gijk-1.0);
                     }        
                 });
             } // mfi loop
@@ -201,7 +202,7 @@ struct PostSolveOp<Levelset>
     
     }
 
-    amrex::Real interface_gradients(int i, 
+    amrex::Real upwind_gradient_mag(int i, 
                                     int j, 
                                     int k, 
                                     amrex::Real phi0,
@@ -223,8 +224,8 @@ struct PostSolveOp<Levelset>
         amrex::Real ep = std::max(e,0.0); amrex::Real em = std::min(e,0.0);
         amrex::Real fp = std::max(f,0.0); amrex::Real fm = std::min(f,0.0);
 
-        return (phi0 > 0.0) ? std::sqrt(amrex::max(ap*ap,bm*bm)+amrex::max(cp*cp,dm*dm)+amrex::max(ep*ep,fm*fm))-1 
-                          : std::sqrt(amrex::max(am*am,bp*bp)+amrex::max(cm*cm,dp*dp)+amrex::max(em*em,fp*fp))-1 ;
+        return (phi0 > 0.0) ? std::sqrt(amrex::max(ap*ap,bm*bm)+amrex::max(cp*cp,dm*dm)+amrex::max(ep*ep,fm*fm))
+                          : std::sqrt(amrex::max(am*am,bp*bp)+amrex::max(cm*cm,dp*dp)+amrex::max(em*em,fp*fp)) ;
     }
 
     PDEFields& fields;
