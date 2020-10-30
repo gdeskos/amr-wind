@@ -34,11 +34,6 @@ struct FieldRegOp<Levelset, Scheme>
         normal.fillpatch(time.current_time());
         curvature.fillpatch(time.current_time());
 
-        // Read input parameters
-        amrex::ParmParse pp_levelset("LevelSet");
-        pp_levelset.query("reinit",do_reinit);
-        pp_levelset.query("reinit_max_iter",max_reinit_iter);
-
         // Register fields for output/restart
         auto& iomgr = sim.io_manager();
         iomgr.register_io_var(fields.field.name());
@@ -57,7 +52,12 @@ struct FieldRegOp<Levelset, Scheme>
 template <typename Scheme>
 struct ComputeRHSOp<Levelset, Scheme>
 {
-    ComputeRHSOp(PDEFields& fields_in) : fields(fields_in) {}
+    ComputeRHSOp(PDEFields& fields_in) : fields(fields_in) {
+        // Read input parameters
+        amrex::ParmParse pp_levelset("LevelSet");
+        pp_levelset.query("reinit",do_reinit);
+        pp_levelset.query("reinit_max_iter",max_reinit_iter);
+    }
 
     void predictor_rhs(const DiffusionType, const amrex::Real dt)
     {
@@ -211,7 +211,29 @@ struct ComputeRHSOp<Levelset, Scheme>
 
     // data members
     PDEFields& fields;
+
 };
+
+/** Implementation of post-processing actions for the Level set equation
+ *  \ingroup tke_eqn
+ */
+template <>
+struct PostSolveOp<Levelset>
+{
+    PostSolveOp(PDEFields& fields) : m_fields(fields) {}
+
+    void operator()(const amrex::Real time)
+    {
+        field_ops::lower_bound(fields.field, clip_value);
+        fields.field.fillpatch(time);
+    }
+
+    PDEFields& fields;
+    amrex::Real clip_value{1.0e-15};
+    bool do_reinit = false;
+    int  max_reinit_iter = 10;
+};
+
 } // namespace pde
 } // namespace amr_wind
 

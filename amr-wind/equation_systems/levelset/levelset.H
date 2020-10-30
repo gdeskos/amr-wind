@@ -37,9 +37,6 @@ struct Levelset : ScalarTransport
 
 };
 
-bool do_reinit = false;
-int  max_reinit_iter = 10;
-
 } // namespace pde
 } // namespace amr_wind
 
