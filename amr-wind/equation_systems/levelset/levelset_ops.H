@@ -31,9 +31,6 @@ struct FieldRegOp<Levelset, Scheme>
             .template register_fill_patch_op<FieldFillPatchOps<FieldBCNoOp>>(
                 repo.mesh(), time, probtype);
 
-        normal.fillpatch(time.current_time());
-        curvature.fillpatch(time.current_time());
-
         // Register fields for output/restart
         auto& iomgr = sim.io_manager();
         iomgr.register_io_var(fields.field.name());
@@ -52,12 +49,7 @@ struct FieldRegOp<Levelset, Scheme>
 template <typename Scheme>
 struct ComputeRHSOp<Levelset, Scheme>
 {
-    ComputeRHSOp(PDEFields& fields_in) : fields(fields_in) {
-        // Read input parameters
-        amrex::ParmParse pp_levelset("LevelSet");
-        pp_levelset.query("reinit",do_reinit);
-        pp_levelset.query("reinit_max_iter",max_reinit_iter);
-    }
+    ComputeRHSOp(PDEFields& fields_in) : fields(fields_in) {}
 
     void predictor_rhs(const DiffusionType, const amrex::Real dt)
     {
@@ -92,63 +84,6 @@ struct ComputeRHSOp<Levelset, Scheme>
             }
         }
     
-    // Re-initialize the levelset so that $|\nabla \cdot \phi| = 1$
-    field.advance_states();
-    field.state(amr_wind::FieldState::New).fillpatch(0.0);
-    field_old.state(amr_wind::FieldState::Old).fillpatch(0.0);
-    const auto& geom = fields.repo.mesh().Geom();
-    auto& normal=fields.repo.get_field("interface_normal");
-    fvm::gradient(normal,field_old);
-    int iter=0;
-    bool converged=false;
-    while(!converged){
-    // test convergence
-    if (iter>max_reinit_iter-1 || !do_reinit)
-        break;
-
-    iter = iter + 1;
-
-    for (int lev = 0; lev < nlevels; ++lev) {
-#ifdef _OPENMP
-#pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
-#endif
-        for (amrex::MFIter mfi(field(lev)); mfi.isValid(); ++mfi) {
-            const auto& bx = mfi.tilebox();
-            auto phi = field(lev).array(mfi);
-            auto dphi = normal(lev).array(mfi);
-            const auto phi_o = field_old(lev).const_array(mfi);
-            const auto& dx = geom[lev].CellSizeArray();
-            amrex::Real eps = 1.0e-6;
-            amrex::Real dl = std::sqrt(dx[0]*dx[0]+dx[1]*dx[1]+dx[2]*dx[2]);
-
-            amrex::ParallelFor(
-            bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-            amrex::Real Dphi2 = dphi(i,j,k,0)*dphi(i,j,k,0)+dphi(i,j,k,1)*dphi(i,j,k,1)+dphi(i,j,k,2)*dphi(i,j,k,2);
-            amrex::Real sign = phi_o(i,j,k)/std::sqrt(phi_o(i,j,k)*phi_o(i,j,k)+Dphi2*dl*dl);
-
-                if(phi_o(i,j,k)*phi_o(i-1,j,k)<0 || 
-                   phi_o(i,j,k)*phi_o(i+1,j,k)<0 ||
-                   phi_o(i,j,k)*phi_o(i,j-1,k)<0 ||
-                   phi_o(i,j,k)*phi_o(i,j+1,k)<0 ||
-                   phi_o(i,j,k)*phi_o(i,j,k-1)<0 ||
-                   phi_o(i,j,k)*phi_o(i,j,k+1)<0)
-                {
-                    amrex::Real Dijk = phi_o(i,j,k) / std::max(std::sqrt(Dphi2), eps);
-                    phi(i,j,k) = phi(i,j,k) - dt/dl*(sign*amrex::Math::abs(phi(i,j,k))-Dijk);
-                }else{
-                    amrex::Real Gijk=interface_gradients(i, j, k, phi_o(i,j,k), dx[0], dx[1],dx[2],phi);
-                    phi(i,j,k) = phi(i,j,k) - dt*sign*Gijk;
-                }        
-            });
-        } // mfi loop
-
-    } // level loop
-
-
-
-    }// while loop end
-    amrex::Print()<<"  Level set re-initialization "<<std::setw(4)<<iter<<std::endl;       
-
     }
 
     void corrector_rhs(const DiffusionType, const amrex::Real dt)
@@ -183,6 +118,89 @@ struct ComputeRHSOp<Levelset, Scheme>
         }
     }
 
+    // data members
+    PDEFields& fields;
+
+};
+
+/** Implementation of post-processing actions for the Level set equation
+ *  \ingroup tke_eqn
+ */
+template <>
+struct PostSolveOp<Levelset>
+{
+    PostSolveOp(PDEFields& fields) : fields(fields) {
+        // Read input parameters
+        amrex::ParmParse pp_levelset("LevelSet");
+        pp_levelset.query("reinit",do_reinit);
+        pp_levelset.query("reinit_max_iter",max_reinit_iter);
+    }
+    
+    void operator()(const SimTime& time)
+    {
+        
+        // Re-initialize the levelset so that $|\nabla \cdot \phi| = 1$
+        fields.field.advance_states();
+        auto& field = fields.field.state(FieldState::New);
+        auto& field_old = fields.field.state(FieldState::Old);
+        field.fillpatch(time.current_time());
+        field_old.fillpatch(time.current_time());
+        
+        const auto& geom = fields.repo.mesh().Geom();
+        auto& normal=fields.repo.get_field("interface_normal");
+        fvm::gradient(normal,field_old);
+        int iter=0;
+        bool converged=false;
+        while(!converged){
+        // test convergence
+            if (iter>max_reinit_iter-1 || !do_reinit)
+                break;
+
+        iter = iter + 1;
+
+        const int nlevels = fields.repo.num_active_levels();
+
+        for (int lev = 0; lev < nlevels; ++lev) {
+#ifdef _OPENMP
+#pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
+#endif
+            for (amrex::MFIter mfi(field(lev)); mfi.isValid(); ++mfi) {
+                const auto& bx = mfi.tilebox();
+                auto phi = field(lev).array(mfi);
+                auto dphi = normal(lev).array(mfi);
+                const auto phi_o = field_old(lev).const_array(mfi);
+                const auto& dx = geom[lev].CellSizeArray();
+                amrex::Real eps = 1.0e-16;
+                amrex::Real dl = std::max(dx[0],std::max(dx[1],dx[2]));
+                amrex::Real dt = 0.25*dl;
+                amrex::ParallelFor(
+                    bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+                    if (phi_o(i,j,k)*phi_o(i-1,j,k)<0 || 
+                        phi_o(i,j,k)*phi_o(i+1,j,k)<0 ||
+                        phi_o(i,j,k)*phi_o(i,j-1,k)<0 ||
+                        phi_o(i,j,k)*phi_o(i,j+1,k)<0 ||
+                        phi_o(i,j,k)*phi_o(i,j,k-1)<0 ||
+                        phi_o(i,j,k)*phi_o(i,j,k+1)<0)
+                    {
+                        amrex::Real Dphi2 = dphi(i,j,k,0)*dphi(i,j,k,0)+dphi(i,j,k,1)*dphi(i,j,k,1)+dphi(i,j,k,2)*dphi(i,j,k,2);
+                        amrex::Real sign  = phi_o(i,j,k) / std::sqrt(phi_o(i,j,k)*phi_o(i,j,k)+Dphi2*dl*dl);
+                        amrex::Real Dijk  = phi_o(i,j,k) / std::max(std::sqrt(Dphi2), eps);
+                        phi(i,j,k) = phi(i,j,k) - dt/dl*(sign*amrex::Math::abs(phi(i,j,k))-Dijk);
+                    }else{
+                        amrex::Real sign = amrex::Math::copysign(1.0,phi_o(i,j,k));
+                        amrex::Real Gijk=interface_gradients(i, j, k, phi_o(i,j,k), dx[0], dx[1],dx[2],phi);
+                        phi(i,j,k) = phi(i,j,k) - dt*sign*Gijk;
+                    }        
+                });
+            } // mfi loop
+
+        } // level loop
+
+    }// while loop end
+    amrex::Print()<<"  Level set re-initialization "<<std::setw(4)<<iter<<std::endl;       
+    
+    }
+
     amrex::Real interface_gradients(int i, 
                                     int j, 
                                     int k, 
@@ -209,27 +227,7 @@ struct ComputeRHSOp<Levelset, Scheme>
                           : std::sqrt(amrex::max(am*am,bp*bp)+amrex::max(cm*cm,dp*dp)+amrex::max(em*em,fp*fp))-1 ;
     }
 
-    // data members
     PDEFields& fields;
-
-};
-
-/** Implementation of post-processing actions for the Level set equation
- *  \ingroup tke_eqn
- */
-template <>
-struct PostSolveOp<Levelset>
-{
-    PostSolveOp(PDEFields& fields) : m_fields(fields) {}
-
-    void operator()(const amrex::Real time)
-    {
-        field_ops::lower_bound(fields.field, clip_value);
-        fields.field.fillpatch(time);
-    }
-
-    PDEFields& fields;
-    amrex::Real clip_value{1.0e-15};
     bool do_reinit = false;
     int  max_reinit_iter = 10;
 };

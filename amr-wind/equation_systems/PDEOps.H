@@ -199,7 +199,7 @@ struct PostSolveOp
 {
     PostSolveOp(PDEFields& fields) : m_fields(fields) {}
 
-    void operator()(const amrex::Real time) { m_fields.field.fillpatch(time); }
+    void operator()(const SimTime& time) { m_fields.field.fillpatch(time.current_time()); }
 
     PDEFields& m_fields;
 };

@@ -69,10 +69,10 @@ struct PostSolveOp<TKE>
 {
     PostSolveOp(PDEFields& fields) : m_fields(fields) {}
 
-    void operator()(const amrex::Real time)
+    void operator()(const SimTime& time)
     {
         field_ops::lower_bound(m_fields.field, clip_value);
-        m_fields.field.fillpatch(time);
+        m_fields.field.fillpatch(time.current_time());
     }
 
     PDEFields& m_fields;
