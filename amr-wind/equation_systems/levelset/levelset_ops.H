@@ -83,7 +83,6 @@ struct ComputeRHSOp<Levelset, Scheme>
                     });
             }
         }
-    
     }
 
     void corrector_rhs(const DiffusionType, const amrex::Real dt)
@@ -165,7 +164,7 @@ struct PostSolveOp<Levelset>
                 const auto& dx = geom[lev].CellSizeArray();
                 amrex::Real eps = 1.0e-12;
                 amrex::Real dl = std::max(dx[0],std::max(dx[1],dx[2]));
-                amrex::Real dt = 0.5*dl;
+                amrex::Real dt = 0.1*dl;
 #ifdef _OPENMP
 #pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
 #endif
@@ -177,42 +176,28 @@ struct PostSolveOp<Levelset>
                   
                     amrex::ParallelFor(
                     bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-
                     
-                    if (phi_o(i,j,k)*phi_o(i-1,j,k)<0.0 || 
-                        phi_o(i,j,k)*phi_o(i+1,j,k)<0.0 ||
-                        phi_o(i,j,k)*phi_o(i,j-1,k)<0.0 ||
-                        phi_o(i,j,k)*phi_o(i,j+1,k)<0.0 ||
-                        phi_o(i,j,k)*phi_o(i,j,k-1)<0.0 ||
-                        phi_o(i,j,k)*phi_o(i,j,k+1)<0.0)
-                    {
-                        amrex::Real Dphi2 = dphi(i,j,k,0)*dphi(i,j,k,0)+dphi(i,j,k,1)*dphi(i,j,k,1)+dphi(i,j,k,2)*dphi(i,j,k,2);
                         amrex::Real sign = amrex::Math::copysign(1.0,phi_o(i,j,k));
-                        amrex::Real Dijk  = phi_o(i,j,k) / std::max(std::sqrt(Dphi2),eps);
-                        //phi(i,j,k) = phi(i,j,k) - dt/dl*(sign*amrex::Math::abs(phi(i,j,k))-Dijk);
-                    }else{   
-                        amrex::Real sign = amrex::Math::copysign(1.0,phi_o(i,j,k));
-                        amrex::Real Gijk=upwind_gradient_mag(i, j, k, phi_o(i,j,k),dx[0],dx[1],dx[2],phi);
-                        phi(i,j,k) = phi(i,j,k) - dt*sign*(Gijk-1.0);
-                    }        
-                });
-            } // mfi loop
-
-        } // level loop
-
-    }// while loop end
+                        amrex::Real Gijk= gradient_mag(i, j, k, phi_o(i,j,k),dx[0],dx[1],dx[2],phi);
+                        phi(i,j,k) = phi(i,j,k) + dt*sign*(1.0-Gijk);
+                          
+                    });
+                } // mfi loop
+  
+            } // level loop
+        }// while loop end
     amrex::Print()<<"  Level set re-initialization "<<std::setw(4)<<iter<<std::endl;       
     
     }
 
-    amrex::Real upwind_gradient_mag(int i, 
-                                    int j, 
-                                    int k, 
-                                    amrex::Real phi0,
-                                    amrex::Real dx,
-                                    amrex::Real dy,
-                                    amrex::Real dz,                        
-                                    const amrex::Array4<amrex::Real>& phi)
+    amrex::Real gradient_mag(int i, 
+                            int j, 
+                            int k, 
+                            amrex::Real phi0,
+                            amrex::Real dx,
+                            amrex::Real dy,
+                            amrex::Real dz,                        
+                            const amrex::Array4<amrex::Real>& phi)
     {
         amrex::Real a = (phi(i,j,k)-phi(i-1,j,k))/dx;
         amrex::Real b = (phi(i+1,j,k)-phi(i,j,k))/dx;
@@ -230,6 +215,8 @@ struct PostSolveOp<Levelset>
         return (phi0 > 0.0) ? std::sqrt(amrex::max(ap*ap,bm*bm)+amrex::max(cp*cp,dm*dm)+amrex::max(ep*ep,fm*fm))
                           : std::sqrt(amrex::max(am*am,bp*bp)+amrex::max(cm*cm,dp*dp)+amrex::max(em*em,fp*fp)) ;
     }
+
+
 
     PDEFields& fields;
     bool do_reinit = false;

@@ -24,7 +24,7 @@ public:
 
     virtual ~ZalesakDisk() = default;
 
-    //! Initialize the levelset and velocity fields for Vortex Patch simulations
+    //! Initialize the levelset and velocity fields for Zalesak Disk simulations
 
     void initialize_fields(int level, const amrex::Geometry& geom) override;
 
