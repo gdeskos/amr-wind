@@ -23,7 +23,10 @@ struct AdvectionOp<
     fvm::MOL,
     typename std::enable_if<std::is_base_of<ScalarTransport, PDE>::value>::type>
 {
-    AdvectionOp(PDEFields& fields_in, bool /* has_overset */)
+    AdvectionOp(
+        PDEFields& fields_in,
+        bool /* has_overset */,
+        bool /* variable density */)
         : fields(fields_in)
         , density(fields_in.repo.get_field("density"))
         , u_mac(fields_in.repo.get_field("u_mac"))
@@ -41,7 +44,7 @@ struct AdvectionOp<
 
         auto& conv_term = fields.conv_term.state(fstate);
         auto& dof_field = fields.field.state(fstate);
-        auto& den = density.state(fstate);
+        const auto& den = density.state(fstate);
 
         for (int lev = 0; lev < repo.num_active_levels(); ++lev) {
             amrex::MFItInfo mfi_info;

@@ -20,7 +20,8 @@ io.outputs = velocity_mueff
 #¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨#
 #               PHYSICS                 #
 #.......................................#
-
+incflo.initial_iterations = 0
+incflo.do_initial_proj = 0
 incflo.use_godunov = 1
 incflo.godunov_type = "weno"
 transport.model = TwoPhaseTransport
@@ -30,7 +31,6 @@ transport.turbulent_prandtl = 0.3333
 turbulence.model = Laminar 
 
 incflo.physics = MultiPhase VortexPatch
-VortexPatch.period=3.
 #¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨#
 #        ADAPTIVE MESH REFINEMENT       #
 #.......................................#

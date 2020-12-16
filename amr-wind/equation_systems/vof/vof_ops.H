@@ -64,7 +64,6 @@ struct ComputeRHSOp<VOF, Scheme>
                           : FieldState::Old;
 
         const int nlevels = fields.repo.num_active_levels();
-        auto& geom = fields.repo.mesh().Geom();
         auto& field = fields.field;
         auto& field_old = field.state(FieldState::Old);
         auto& conv_term = fields.conv_term.state(fstate);
