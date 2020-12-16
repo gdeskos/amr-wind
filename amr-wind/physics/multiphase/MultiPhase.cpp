@@ -116,14 +116,14 @@ void MultiPhase::set_density_via_vof()
 
         for (amrex::MFIter mfi(density); mfi.isValid(); ++mfi) {
             const auto& vbx = mfi.validbox();
-            const amrex::Array4<amrex::Real>& F = vof.array(mfi);
+            const amrex::Array4<amrex::Real>& volfrac = vof.array(mfi);
             const amrex::Array4<amrex::Real>& rho = density.array(mfi);
             const amrex::Real rho1 = m_rho1;
             const amrex::Real rho2 = m_rho2;
             amrex::ParallelFor(
                 vbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-                    rho(i, j, k) =
-                        rho1 * F(i, j, k) + rho2 * (1.0 - F(i, j, k));
+                    rho(i, j, k) = rho1 * volfrac(i, j, k) +
+                                   rho2 * (1.0 - volfrac(i, j, k));
                 });
         }
     }

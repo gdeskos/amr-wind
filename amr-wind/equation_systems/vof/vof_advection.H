@@ -1,101 +1,68 @@
-#ifndef VOF_ADVECTION_H_
-#define VOF_ADVECTION_H_
+#ifndef VOF_ADVECTION_H
+#define VOF_ADVECTION_H
 
-#include <AMReX_FArrayBox.H>
-#include "amr-wind/equation_systems/vof/volume_fractions.H"
-#include <cmath>
+#include "amr-wind/equation_systems/vof/vof.H"
+#include "amr-wind/equation_systems/vof/SplitLagrangianAdvection.H"
 
 namespace amr_wind {
-namespace multiphase {
+namespace pde {
 
-using namespace amrex;
-
-void lagrangian_split_advection(
-    int lev,
-    Box const& bx,
-    amrex::Array4<Real> const& cc,
-    amrex::Array4<amrex::Real const> const& umac,
-    amrex::Array4<amrex::Real const> const& vmac,
-    amrex::Array4<amrex::Real const> const& wmac,
-    amrex::Array4<amrex::Real const> const& fq,
-    BCRec const* pbc,
-    int const* iconserv,
-    Real* p,
-    Vector<amrex::Geometry> geom,
-    Real dt)
+/** Godunov scheme for VOF
+ *  \ingroup icns
+ */
+template <>
+struct AdvectionOp<VOF, fvm::Godunov>
 {
-    BL_PROFILE("amr-wind::multiphase::lagrangian_split_advection");
-}
+    AdvectionOp(PDEFields& fields_in, bool has_overset, bool variable_density)
+        : fields(fields_in)
+        , u_mac(fields_in.repo.get_field("u_mac"))
+        , v_mac(fields_in.repo.get_field("v_mac"))
+        , w_mac(fields_in.repo.get_field("w_mac"))
+    {}
 
-// onto cell explicit linear mapping
-AMREX_GPU_HOST_DEVICE
-AMREX_FORCE_INLINE
-void volume_fraction_balance(
-    const int i,
-    const int j,
-    const int k,
-    const int dim,
-    amrex::Array4<amrex::Real> const& volfrac,
-    amrex::Array4<amrex::Real> const& vol_in,
-    amrex::Array4<amrex::Real> const& vol_cell,
-    amrex::Array4<amrex::Real> const& vol_out,
-    const int bclo,
-    const int bchi,
-    const int domlo,
-    const int domhi)
-{
-    using namespace amrex;
+    void operator()(const FieldState fstate, const amrex::Real dt)
+    {
+        auto& repo = fields.repo;
+        auto& geom = repo.mesh().Geom();
+        auto& dof_field = fields.field.state(fstate);
+        auto bcrec_device = dof_field.bcrec_device();
+        //
+        // Advect volume using the Explicit Lagrangian onto-cell Sweeping method
+        // with PLIC reconstruction
+        //
+        for (int lev = 0; lev < repo.num_active_levels(); ++lev) {
+            u_mac(lev).FillBoundary(geom[lev].periodicity());
+            v_mac(lev).FillBoundary(geom[lev].periodicity());
+            w_mac(lev).FillBoundary(geom[lev].periodicity());
 
-    if (dim == 1) {
-        // Flux BCs for y-direction
-        if (bclo == BCType::ext_dir || bclo == BCType::hoextrap) {
-            if (i == domlo) {
-                vol_in(i - 1, j, k) = 0.0;
-            }
-        }
+            amrex::MFItInfo mfi_info;
+            if (amrex::Gpu::notInLaunchRegion())
+                mfi_info.EnableTiling(amrex::IntVect(1024, 1024, 1024))
+                    .SetDynamic(true);
+#ifdef _OPENMP
+#pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
+#endif
+            for (amrex::MFIter mfi(dof_field(lev), mfi_info); mfi.isValid();
+                 ++mfi) {
+                const auto& bx = mfi.tilebox();
 
-        if (bchi == BCType::ext_dir || bchi == BCType::hoextrap) {
-            if (i == domhi) {
-                vol_out(i + 1, j, k) = 0.0;
-            }
-        }
-        volfrac(i, j, k) =
-            vol_in(i - 1, j, k) + vol_cell(i, j, k) + vol_out(i + 1, j, k);
-    } else if (dim == 2) {
-        // Flux BCs for y-direction
-        if (bclo == BCType::ext_dir || bclo == BCType::hoextrap) {
-            if (j == domlo) {
-                vol_in(i, j - 1, k) = 0.0;
-            }
-        }
+                multiphase::split_lagrangian_advection(
+                    lev, bx, dof_field(lev).array(mfi),
+                    u_mac(lev).const_array(mfi), v_mac(lev).const_array(mfi),
+                    w_mac(lev).const_array(mfi),
+                    dof_field.bcrec_device().data(), geom, dt);
 
-        if (bchi == BCType::ext_dir || bchi == BCType::hoextrap) {
-            if (j == domhi) {
-                vol_out(i, j + 1, k) = 0.0;
+                amrex::Gpu::streamSynchronize();
             }
         }
-        volfrac(i, j, k) =
-            vol_in(i, j - 1, k) + vol_cell(i, j, k) + vol_out(i, j + 1, k);
-    } else if (dim == 3) {
-        // Flux BCs for z-direction
-        if (bclo == BCType::ext_dir || bclo == BCType::hoextrap) {
-            if (k == domlo) {
-                vol_in(i, j, k - 1) = 0.0;
-            }
-        }
-        if (bchi == BCType::ext_dir || bchi == BCType::hoextrap) {
-            if (k == domhi) {
-                vol_out(i, j, k + 1) = 0.0;
-            }
-        }
-        volfrac(i, j, k) =
-            vol_in(i, j, k - 1) + vol_cell(i, j, k) + vol_out(i, j, k + 1);
     }
-    // Do clipping
-    volfrac(i, j, k) = std::max(0.0, std::min(1.0, volfrac(i, j, k)));
-}
 
-} // namespace multiphase
+    PDEFields& fields;
+    Field& u_mac;
+    Field& v_mac;
+    Field& w_mac;
+};
+
+} // namespace pde
 } // namespace amr_wind
-
 #endif
