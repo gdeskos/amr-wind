@@ -1,5 +1,5 @@
-#ifndef VolumeFraction_H_
-#define VolumeFraction_H_
+#ifndef VOLUME_FRACTIONS_H_
+#define VOLUME_FRACTIONS_H_
 
 #include <AMReX_FArrayBox.H>
 #include <cmath>
@@ -7,11 +7,69 @@
 namespace amr_wind {
 namespace multiphase {
 
+/**---------------------------------------------------------------
+// FD32 - Youngs Finite Difference Gradient Scheme
+// the gradient is computed with a multiplicative factor of -32:
+//  mm = - 32 * grad (c)
+//----------------------------------------------------------------
+//
+// Known problems: the index (1,1,1), i.e. the central cell in the block, never
+occurs:
+// Therefore an isolated droplet will have a normal with all components to zero.
+// Translated into f90 by Stephane Z.
+*/
+
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE void youngs_fd_normal(
+    int i,
+    int j,
+    int k,
+    amrex::Array4<amrex::Real const> const& volfrac,
+    amrex::Array4<amrex::Real> const& normal) noexcept
+{
+    amrex::Real mm1, mm2;
+
+    mm1 = volfrac(i - 1, j - 1, k - 1) + volfrac(i - 1, j - 1, k + 1) +
+          volfrac(i - 1, j + 1, k - 1) + volfrac(i - 1, j + 1, k + 1) +
+          2.0 * (volfrac(i - 1, j - 1, k) + volfrac(i - 1, j + 1, k) +
+                 volfrac(i - 1, j, k - 1) + volfrac(i - 1, j, k + 1)) +
+          4.0 * volfrac(i - 1, j, k);
+    mm2 = volfrac(i + 1, j - 1, k - 1) + volfrac(i + 1, j - 1, k + 1) +
+          volfrac(i + 1, j + 1, k - 1) + volfrac(i + 1, j + 1, k + 1) +
+          2.0 * (volfrac(i + 1, j - 1, k) + volfrac(i + 1, j + 1, k) +
+                 volfrac(i + 1, j, k - 1) + volfrac(i + 1, j, k + 1)) +
+          4.0 * volfrac(i + 1, j, k);
+    normal(i, j, k, 0) = (mm1 - mm2);
+
+    mm1 = volfrac(i - 1, j - 1, k - 1) + volfrac(i - 1, j - 1, k + 1) +
+          volfrac(i + 1, j - 1, k - 1) + volfrac(i + 1, j - 1, k + 1) +
+          2.0 * (volfrac(i - 1, j - 1, k) + volfrac(i + 1, j - 1, k) +
+                 volfrac(i, j - 1, k - 1) + volfrac(i, j - 1, k + 1)) +
+          4.0 * volfrac(i, j - 1, k);
+    mm2 = volfrac(i - 1, j + 1, k - 1) + volfrac(i - 1, j + 1, k + 1) +
+          volfrac(i + 1, j + 1, k - 1) + volfrac(i + 1, j + 1, k + 1) +
+          2.0 * (volfrac(i - 1, j + 1, k) + volfrac(i + 1, j + 1, k) +
+                 volfrac(i, j + 1, k - 1) + volfrac(i, j + 1, k + 1)) +
+          4.0 * volfrac(i, j + 1, k);
+    normal(i, j, k, 1) = (mm1 - mm2);
+
+    mm1 = volfrac(i - 1, j - 1, k - 1) + volfrac(i - 1, j + 1, k - 1) +
+          volfrac(i + 1, j - 1, k - 1) + volfrac(i + 1, j + 1, k - 1) +
+          2.0 * (volfrac(i - 1, j, k - 1) + volfrac(i + 1, j, k - 1) +
+                 volfrac(i, j - 1, k - 1) + volfrac(i, j + 1, k - 1)) +
+          4.0 * volfrac(i, j, k - 1);
+    mm2 = volfrac(i - 1, j - 1, k + 1) + volfrac(i - 1, j + 1, k + 1) +
+          volfrac(i + 1, j - 1, k + 1) + volfrac(i + 1, j + 1, k + 1) +
+          2.0 * (volfrac(i - 1, j, k + 1) + volfrac(i + 1, j, k + 1) +
+                 volfrac(i, j - 1, k + 1) + volfrac(i, j + 1, k + 1)) +
+          4.0 * volfrac(i, j, k + 1);
+    normal(i, j, k, 2) = (mm1 - mm2);
+}
+
 /* Computes alpha: m1*x1 + m2* x2 + m3*x3 = alpha
- * given that m1+m2+m3=1 (m1,m2,m3>0) and the volumetric fraction cc
+ * given that m1+m2+m3=1 (m1,m2,m3>0) and the volumetric fraction volF
  */
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::Real volume_intercept(
-    amrex::Real mx, amrex::Real my, amrex::Real mz, amrex::Real cc) noexcept
+    amrex::Real mx, amrex::Real my, amrex::Real mz, amrex::Real volF) noexcept
 {
     using namespace amrex;
 
@@ -56,37 +114,36 @@ AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::Real volume_intercept(
         V3 = 0.5 * mm / m3;
     }
 
-    amrex::Real ch = std::min(cc, 1.0 - cc);
+    amrex::Real ch = std::min(volF, 1.0 - volF);
 
-    // Original method
-    amrex::Real AL3D, p, q, p12, teta, cs;
+    amrex::Real alpha, p, q, p12, teta, cs;
     if (ch < V1) {
-        AL3D = std::cbrt(pr * ch); // case (1)
+        alpha = std::cbrt(pr * ch); // case (1)
     } else if (ch < V2) {
-        AL3D = 0.50 * (m1 + std::sqrt(m1 * m1 + 8.0 * m2 * m3 * (ch - V1)));
+        alpha = 0.50 * (m1 + std::sqrt(m1 * m1 + 8.0 * m2 * m3 * (ch - V1)));
     } else if (ch < V3) {
         p = 2.0 * m1 * m2;
         q = 1.5 * m1 * m2 * (m12 - 2.0 * m3 * ch);
         p12 = std::sqrt(p);
         teta = std::acos(q / (p * p12)) / 3.0;
         cs = std::cos(teta);
-        AL3D = p12 * (std::sqrt(3.0 * (1.0 - cs * cs)) - cs) + m12;
+        alpha = p12 * (std::sqrt(3.0 * (1.0 - cs * cs)) - cs) + m12;
     } else if (m12 < m3) {
-        AL3D = m3 * ch + 0.5 * mm;
+        alpha = m3 * ch + 0.5 * mm;
     } else {
         p = m1 * (m2 + m3) + m2 * m3 - 0.25;
         q = 1.5 * m1 * m2 * m3 * (0.5 - ch);
         p12 = std::sqrt(p);
         teta = std::acos(q / (p * p12)) / 3.0;
         cs = std::cos(teta);
-        AL3D = p12 * (std::sqrt(3.0 * (1.0 - cs * cs)) - cs) + 0.5;
+        alpha = p12 * (std::sqrt(3.0 * (1.0 - cs * cs)) - cs) + 0.5;
     }
 
-    if (cc > 0.5) {
-        AL3D = 1.0 - AL3D;
+    if (volF > 0.5) {
+        alpha = 1.0 - alpha;
     }
 
-    return AL3D;
+    return alpha;
 }
 
 /** Computes the "CUT VOLUME" V0 given r0, dr0 and
