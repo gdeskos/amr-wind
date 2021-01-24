@@ -29,8 +29,8 @@ void NumericalWaveTank::initialize_fields(
     auto& levelset = m_levelset(level);
     const auto& dx = geom.CellSizeArray();
     const auto& problo = geom.ProbLoArray();
-    const amrex::Real Amp = m_amplitude;
-    const amrex::Real waveL = m_wavelength;
+    const amrex::Real alpha = m_amplitude;
+    const amrex::Real lambda = m_wavelength;
     const amrex::Real water_level = m_waterlevel;
 
     for (amrex::MFIter mfi(levelset); mfi.isValid(); ++mfi) {
@@ -42,13 +42,25 @@ void NumericalWaveTank::initialize_fields(
             vbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
                 const amrex::Real x = problo[0] + (i + 0.5) * dx[0];
                 const amrex::Real z = problo[2] + (k + 0.5) * dx[2];
+                const amrex::Real kappa = 2.0 * M_PI / lambda;
+                const amrex::Real eps = alpha * kappa;
+                // Compute free surface amplitude
                 const amrex::Real eta =
-                    water_level + Amp * std::sin(2.0 * M_PI * x / waveL);
+                    water_level +
+                    alpha *
+                        ((1.0 - 1.0 / 16.0 * eps * eps) * std::cos(kappa * x) +
+                         0.5 * eps * std::cos(2.0 * kappa * x) +
+                         3.0 / 8.0 * eps * eps * std::cos(3.0 * kappa * x));
                 phi(i, j, k) = eta - z;
+                // compute velocities
+                const amrex::Real g = 9.81;
+                const amrex::Real Omega =
+                    std::sqrt(g * kappa * (1.0 + eps * eps));
                 if (z < eta) {
-                    vel(i, j, k, 0) = 0.0;
-                } else {
-                    vel(i, j, k, 0) = z;
+                    vel(i, j, k, 0) = Omega * alpha * std::exp(kappa * z) *
+                                      std::cos(kappa * x);
+                    vel(i, j, k, 2) = Omega * alpha * std::exp(kappa * z) *
+                                      std::sin(kappa * x);
                 }
             });
     }

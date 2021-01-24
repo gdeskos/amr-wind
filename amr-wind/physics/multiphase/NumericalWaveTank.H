@@ -37,10 +37,10 @@ private:
     Field& m_levelset;
 
     //! Initial free surface amplitude magnitude
-    amrex::Real m_amplitude{0.05};
+    amrex::Real m_amplitude{0.1};
 
     //! Initial free surface wavelength
-    amrex::Real m_wavelength{4.0};
+    amrex::Real m_wavelength{2.0};
 
     //! Initial zero-level free-surface water depth
     amrex::Real m_waterlevel{0.0};
