@@ -44,6 +44,9 @@ private:
 
     //! Initial zero-level free-surface water depth
     amrex::Real m_waterlevel{0.0};
+
+    //! Airflow velocity magnitude
+    amrex::Real m_airflow_velocity{1.0};
 };
 
 } // namespace amr_wind

@@ -32,6 +32,7 @@ void NumericalWaveTank::initialize_fields(
     const amrex::Real alpha = m_amplitude;
     const amrex::Real lambda = m_wavelength;
     const amrex::Real water_level = m_waterlevel;
+    const amrex::Real vel_air_mag = m_airflow_velocity;
 
     for (amrex::MFIter mfi(levelset); mfi.isValid(); ++mfi) {
         const auto& vbx = mfi.validbox();
@@ -61,6 +62,8 @@ void NumericalWaveTank::initialize_fields(
                                       std::cos(kappa * x);
                     vel(i, j, k, 2) = Omega * alpha * std::exp(kappa * z) *
                                       std::sin(kappa * x);
+                } else {
+                    vel(i, j, k, 0) = vel_air_mag * (z - eta);
                 }
             });
     }
