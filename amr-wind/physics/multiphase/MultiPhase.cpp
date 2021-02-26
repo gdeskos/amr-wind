@@ -82,8 +82,10 @@ void MultiPhase::post_advance_work()
             const amrex::Real total_vol = geom[0].ProbDomain().volume();
             amrex::Print() << "Volume of Fluid diagnostics:" << std::endl;
             amrex::Print() << "   Water Volume Fractions Sum : "
-                           << m_total_volfrac << std::endl;
+                           << std::setprecision(16) << m_total_volfrac
+                           << std::endl;
             amrex::Print() << "   Air Volume Fractions Sum : "
+                           << std::setprecision(16)
                            << total_vol - m_total_volfrac << std::endl;
             amrex::Print() << " " << std::endl;
         }
