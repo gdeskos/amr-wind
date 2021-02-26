@@ -82,9 +82,10 @@ void multiphase::split_advection(
     }
 
     // Remove VOF debris
-    amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-        multiphase::remove_vof_debris(i, j, k, volfrac);
-    });
+    // amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+    // {
+    //    multiphase::remove_vof_debris(i, j, k, volfrac);
+    //});
 }
 
 void multiphase::sweep(
@@ -130,14 +131,14 @@ void multiphase::sweep(
             bxg1, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
                 amrex::Real velL = vel_mac(i, j, k);
                 amrex::Real velR = vel_mac(i + ii, j + jj, k + kk);
-                multiphase::eulerian_implicit(
+                multiphase::mass_conservative(
                     i, j, k, dir, dtdx, velL, velR, volfrac, fluxL, fluxR);
             });
         amrex::ParallelFor(
             bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
                 amrex::Real velL = vel_mac(i, j, k) * dtdx;
                 amrex::Real velR = vel_mac(i + ii, j + jj, k + kk) * dtdx;
-                multiphase::balance_eulerian_fluxes(
+                multiphase::balance_mass_conservative_fluxes(
                     i, j, k, dir, velL, velR, volfrac, fluxL, fluxC, fluxR, pbc,
                     dimLow, dimHigh);
             });

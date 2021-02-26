@@ -70,7 +70,7 @@ AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE void lagrangian_explicit(
     }
 }
 
-AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE void eulerian_implicit(
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE void mass_conservative(
     const int i,
     const int j,
     const int k,
@@ -195,7 +195,7 @@ AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE void balance_lagrangian_fluxes(
     volfrac(i, j, k) = amrex::max(0.0, amrex::min(1.0, volfrac(i, j, k)));
 }
 
-AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE void balance_eulerian_fluxes(
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE void balance_mass_conservative_fluxes(
     const int i,
     const int j,
     const int k,

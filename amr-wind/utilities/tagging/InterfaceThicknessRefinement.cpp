@@ -12,7 +12,7 @@ InterfaceThicknessRefinement::InterfaceThicknessRefinement(const CFDSim& sim)
           m_sim.mesh().maxLevel() + 1, std::numeric_limits<amrex::Real>::max())
 {}
 
-void InterfaceThicknessRefinement::initialize(const std::string& key)
+void InterfaceThicknessRefinement::initialize(const std::string&)
 {
     std::string fname = "vof";
 
@@ -33,7 +33,6 @@ void InterfaceThicknessRefinement::operator()(
     m_vof->fillpatch(level, time, (*m_vof)(level), 1);
 
     const auto& mfab = (*m_vof)(level);
-    const auto& idx = m_sim.repo().mesh().Geom(level).InvCellSizeArray();
 
 #ifdef _OPENMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
@@ -54,36 +53,104 @@ void InterfaceThicknessRefinement::operator()(
                 int N1 = 0;
                 if (volfrac(i, j, k) < 1 && volfrac(i, j, k) > 0) {
                     if (volfrac(i - 1, j - 1, k - 1) < small_vof) N0 += 1;
+                    if (std::abs(volfrac(i - 1, j - 1, k - 1) - 1) < small_vof)
+                        N1 += 1;
+
                     if (volfrac(i - 1, j - 1, k) < small_vof) N0 += 1;
+                    if (std::abs(volfrac(i - 1, j - 1, k) - 1) < small_vof)
+                        N1 += 1;
+
                     if (volfrac(i - 1, j - 1, k + 1) < small_vof) N0 += 1;
+                    if (std::abs(volfrac(i - 1, j - 1, k + 1) - 1) < small_vof)
+                        N1 += 1;
+
                     if (volfrac(i - 1, j, k - 1) < small_vof) N0 += 1;
+                    if (std::abs(volfrac(i - 1, j, k - 1) - 1) < small_vof)
+                        N1 += 1;
+
                     if (volfrac(i - 1, j, k) < small_vof) N0 += 1;
+                    if (std::abs(volfrac(i - 1, j, k) - 1) < small_vof) N1 += 1;
+
                     if (volfrac(i - 1, j, k + 1) < small_vof) N0 += 1;
+                    if (std::abs(volfrac(i - 1, j, k + 1) - 1) < small_vof)
+                        N1 += 1;
+
                     if (volfrac(i - 1, j + 1, k - 1) < small_vof) N0 += 1;
+                    if (std::abs(volfrac(i - 1, j + 1, k - 1) - 1) < small_vof)
+                        N1 += 1;
+
                     if (volfrac(i - 1, j + 1, k) < small_vof) N0 += 1;
+                    if (std::abs(volfrac(i - 1, j + 1, k) - 1) < small_vof)
+                        N1 += 1;
+
                     if (volfrac(i - 1, j + 1, k + 1) < small_vof) N0 += 1;
+                    if (std::abs(volfrac(i - 1, j + 1, k + 1) - 1) < small_vof)
+                        N1 += 1;
 
                     if (volfrac(i, j - 1, k - 1) < small_vof) N0 += 1;
+                    if (std::abs(volfrac(i, j - 1, k - 1) - 1) < small_vof)
+                        N1 += 1;
+
                     if (volfrac(i, j - 1, k) < small_vof) N0 += 1;
+                    if (std::abs(volfrac(i, j - 1, k) - 1) < small_vof) N1 += 1;
+
                     if (volfrac(i, j - 1, k + 1) < small_vof) N0 += 1;
+                    if (std::abs(volfrac(i, j - 1, k + 1) - 1) < small_vof)
+                        N1 += 1;
+
                     if (volfrac(i, j, k - 1) < small_vof) N0 += 1;
-                    if (volfrac(i, j, k) < small_vof) N0 += 1;
+                    if (std::abs(volfrac(i, j, k - 1) - 1) < small_vof) N1 += 1;
+
                     if (volfrac(i, j, k + 1) < small_vof) N0 += 1;
+                    if (std::abs(volfrac(i, j, k + 1) - 1) < small_vof) N1 += 1;
+
                     if (volfrac(i, j + 1, k - 1) < small_vof) N0 += 1;
+                    if (std::abs(volfrac(i, j + 1, k - 1) - 1) < small_vof)
+                        N1 += 1;
+
                     if (volfrac(i, j + 1, k) < small_vof) N0 += 1;
+                    if (std::abs(volfrac(i, j + 1, k) - 1) < small_vof) N1 += 1;
+
                     if (volfrac(i, j + 1, k + 1) < small_vof) N0 += 1;
+                    if (std::abs(volfrac(i, j + 1, k + 1) - 1) < small_vof)
+                        N1 += 1;
 
                     if (volfrac(i + 1, j - 1, k - 1) < small_vof) N0 += 1;
+                    if (std::abs(volfrac(i + 1, j - 1, k - 1) - 1) < small_vof)
+                        N1 += 1;
+
                     if (volfrac(i + 1, j - 1, k) < small_vof) N0 += 1;
-                    if (volfrac(i + 1, j - 1, k + 1) < small_vof) N0 += 1;
+                    if (std::abs(volfrac(i + 1, j - 1, k) - 1) < small_vof)
+                        N1 += 1;
+
+                    if (volfrac(i + 1, j - 1, k) < small_vof) N0 += 1;
+                    if (std::abs(volfrac(i + 1, j - 1, k) - 1) < small_vof)
+                        N1 += 1;
+
                     if (volfrac(i + 1, j, k - 1) < small_vof) N0 += 1;
+                    if (std::abs(volfrac(i + 1, j, k - 1) - 1) < small_vof)
+                        N1 += 1;
+
                     if (volfrac(i + 1, j, k) < small_vof) N0 += 1;
+                    if (std::abs(volfrac(i + 1, j, k) - 1) < small_vof) N1 += 1;
+
                     if (volfrac(i + 1, j, k + 1) < small_vof) N0 += 1;
+                    if (std::abs(volfrac(i + 1, j, k + 1) - 1) < small_vof)
+                        N1 += 1;
+
                     if (volfrac(i + 1, j + 1, k - 1) < small_vof) N0 += 1;
+                    if (std::abs(volfrac(i + 1, j + 1, k - 1) - 1) < small_vof)
+                        N1 += 1;
+
                     if (volfrac(i + 1, j + 1, k) < small_vof) N0 += 1;
+                    if (std::abs(volfrac(i + 1, j + 1, k) - 1) < small_vof)
+                        N1 += 1;
+
                     if (volfrac(i + 1, j + 1, k + 1) < small_vof) N0 += 1;
+                    if (std::abs(volfrac(i + 1, j + 1, k + 1) - 1) < small_vof)
+                        N1 += 1;
                 }
-                if (N0 < 0) tag(i, j, k) = amrex::TagBox::SET;
+                if (N0 < 0 || N1 < 1) tag(i, j, k) = amrex::TagBox::SET;
             });
     }
 }
