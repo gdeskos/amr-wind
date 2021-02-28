@@ -1,28 +1,28 @@
-#ifndef ZalesakDisk_H
-#define ZalesakDisk_H
+#ifndef ZalesakSphere_H
+#define ZalesakSphere_H
 
 #include "amr-wind/core/Physics.H"
 #include "amr-wind/core/Field.H"
 
-/** Multiphase Zalesak disk physics
+/** Multiphase Zalesak Sphere physics
  *  \ingroup mulitphase_physics
  *
  */
 
 namespace amr_wind {
 
-class ZalesakDisk : public Physics::Register<ZalesakDisk>
+class ZalesakSphere : public Physics::Register<ZalesakSphere>
 {
 
     static_assert(
-        AMREX_SPACEDIM == 3, "ZalesakDisk requires 3 dimensional mesh");
+        AMREX_SPACEDIM == 3, "ZalesakSphere requires 3 dimensional mesh");
 
 public:
-    static const std::string identifier() { return "ZalesakDisk"; }
+    static const std::string identifier() { return "ZalesakSphere"; }
 
-    ZalesakDisk(CFDSim& sim);
+    ZalesakSphere(CFDSim& sim);
 
-    virtual ~ZalesakDisk() = default;
+    virtual ~ZalesakSphere() = default;
 
     //! Initialize the levelset and velocity fields for Vortex Patch simulations
 
@@ -57,6 +57,9 @@ private:
 
     //! prescribed velocity period
     amrex::Real m_TT{6.0};
+
+    //! Boolean which determines if the sphere is slotted or not
+    bool m_has_slot{true};
 };
 
 } // namespace amr_wind

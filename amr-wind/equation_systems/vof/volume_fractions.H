@@ -222,7 +222,7 @@ AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::Real volume_intercept(
 {
     using namespace amrex;
 
-    amrex::Real const_tiny = std::numeric_limits<amrex::Real>::epsilon();
+    amrex::Real const_tiny = 1e-30;
     // (1) order coefficients: m1<m2<m3;
     // (2) get ranges: V1<V2<v3;
     // (3) limit ch (0.d0 < ch < 0.5d0);

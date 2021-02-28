@@ -24,7 +24,7 @@ AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE void lagrangian_explicit(
 {
     using namespace amrex;
 
-    constexpr Real tiny = 1e-12;
+    constexpr Real tiny = 1e-20;
     Real mx = 0.0, my = 0.0, mz = 0.0, alpha = 0.0;
     Real mmL, mmR;
     Real aL = velL * dtdx;
@@ -84,7 +84,7 @@ AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE void mass_conservative(
 {
     using namespace amrex;
 
-    constexpr Real tiny = 1e-12;
+    constexpr Real tiny = 1e-20;
     Real mx = 0.0, my = 0.0, mz = 0.0, alpha = 0.0;
     Real x0, deltax;
     Real aL = velL * dtdx;

@@ -1,5 +1,5 @@
 #include "amr-wind/physics/multiphase/MultiPhase.H"
-#include "amr-wind/physics/multiphase/ZalesakDisk.H"
+#include "amr-wind/physics/multiphase/ZalesakSphere.H"
 #include "amr-wind/CFDSim.H"
 #include "AMReX_ParmParse.H"
 #include "amr-wind/fvm/gradient.H"
@@ -7,7 +7,7 @@
 
 namespace amr_wind {
 
-ZalesakDisk::ZalesakDisk(CFDSim& sim)
+ZalesakSphere::ZalesakSphere(CFDSim& sim)
     : m_sim(sim)
     , m_velocity(sim.repo().get_field("velocity"))
     , m_levelset(sim.repo().get_field("levelset"))
@@ -17,14 +17,15 @@ ZalesakDisk::ZalesakDisk(CFDSim& sim)
     pp.queryarr("location", m_loc, 0, AMREX_SPACEDIM);
     pp.query("radius", m_radius);
     pp.query("period", m_TT);
+    pp.query("has_slot", m_has_slot);
 }
 
 /** Initialize the velocity and levelset fields at the beginning of the
  *  simulation.
  *
- *  \sa amr_wind::ZalesakDiskFieldInit
+ *  \sa amr_wind::ZalesakSphereFieldInit
  */
-void ZalesakDisk::initialize_fields(int level, const amrex::Geometry& geom)
+void ZalesakSphere::initialize_fields(int level, const amrex::Geometry& geom)
 {
     auto& velocity = m_velocity(level);
     auto& levelset = m_levelset(level);
@@ -66,25 +67,27 @@ void ZalesakDisk::initialize_fields(int level, const amrex::Geometry& geom)
                                  (z - zc) * (z - zc));
                 amrex::Real d1, d2, min_dist;
                 // then the slot
-                amrex::Real eps = std::cbrt(dx[0] * dx[1] * dx[2]);
-                if (y - yc <= radius && y - yc >= radius - depth &&
-                    std::abs(x - xc) <= width &&
-                    std::sqrt(
-                        (x - xc) * (x - xc) + (y - yc) * (y - yc) +
-                        (z - zc) * (z - zc)) < radius + eps) {
-                    if (x > xc) {
-                        d1 = std::abs(xc + width - x);
-                    } else {
-                        d1 = std::abs(xc - width - x);
-                    }
-                    d2 = std::abs(y - (yc + radius - depth));
-                    min_dist = amrex::min(d1, d2);
+                if (m_has_slot) {
+                    amrex::Real eps = std::cbrt(dx[0] * dx[1] * dx[2]);
+                    if (y - yc <= radius && y - yc >= radius - depth &&
+                        std::abs(x - xc) <= width &&
+                        std::sqrt(
+                            (x - xc) * (x - xc) + (y - yc) * (y - yc) +
+                            (z - zc) * (z - zc)) < radius + eps) {
+                        if (x > xc) {
+                            d1 = std::abs(xc + width - x);
+                        } else {
+                            d1 = std::abs(xc - width - x);
+                        }
+                        d2 = std::abs(y - (yc + radius - depth));
+                        min_dist = amrex::min(d1, d2);
 
-                    phi(i, j, k) = -min_dist;
+                        phi(i, j, k) = -min_dist;
+                    }
                 }
 
                 amrex::Real smooth_heaviside;
-                eps = std::cbrt(2. * dx[0] * dx[1] * dx[2]);
+                amrex::Real eps = std::cbrt(2. * dx[0] * dx[1] * dx[2]);
                 if (phi(i, j, k) > eps) {
                     smooth_heaviside = 1.0;
                 } else if (phi(i, j, k) < -eps) {
@@ -101,9 +104,9 @@ void ZalesakDisk::initialize_fields(int level, const amrex::Geometry& geom)
     }
 }
 
-void ZalesakDisk::pre_advance_work() {}
+void ZalesakSphere::pre_advance_work() {}
 
-void ZalesakDisk::post_advance_work()
+void ZalesakSphere::post_advance_work()
 {
 
     const int nlevels = m_sim.repo().num_active_levels();
