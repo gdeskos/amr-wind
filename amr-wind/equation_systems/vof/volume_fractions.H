@@ -344,10 +344,6 @@ AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::Real cut_volume(
     }
 
     amrex::Real b12 = b1 + b2;
-    // amrex::Real bm = amrex::min(b12, b3);
-    // amrex::Real pr = amrex::max(6.0 * m1 * m2 * m3, const_tiny);
-
-    // Compute volume fraction using Aoki Kawano (Computer & Fluids 2016) method
     amrex::Real vm1 = b1;
     amrex::Real vm3 = b3;
     amrex::Real vm2 = b2;

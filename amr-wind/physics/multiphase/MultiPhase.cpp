@@ -126,7 +126,7 @@ amrex::Real MultiPhase::volume_fraction_sum()
                                      geom[lev].CellSize()[2];
 
         total_volume_frac += amrex::ReduceSum(
-            vof, level_mask, 0,
+            vof, level_mask, 0.0,
             [=] AMREX_GPU_HOST_DEVICE(
                 amrex::Box const& bx,
                 amrex::Array4<amrex::Real const> const& volfrac,
