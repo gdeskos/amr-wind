@@ -73,7 +73,6 @@ void InterfaceThicknessRefinement::operator()(
                         volfrac(i - 1, j + 1, k - 1) < small_vof &&
                         volfrac(i - 1, j + 1, k) < small_vof &&
                         volfrac(i - 1, j + 1, k + 1) < small_vof &&
-
                         volfrac(i, j - 1, k - 1) < small_vof &&
                         volfrac(i, j - 1, k) < small_vof &&
                         volfrac(i, j - 1, k + 1) < small_vof &&
@@ -82,7 +81,6 @@ void InterfaceThicknessRefinement::operator()(
                         volfrac(i, j + 1, k - 1) < small_vof &&
                         volfrac(i, j + 1, k) < small_vof &&
                         volfrac(i, j + 1, k + 1) < small_vof &&
-
                         volfrac(i + 1, j - 1, k - 1) < small_vof &&
                         volfrac(i + 1, j - 1, k) < small_vof &&
                         volfrac(i + 1, j - 1, k + 1) < small_vof &&
