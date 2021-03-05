@@ -270,7 +270,7 @@ AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE void c_mask(
     amrex::Array4<amrex::Real> const& volfrac,
     amrex::Array4<amrex::Real> const& volfrac_masked)
 {
-    if (volfrac(i, j, k) > 0.5) {
+    if (volfrac(i, j, k) >= 0.5) {
         volfrac_masked(i, j, k) = 1.0;
     } else {
         volfrac_masked(i, j, k) = 0.0;
