@@ -37,12 +37,15 @@ public:
 private:
     Field& m_velocity;
     Field& m_levelset;
+    Field& m_density;
 
     //! Initial Rain Drop location
     amrex::Vector<amrex::Real> m_loc{{0.006, 0.006, 0.006}};
 
     //! Raindrop radius value
     amrex::Real m_radius{0.003};
+
+    amrex::Vector<amrex::Real> m_init_vel{0.0, 0.0, 8.0};
 };
 
 } // namespace amr_wind

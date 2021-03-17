@@ -11,6 +11,7 @@ RainDrop::RainDrop(CFDSim& sim)
     amrex::ParmParse pp(identifier());
     pp.queryarr("location", m_loc, 0, AMREX_SPACEDIM);
     pp.query("radius", m_radius);
+    pp.queryarr("initial_vel", m_init_vel, 0, AMREX_SPACEDIM);
 }
 
 /** Initialize the velocity and levelset fields at the beginning of the
@@ -29,6 +30,9 @@ void RainDrop::initialize_fields(int level, const amrex::Geometry& geom)
     const amrex::Real yc = m_loc[1];
     const amrex::Real zc = m_loc[2];
     const amrex::Real radius = m_radius;
+    const amrex::Real Velx = m_init_vel[0];
+    const amrex::Real Vely = m_init_vel[1];
+    const amrex::Real Velz = m_init_vel[2];
     for (amrex::MFIter mfi(velocity); mfi.isValid(); ++mfi) {
         const auto& vbx = mfi.validbox();
         auto vel = velocity.array(mfi);
@@ -39,9 +43,9 @@ void RainDrop::initialize_fields(int level, const amrex::Geometry& geom)
                 const amrex::Real y = problo[1] + (j + 0.5) * dx[1];
                 const amrex::Real z = problo[2] + (k + 0.5) * dx[2];
 
-                vel(i, j, k, 0) = 0.0;
-                vel(i, j, k, 1) = 0.0;
-                vel(i, j, k, 2) = 0.0;
+                vel(i, j, k, 0) = Velx;
+                vel(i, j, k, 1) = Vely;
+                vel(i, j, k, 2) = Velz;
 
                 phi(i, j, k) =
                     radius - std::sqrt(
