@@ -186,9 +186,9 @@ void IB::compute_source_term()
 #pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
 #endif
         for (amrex::MFIter mfi(sfab); mfi.isValid(); ++mfi) {
-            for (auto& ac : m_ibs) {
-                if (ac->info().ib_in_proc) {
-                    ac->compute_source_term(lev, mfi, geom);
+            for (auto& ib : m_ibs) {
+                if (ib->info().ib_in_proc) {
+                    ib->compute_source_term(lev, mfi, geom);
                 }
             }
         }
@@ -204,9 +204,9 @@ void IB::prepare_outputs()
         amrex::CreateDirectoryFailed(sname);
     }
     const int iproc = amrex::ParallelDescriptor::MyProc();
-    for (auto& ac : m_ibs) {
-        if (ac->info().root_proc == iproc) {
-            ac->prepare_outputs(sname);
+    for (auto& ib : m_ibs) {
+        if (ib->info().root_proc == iproc) {
+            ib->prepare_outputs(sname);
         }
     }
 }
@@ -214,9 +214,9 @@ void IB::prepare_outputs()
 void IB::post_advance_work()
 {
     const int iproc = amrex::ParallelDescriptor::MyProc();
-    for (auto& ac : m_ibs) {
-        if (ac->info().root_proc == iproc) {
-            ac->write_outputs();
+    for (auto& ib : m_ibs) {
+        if (ib->info().root_proc == iproc) {
+            ib->write_outputs();
         }
     }
 }
