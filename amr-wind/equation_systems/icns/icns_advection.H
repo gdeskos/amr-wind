@@ -40,14 +40,18 @@ private:
 template <>
 struct AdvectionOp<ICNS, fvm::Godunov>
 {
-    AdvectionOp(PDEFields& fields_in, bool has_overset, bool variable_density)
-        : fields(fields_in)
+    AdvectionOp(
+        CFDSim& sim_in,
+        PDEFields& fields_in,
+        bool has_overset,
+        bool variable_density)
+        : sim(sim_in)
+        , fields(fields_in)
         , u_mac(fields_in.repo.get_field("u_mac"))
         , v_mac(fields_in.repo.get_field("v_mac"))
         , w_mac(fields_in.repo.get_field("w_mac"))
         , m_macproj_op(fields.repo, has_overset, variable_density)
     {
-
         amrex::ParmParse pp("incflo");
         pp.query("godunov_type", godunov_type);
         if (pp.contains("use_ppm") || pp.contains("use_limiter"))
@@ -231,11 +235,13 @@ struct AdvectionOp<ICNS, fvm::Godunov>
                 }
             }
         }
+        // This is where we actually apply all the BCs needed for the mac
+        // projection
+        for (auto& pp : sim.physics()) pp->post_mac_projection_work();
 
         // MAC projection
         m_macproj_op(fstate, dt);
 
-        //
         // Advect momentum eqns
         //
         for (int lev = 0; lev < repo.num_active_levels(); ++lev) {
@@ -304,7 +310,7 @@ struct AdvectionOp<ICNS, fvm::Godunov>
             }
         }
     }
-
+    CFDSim& sim;
     PDEFields& fields;
     Field& u_mac;
     Field& v_mac;
@@ -324,8 +330,13 @@ struct AdvectionOp<ICNS, fvm::Godunov>
 template <>
 struct AdvectionOp<ICNS, fvm::MOL>
 {
-    AdvectionOp(PDEFields& fields_in, bool has_overset, bool variable_density)
-        : fields(fields_in)
+    AdvectionOp(
+        CFDSim& sim_in,
+        PDEFields& fields_in,
+        bool has_overset,
+        bool variable_density)
+        : sim(sim_in)
+        , fields(fields_in)
         , u_mac(fields_in.repo.get_field("u_mac"))
         , v_mac(fields_in.repo.get_field("v_mac"))
         , w_mac(fields_in.repo.get_field("w_mac"))
@@ -412,6 +423,7 @@ struct AdvectionOp<ICNS, fvm::MOL>
         }
     }
 
+    CFDSim& sim;
     PDEFields& fields;
     Field& u_mac;
     Field& v_mac;

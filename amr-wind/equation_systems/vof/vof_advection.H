@@ -14,8 +14,9 @@ namespace pde {
 template <>
 struct AdvectionOp<VOF, fvm::Godunov>
 {
-    AdvectionOp(PDEFields& fields_in, bool, bool)
-        : fields(fields_in)
+    AdvectionOp(CFDSim& sim_in, PDEFields& fields_in, bool, bool)
+        : sim(sim_in)
+        , fields(fields_in)
         , u_mac(fields_in.repo.get_field("u_mac"))
         , v_mac(fields_in.repo.get_field("v_mac"))
         , w_mac(fields_in.repo.get_field("w_mac"))
@@ -68,7 +69,7 @@ struct AdvectionOp<VOF, fvm::Godunov>
             }
         }
     }
-
+    CFDSim& sim;
     PDEFields& fields;
     Field& u_mac;
     Field& v_mac;

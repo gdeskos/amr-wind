@@ -40,6 +40,7 @@ void apply_mms_vel(CFDSim& sim)
     const amrex::Real omega = m_conv_taylor_green.get_omega();
 
     amrex::Real t = sim.time().new_time();
+
     auto& geom = sim.mesh().Geom();
 
     for (int lev = 0; lev < nlevels; ++lev) {
@@ -66,6 +67,95 @@ void apply_mms_vel(CFDSim& sim)
                                      std::cos(utils::pi() * (y - v0 * t)) *
                                      std::exp(-2.0 * omega * t);
                         varr(i, j, k, 2) = 0.0;
+                    }
+                });
+        }
+    }
+}
+
+void apply_mms_mac_vel(CFDSim& sim)
+{
+    const int nlevels = sim.repo().num_active_levels();
+    auto& geom = sim.mesh().Geom();
+    auto& levelset = sim.repo().get_field("ib_levelset");
+
+    std::unique_ptr<ScratchField> ls_xf, ls_yf, ls_zf;
+    ls_xf = sim.repo().create_scratch_field(1, 0, amr_wind::FieldLoc::XFACE);
+    ls_yf = sim.repo().create_scratch_field(1, 0, amr_wind::FieldLoc::YFACE);
+    ls_zf = sim.repo().create_scratch_field(1, 0, amr_wind::FieldLoc::ZFACE);
+
+    amrex::Vector<amrex::Array<amrex::MultiFab*, AMREX_SPACEDIM>> ls_face(
+        nlevels);
+
+    for (int lev = 0; lev < nlevels; ++lev) {
+        ls_face[lev][0] = &(*ls_xf)(lev);
+        ls_face[lev][1] = &(*ls_yf)(lev);
+        ls_face[lev][2] = &(*ls_zf)(lev);
+
+        amrex::average_cellcenter_to_face(
+            ls_face[lev], levelset(lev), geom[lev]);
+    }
+
+    // These are phase fields
+    auto& umac = sim.repo().get_field("u_mac");
+    auto& vmac = sim.repo().get_field("v_mac");
+    auto& wmac = sim.repo().get_field("w_mac");
+
+    // ctv related variables
+    auto& m_conv_taylor_green =
+        sim.physics_manager().get<ctv::ConvectingTaylorVortex>();
+    const amrex::Real u0 = m_conv_taylor_green.get_u0();
+    const amrex::Real v0 = m_conv_taylor_green.get_v0();
+    const amrex::Real omega = m_conv_taylor_green.get_omega();
+
+    // mac velocities should be at t{n+1/2};
+    amrex::Real t = 0.5 * (sim.time().current_time() + sim.time().new_time());
+
+    for (int lev = 0; lev < nlevels; ++lev) {
+        const auto& dx = geom[lev].CellSizeArray();
+        const auto& problo = geom[lev].ProbLoArray();
+
+        for (amrex::MFIter mfi(levelset(lev)); mfi.isValid(); ++mfi) {
+            const auto& xbx = mfi.nodaltilebox(0);
+            const auto& ybx = mfi.nodaltilebox(1);
+            const auto& zbx = mfi.nodaltilebox(2);
+
+            auto phi_xf = ls_face[lev][0]->array(mfi);
+            auto umac_arr = umac(lev).array(mfi);
+            amrex::ParallelFor(
+                xbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+                    const amrex::Real x = problo[0] + i * dx[0];
+                    const amrex::Real y = problo[1] + (j + 0.5) * dx[1];
+
+                    if (phi_xf(i, j, k) <= 0.) {
+                        umac_arr(i, j, k) =
+                            u0 - std::cos(utils::pi() * (x - u0 * t)) *
+                                     std::sin(utils::pi() * (y - v0 * t)) *
+                                     std::exp(-2.0 * omega * t);
+                    }
+                });
+
+            auto phi_yf = ls_face[lev][1]->array(mfi);
+            auto vmac_arr = vmac(lev).array(mfi);
+            amrex::ParallelFor(
+                ybx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+                    const amrex::Real x = problo[0] + (i + 0.5) * dx[0];
+                    const amrex::Real y = problo[1] + j * dx[1];
+
+                    if (phi_yf(i, j, k) <= 0.) {
+                        vmac_arr(i, j, k) =
+                            v0 + std::sin(utils::pi() * (x - u0 * t)) *
+                                     std::cos(utils::pi() * (y - v0 * t)) *
+                                     std::exp(-2.0 * omega * t);
+                    }
+                });
+
+            auto phi_zf = ls_face[lev][2]->array(mfi);
+            auto wmac_arr = wmac(lev).array(mfi);
+            amrex::ParallelFor(
+                zbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+                    if (phi_zf(i, j, k) <= 0.) {
+                        wmac_arr(i, j, k) = 0.;
                     }
                 });
         }
@@ -114,13 +204,6 @@ void apply_dirichlet_vel(CFDSim& sim, amrex::Vector<amrex::Real>& vel_bc)
                         // This determines the ghost-cells
                     } else if (
                         phi_arr(i, j, k) < 0 && phi_arr(i, j, k) >= -phi_b) {
-                        // For this particular ghost-cell find the
-                        // body-intercept (BI) point and image-point (IP)
-                        // First define the ghost cell point
-                        // amrex::Real x_GC = problo[0] + (i + 0.5) * dx[0];
-                        // amrex::Real y_GC = problo[1] + (j + 0.5) * dx[1];
-                        // amrex::Real z_GC = problo[2] + (k + 0.5) * dx[2];
-                        // Find the "image-points"
                         varr(i, j, k, 0) = velx;
                         varr(i, j, k, 1) = vely;
                         varr(i, j, k, 2) = velz;

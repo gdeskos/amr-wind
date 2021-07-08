@@ -71,10 +71,10 @@ void IB::pre_pressure_correction_work()
     update_velocities();
 }
 
-void IB::post_pressure_correction_work()
+void IB::post_mac_projection_work()
 {
     BL_PROFILE("amr-wind::ib::IB::pre_pressure_correction_work");
-    update_velocities();
+    update_mac_velocities();
 }
 
 /** Update immersed boundary positions.
@@ -91,12 +91,26 @@ void IB::update_positions()
 
 /** Provide updated velocities to immersed boundary instances
  *
- *  \sa IB::update_positions
+ *  \sa IB::update_velocities
  */
 void IB::update_velocities()
 {
     BL_PROFILE("amr-wind::ib::IB::update_velocity");
     for (auto& ib : m_ibs) {
+        ib->set_update_mac_vel(false);
+        ib->update_velocities();
+    }
+}
+
+/** Provide updated mac velocities to immersed boundary instances
+ *
+ *  \sa IB::update_mac_velocities
+ */
+void IB::update_mac_velocities()
+{
+    BL_PROFILE("amr-wind::ib::IB::update_velocity");
+    for (auto& ib : m_ibs) {
+        ib->set_update_mac_vel(true);
         ib->update_velocities();
     }
 }

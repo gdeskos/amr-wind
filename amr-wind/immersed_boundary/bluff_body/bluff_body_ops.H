@@ -31,6 +31,16 @@ void apply_mms_vel(CFDSim&);
  */
 void apply_dirichlet_vel(CFDSim&, amrex::Vector<amrex::Real>& vel_bc);
 
+/** Set the mac_velocity for all faces inside the IB based to the specified
+ * mms velocity
+ */
+void apply_mms_mac_vel(CFDSim&);
+
+/** Set the mac_velocity for all faces inside the IB based to the specified
+ * dirichlet velocity
+ */
+void apply_dirichlet_mac_vel(CFDSim&);
+
 void prepare_netcdf_file(
     const std::string&, const BluffBodyBaseData&, const IBInfo&);
 
@@ -68,7 +78,7 @@ struct UpdateVelOp<
     typename std::enable_if<
         std::is_base_of<BluffBodyType, GeomTrait>::value>::type>
 {
-    void operator()(typename GeomTrait::DataType& data)
+    void operator()(typename GeomTrait::DataType& data, bool update_mac_vel)
     {
         BL_PROFILE("amr-wind::ib::IB::update_velocities");
 
@@ -76,7 +86,11 @@ struct UpdateVelOp<
         auto& sim = data.sim();
 
         if (wdata.is_mms) {
-            bluff_body::apply_mms_vel(sim);
+            if (update_mac_vel) {
+                bluff_body::apply_mms_mac_vel(sim);
+            } else {
+                bluff_body::apply_mms_vel(sim);
+            }
         } else {
             bluff_body::apply_dirichlet_vel(sim, wdata.vel_bc);
         }

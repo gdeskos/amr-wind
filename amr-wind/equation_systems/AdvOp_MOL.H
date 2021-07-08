@@ -24,10 +24,12 @@ struct AdvectionOp<
     typename std::enable_if<std::is_base_of<ScalarTransport, PDE>::value>::type>
 {
     AdvectionOp(
+        CFDSim& sim_in,
         PDEFields& fields_in,
         bool /* has_overset */,
         bool /* variable density */)
-        : fields(fields_in)
+        : sim(sim_in)
+        , fields(fields_in)
         , density(fields_in.repo.get_field("density"))
         , u_mac(fields_in.repo.get_field("u_mac"))
         , v_mac(fields_in.repo.get_field("v_mac"))
@@ -111,7 +113,7 @@ struct AdvectionOp<
             }
         }
     }
-
+    CFDSim& sim;
     PDEFields& fields;
     Field& density;
     Field& u_mac;

@@ -42,6 +42,8 @@ public:
 
     virtual void init_ib() = 0;
 
+    virtual void set_update_mac_vel(bool mac_vel_update_status) = 0;
+
     virtual void update_positions() = 0;
 
     virtual void update_velocities() = 0;
@@ -74,6 +76,10 @@ private:
     //! Outputs processor
     ops::ProcessOutputsOp<GeomTrait> m_out_op;
 
+    //! Boolean to allow updating the mac velocities prior to over-writting the
+    //! intermediate velocity u* -> Guarantees second-order accuracy
+    bool m_update_mac_vel{false};
+
 public:
     static std::string identifier() { return GeomTrait::identifier(); }
 
@@ -100,7 +106,10 @@ public:
 
     void update_positions() override {}
 
-    void update_velocities() override { ops::UpdateVelOp<GeomTrait>()(m_data); }
+    void update_velocities() override
+    {
+        ops::UpdateVelOp<GeomTrait>()(m_data, m_update_mac_vel);
+    }
 
     void compute_forces() override { ops::ComputeForceOp<GeomTrait>()(m_data); }
 
@@ -112,6 +121,11 @@ public:
     void write_outputs() override { m_out_op.write_outputs(); }
 
     void init_ib() override { ops::InitDataOp<GeomTrait>()(m_data); }
+
+    void set_update_mac_vel(bool mac_vel_update_status) override
+    {
+        m_update_mac_vel = mac_vel_update_status;
+    }
 };
 
 } // namespace ib

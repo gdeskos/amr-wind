@@ -86,7 +86,7 @@ public:
     virtual void pre_pressure_correction_work() {}
 
     //! Perform tasks necessary after applying the pressure correction
-    virtual void post_pressure_correction_work() {}
+    virtual void post_mac_projection_work() {}
 };
 
 /** A collection of \ref physics instances that are active during a simulation

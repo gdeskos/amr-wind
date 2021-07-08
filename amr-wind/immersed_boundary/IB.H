@@ -48,7 +48,7 @@ public:
 
     void pre_pressure_correction_work() override;
 
-    void post_pressure_correction_work() override;
+    void post_mac_projection_work() override;
 
 protected:
     //! Total number of immersed boundaries
@@ -61,6 +61,8 @@ private:
     void update_positions();
 
     void update_velocities();
+
+    void update_mac_velocities();
 
     void compute_forces();
 
