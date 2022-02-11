@@ -8,6 +8,8 @@ namespace pde {
 
 template <typename LinOp>
 DiffSolverIface<LinOp>::DiffSolverIface(
+
+
     PDEFields& fields, const bool has_overset, const std::string& prefix)
     : m_pdefields(fields)
     , m_density(fields.repo.get_field("density"))
@@ -62,9 +64,14 @@ void DiffSolverIface<LinOp>::setup_operator(
     for (int lev = 0; lev < nlevels; ++lev) {
         linop.setLevelBC(lev, &m_pdefields.field(lev));
     }
-    this->set_acoeffs(linop, fstate);
+
+//    this->set_acoeffs(linop, fstate);
+
+    this->set_acoeffs_implicit(linop, fstate);
+
     set_bcoeffs(linop);
 }
+
 
 template <typename LinOp>
 void DiffSolverIface<LinOp>::set_acoeffs(LinOp& linop, const FieldState fstate)
@@ -78,6 +85,74 @@ void DiffSolverIface<LinOp>::set_acoeffs(LinOp& linop, const FieldState fstate)
         linop.setACoeffs(lev, density(lev));
     }
 }
+
+template <typename LinOp>
+void DiffSolverIface<LinOp>::set_acoeffs_implicit(LinOp& linop, const FieldState fstate)
+{
+    BL_PROFILE("amr-wind::set_acoeffs_implicit");
+
+    auto& repo = m_pdefields.repo;
+    auto& field = this->m_pdefields.field;
+
+    const int nlevels = repo.num_active_levels();
+    const auto& density = m_density.state(fstate);
+
+    auto& u_mac = repo.get_field("u_mac");
+    auto& v_mac = repo.get_field("v_mac");
+    auto& w_mac = repo.get_field("w_mac");
+
+    auto new_diag_ptr = repo.create_scratch_field("new_diag", 1, 0);
+
+    constexpr amrex::Real small_vel = 1.e-10;
+
+    for (int lev = 0; lev < nlevels; ++lev) {
+        auto& new_diag = (*new_diag_ptr)(lev);
+
+#ifdef _OPENMP
+#pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
+#endif
+        for (amrex::MFIter mfi(new_diag, amrex::TilingIfNotGPU()); mfi.isValid();
+             ++mfi) {
+            const auto& bx = mfi.tilebox();
+            const auto& new_diag_a = new_diag.array(mfi);
+            const auto& fld = field(lev).const_array(mfi);
+            const auto& rho = density(lev).const_array(mfi);
+
+            amrex::Array4<amrex::Real> const& a_umac =
+                u_mac(lev).array(mfi);
+            amrex::Array4<amrex::Real> const& a_vmac =
+                v_mac(lev).array(mfi);
+            amrex::Array4<amrex::Real> const& a_wmac =
+                w_mac(lev).array(mfi);
+
+            amrex::ParallelFor(
+                bx,
+                [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+
+            	amrex::Real delta_pls_umac = (a_umac(i, j, k) > small_vel) ? 1.0 : 0.0;
+            	amrex::Real delta_mns_umac = (a_umac(i-1, j, k) <= -small_vel) ? 1.0 : 0.0;
+
+            	amrex::Real delta_pls_vmac = (a_vmac(i, j, k) > small_vel) ? 1.0 : 0.0;
+            	amrex::Real delta_mns_vmac = (a_vmac(i, j-1, k) <= -small_vel) ? 1.0 : 0.0;
+
+            	amrex::Real delta_pls_wmac = (a_wmac(i, j, k) >= small_vel) ? 1.0 : 0.0;
+            	amrex::Real delta_mns_wmac = (a_wmac(i, j, k-1) < -small_vel) ? 1.0 : 0.0;
+
+            	amrex::Real net_coeff = (a_umac(i+1,j,k)*delta_pls_umac - a_umac(i,j,k)*delta_mns_umac) +
+                          	(a_vmac(i+1,j,k)*delta_pls_vmac - a_vmac(i,j,k)*delta_mns_vmac) +
+                          	(a_wmac(i+1,j,k)*delta_pls_wmac - a_wmac(i,j,k)*delta_mns_wmac);
+
+                new_diag_a(i, j, k) = rho(i, j, k) * (1 + net_coeff);
+           });
+        }
+    }
+
+    for (int lev = 0; lev < nlevels; ++lev) {
+        linop.setACoeffs(lev, (*new_diag_ptr)(lev));
+    }
+}
+
+
 
 template <typename LinOp>
 void DiffSolverIface<LinOp>::setup_solver(amrex::MLMG& mlmg)

@@ -47,6 +47,16 @@ void compute_convective_rate(
     amrex::Array4<amrex::Real const> const& fz,
     amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> dxi);
 
+void compute_convective_rate_implicit_correction(
+    amrex::Box const& bx, 
+    int ncomp,
+    amrex::Array4<amrex::Real> const& dUdt,
+    amrex::Array4<amrex::Real const> const& q,
+    amrex::Array4<amrex::Real const> const& umac,
+    amrex::Array4<amrex::Real const> const& vmac,
+    amrex::Array4<amrex::Real const> const& wmac,
+    amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> dxi);
+
 } // namespace mol
 
 #endif /* MOL_H */
