@@ -42,22 +42,25 @@ void mol::compute_convective_rate_implicit_correction(
 
     amrex::ParallelFor(
         bx, ncomp, [=] AMREX_GPU_DEVICE(int i, int j, int k, int n) noexcept {
+            Real delta_pls_umac = (umac(i + 1, j, k) > small_vel) ? 1.0 : 0.0;
+            Real delta_mns_umac = (umac(i, j, k) < -small_vel) ? 1.0 : 0.0;
 
-	    Real delta_pls_umac = (umac(i, j, k) > small_vel) ? 1.0 : 0.0;
-	    Real delta_mns_umac = (umac(i-1, j, k) <= -small_vel) ? 1.0 : 0.0;
+            Real delta_pls_vmac = (vmac(i, j + 1, k) > small_vel) ? 1.0 : 0.0;
+            Real delta_mns_vmac = (vmac(i, j, k) < -small_vel) ? 1.0 : 0.0;
 
-	    Real delta_pls_vmac = (vmac(i, j, k) > small_vel) ? 1.0 : 0.0;
-	    Real delta_mns_vmac = (vmac(i, j-1, k) <= -small_vel) ? 1.0 : 0.0;
+            Real delta_pls_wmac = (wmac(i, j, k + 1) > small_vel) ? 1.0 : 0.0;
+            Real delta_mns_wmac = (wmac(i, j, k) < -small_vel) ? 1.0 : 0.0;
 
-	    Real delta_pls_wmac = (wmac(i, j, k) >= small_vel) ? 1.0 : 0.0;
-  	    Real delta_mns_wmac = (wmac(i, j, k-1) < -small_vel) ? 1.0 : 0.0;
+            Real net_coeff = (umac(i + 1, j, k) * delta_pls_umac -
+                              umac(i, j, k) * delta_mns_umac) +
+                             (vmac(i, j + 1, k) * delta_pls_vmac -
+                              vmac(i, j, k) * delta_mns_vmac) +
+                             (wmac(i, j, k + 1) * delta_pls_wmac -
+                              wmac(i, j, k) * delta_mns_wmac);
 
-	    Real net_coeff = (umac(i+1,j,k)*delta_pls_umac - umac(i,j,k)*delta_mns_umac) +
-	                  (vmac(i+1,j,k)*delta_pls_vmac - vmac(i,j,k)*delta_mns_vmac) +
-	                  (wmac(i+1,j,k)*delta_pls_wmac - wmac(i,j,k)*delta_mns_wmac); 
+            dUdt(i, j, k, n) = dUdt(i, j, k, n) + (net_coeff * q(i, j, k, n));
 
-            dUdt(i, j, k, n) = dUdt(i, j, k, n) + (net_coeff*q(i,j,k,n));
-                
+            //            dUdt(i,j,k,n) = 0.0;
         });
 }
 

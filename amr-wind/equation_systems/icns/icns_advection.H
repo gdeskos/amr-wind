@@ -412,10 +412,10 @@ struct AdvectionOp<ICNS, fvm::MOL>
                     geom[lev].InvCellSizeArray());
 
                 mol::compute_convective_rate_implicit_correction(
-                    bx, AMREX_SPACEDIM, conv_term(lev).array(mfi), dof_field(lev).const_array(mfi),
+                    bx, AMREX_SPACEDIM, conv_term(lev).array(mfi),
+                    dof_field(lev).const_array(mfi),
                     u_mac(lev).const_array(mfi), v_mac(lev).const_array(mfi),
                     w_mac(lev).const_array(mfi), geom[lev].InvCellSizeArray());
-
             }
         }
     }

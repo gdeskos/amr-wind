@@ -109,7 +109,6 @@ struct AdvectionOp<
                     mol::compute_convective_rate(
                         bx, PDE::ndim, conv_term(lev).array(mfi), fx, fy, fz,
                         geom[lev].InvCellSizeArray());
-
                 }
             }
         }

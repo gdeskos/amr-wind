@@ -48,7 +48,7 @@ void compute_convective_rate(
     amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> dxi);
 
 void compute_convective_rate_implicit_correction(
-    amrex::Box const& bx, 
+    amrex::Box const& bx,
     int ncomp,
     amrex::Array4<amrex::Real> const& dUdt,
     amrex::Array4<amrex::Real const> const& q,
