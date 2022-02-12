@@ -92,6 +92,7 @@ void DiffSolverIface<LinOp>::set_acoeffs_implicit(
 
     auto& repo = m_pdefields.repo;
     auto& field = this->m_pdefields.field;
+    auto& geom = repo.mesh().Geom();
 
     const int nlevels = repo.num_active_levels();
     const auto& density = m_density.state(fstate);
@@ -106,6 +107,7 @@ void DiffSolverIface<LinOp>::set_acoeffs_implicit(
 
     for (int lev = 0; lev < nlevels; ++lev) {
         auto& new_diag = (*new_diag_ptr)(lev);
+        const auto dxinv = geom[lev].InvCellSizeArray();
 
 #ifdef _OPENMP
 #pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
@@ -139,12 +141,12 @@ void DiffSolverIface<LinOp>::set_acoeffs_implicit(
                         (a_wmac(i, j, k) < -small_vel) ? 1.0 : 0.0;
 
                     amrex::Real net_coeff =
-                        (a_umac(i + 1, j, k) * delta_pls_umac -
-                         a_umac(i, j, k) * delta_mns_umac) +
-                        (a_vmac(i + 1, j, k) * delta_pls_vmac -
-                         a_vmac(i, j, k) * delta_mns_vmac) +
-                        (a_wmac(i + 1, j, k) * delta_pls_wmac -
-                         a_wmac(i, j, k) * delta_mns_wmac);
+                        dxinv[0] * (a_umac(i + 1, j, k) * delta_pls_umac -
+                                    a_umac(i, j, k) * delta_mns_umac) +
+                        dxinv[1] * (a_vmac(i + 1, j, k) * delta_pls_vmac -
+                                    a_vmac(i, j, k) * delta_mns_vmac) +
+                        dxinv[2] * (a_wmac(i + 1, j, k) * delta_pls_wmac -
+                                    a_wmac(i, j, k) * delta_mns_wmac);
 
                     new_diag_a(i, j, k) = rho(i, j, k) * (1 + net_coeff);
                 });
