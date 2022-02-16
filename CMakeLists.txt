@@ -80,6 +80,14 @@ init_amrex_hydro()
 
 ########################### AMR-Wind #####################################
 
+find_package(BLAS)
+find_package(LAPACK)
+
+if(LAPACK_FOUND AND BLAS_FOUND)
+   set(lapackblas_libraries ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES})
+endif()
+
+
 if(AMR_WIND_ENABLE_MPI)
   find_package(MPI REQUIRED)
 endif()
