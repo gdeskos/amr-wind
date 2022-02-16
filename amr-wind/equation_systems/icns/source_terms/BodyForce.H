@@ -8,18 +8,12 @@ namespace amr_wind {
 namespace pde {
 namespace icns {
 
-/** Apply a user-defined body force as a source term
- *  \ingroup icns_src
- *
- *  The implementation can apply either a constant source term, or a sinusoidal
- *  term as a function of time.
- */
 class BodyForce : public MomentumSource::Register<BodyForce>
 {
 public:
     static const std::string identifier() { return "BodyForce"; }
 
-    explicit BodyForce(const CFDSim&);
+    BodyForce(const CFDSim&);
 
     virtual ~BodyForce();
 

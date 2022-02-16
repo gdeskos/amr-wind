@@ -19,20 +19,20 @@ BodyForce::BodyForce(const CFDSim& sim) : m_time(sim.time())
     pp.query("type", m_type);
     m_type = amrex::toLower(m_type);
     pp.getarr("magnitude", m_body_force);
-    if (m_type == "oscillatory") {
-        pp.get("angular_frequency", m_omega);
-    }
+
+    if (m_type == "oscillatory") pp.get("angular_frequency", m_omega);
 }
 
 BodyForce::~BodyForce() = default;
 
 void BodyForce::operator()(
-    const int /*lev*/,
-    const amrex::MFIter& /*mfi*/,
+    const int lev,
+    const amrex::MFIter& mfi,
     const amrex::Box& bx,
-    const FieldState /*fstate*/,
+    const FieldState fstate,
     const amrex::Array4<amrex::Real>& src_term) const
 {
+
     const auto& time = m_time.current_time();
     amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> forcing{
         {m_body_force[0], m_body_force[1], m_body_force[2]}};
