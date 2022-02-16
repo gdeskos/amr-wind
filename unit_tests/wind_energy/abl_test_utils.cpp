@@ -5,14 +5,27 @@ namespace utils {
 
 void populate_abl_params()
 {
-    amrex::ParmParse pp("ABL");
-
     // Initial conditions (Temperature)
-    amrex::Vector<amrex::Real> theights{{0.0, 650.0, 750.0, 1000.0}};
-    amrex::Vector<amrex::Real> tvalues{{300.0, 300.0, 308.0, 308.75}};
-    pp.addarr("temperature_heights", theights);
-    pp.addarr("temperature_values", tvalues);
-    pp.add("perturb_ref_height", 50.0);
+    {
+        amrex::ParmParse pp("ABL");
+        amrex::Vector<amrex::Real> theights{{0.0, 650.0, 750.0, 1000.0}};
+        amrex::Vector<amrex::Real> tvalues{{300.0, 300.0, 308.0, 308.75}};
+        pp.addarr("temperature_heights", theights);
+        pp.addarr("temperature_values", tvalues);
+        pp.add("perturb_ref_height", 50.0);
+        pp.add("reference_temperature", 300.0);
+        pp.add("kappa", 0.41);
+        pp.add("surface_roughness_z0", 0.1);
+    }
+
+    // Body force
+    {
+        amrex::ParmParse pp("BodyForce");
+        pp.add("type", std::string("oscillatory"));
+        amrex::Vector<amrex::Real> source_mag{{1.0, 2.0, 3.0}};
+        pp.addarr("magnitude", source_mag);
+        pp.add("angular_frequency", 1.0);
+    }
 
     // Body force
     {
@@ -47,9 +60,6 @@ void populate_abl_params()
         amrex::ParmParse pp("CoriolisForcing");
         pp.add("latitude", 45.0);
     }
-
-    pp.add("kappa", 0.41);
-    pp.add("surface_roughness_z0", 0.1);
 
     // Needed for initial conditions
     {

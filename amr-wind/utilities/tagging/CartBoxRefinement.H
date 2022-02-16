@@ -10,23 +10,27 @@
 namespace amr_wind {
 
 /** Static refinement with Cartesian-aligned bounding boxes
+ *  \ingroup amr_utils wind
  *
  *  Implements tagging functionality for nested refinement of meshes using
  *  bounding box specifications. This class only allows nested refinement of
  *  regions that are aligned with the coordinate directons.
  */
-class CartBoxRefinement : public RefinementCriteria
+class CartBoxRefinement : public RefinementCriteria::Register<CartBoxRefinement>
 {
 public:
-    CartBoxRefinement() = default;
+    static std::string identifier() { return "CartBoxRefinement"; }
+
+    explicit CartBoxRefinement(CFDSim& sim);
 
     virtual ~CartBoxRefinement() = default;
 
     //! Read input file and initialize boxarray used to refine each level
-    virtual void initialize(const amrex::AmrCore&) override;
+    virtual void initialize(const std::string& key) override;
 
     virtual void
-    operator()(int level, amrex::TagBoxArray& tags, amrex::Real time, int ngrow) override;
+    operator()(int level, amrex::TagBoxArray& tags, amrex::Real time, int ngrow)
+        override;
 
     //! Helper function to process inputs
     //!
@@ -34,9 +38,14 @@ public:
     void read_inputs(const amrex::AmrCore&, std::istream&);
 
     //! Vector of boxarrays that define refinement zones at each level
-    const amrex::Vector<amrex::BoxArray>& boxarray_vec() const { return m_boxarrays; }
+    const amrex::Vector<amrex::BoxArray>& boxarray_vec() const
+    {
+        return m_boxarrays;
+    }
 
 protected:
+    const amrex::AmrCore& m_mesh;
+
     //! Domain bounding boxes where refinement is performed at each level
     amrex::Vector<amrex::Vector<amrex::RealBox>> m_real_boxes;
 

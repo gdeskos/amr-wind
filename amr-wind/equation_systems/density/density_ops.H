@@ -6,10 +6,10 @@
 namespace amr_wind {
 namespace pde {
 
-template<typename Scheme>
+template <typename Scheme>
 struct ComputeRHSOp<Density, Scheme>
 {
-    ComputeRHSOp(PDEFields& fields_in) : fields(fields_in) {}
+    explicit ComputeRHSOp(PDEFields& fields_in) : fields(fields_in) {}
 
     void predictor_rhs(const DiffusionType, const amrex::Real dt)
     {
@@ -21,8 +21,8 @@ struct ComputeRHSOp<Density, Scheme>
 
         const int nlevels = fields.repo.num_active_levels();
         auto& field = fields.field;
-        auto& field_old = field.state(FieldState::Old);
-        auto& conv_term = fields.conv_term.state(fstate);
+        const auto& field_old = field.state(FieldState::Old);
+        const auto& conv_term = fields.conv_term.state(fstate);
 
         for (int lev = 0; lev < nlevels; ++lev) {
 #ifdef _OPENMP
@@ -35,11 +35,11 @@ struct ComputeRHSOp<Density, Scheme>
                 const auto ddt_o = conv_term(lev).const_array(mfi);
 
                 amrex::ParallelFor(
-                    bx,
-                    [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+                    bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
                         rho(i, j, k) = rho_o(i, j, k) + dt * ddt_o(i, j, k);
                         // Defer n+1/2 update to the time-stepping algorithm
-                        // rho_nph(i, j, k) = 0.5 * (rho(i, j, k) + rho_o(i, j, k));
+                        // rho_nph(i, j, k) = 0.5 * (rho(i, j, k) + rho_o(i, j,
+                        // k));
                     });
             }
         }
@@ -49,9 +49,9 @@ struct ComputeRHSOp<Density, Scheme>
     {
         const int nlevels = fields.repo.num_active_levels();
         auto& field = fields.field;
-        auto& field_old = field.state(FieldState::Old);
-        auto& conv_term = fields.conv_term;
-        auto& conv_term_old = fields.conv_term.state(FieldState::Old);
+        const auto& field_old = field.state(FieldState::Old);
+        const auto& conv_term = fields.conv_term;
+        const auto& conv_term_old = fields.conv_term.state(FieldState::Old);
 
         for (int lev = 0; lev < nlevels; ++lev) {
 #ifdef _OPENMP
@@ -80,7 +80,7 @@ struct ComputeRHSOp<Density, Scheme>
     // data members
     PDEFields& fields;
 };
-}
-}
+} // namespace pde
+} // namespace amr_wind
 
 #endif /* DENSITY_OPS_H */

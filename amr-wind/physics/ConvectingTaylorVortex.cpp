@@ -10,7 +10,7 @@ namespace ctv {
 
 namespace {
 
-AMREX_GPU_DEVICE AMREX_FORCE_INLINE amrex::Real UExact::operator()(
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::Real UExact::operator()(
     const amrex::Real u0,
     const amrex::Real v0,
     const amrex::Real omega,
@@ -23,7 +23,7 @@ AMREX_GPU_DEVICE AMREX_FORCE_INLINE amrex::Real UExact::operator()(
                     std::exp(-2.0 * omega * t);
 }
 
-AMREX_GPU_DEVICE AMREX_FORCE_INLINE amrex::Real VExact::operator()(
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::Real VExact::operator()(
     const amrex::Real u0,
     const amrex::Real v0,
     const amrex::Real omega,
@@ -36,30 +36,86 @@ AMREX_GPU_DEVICE AMREX_FORCE_INLINE amrex::Real VExact::operator()(
                     std::exp(-2.0 * omega * t);
 }
 
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::Real WExact::operator()(
+    const amrex::Real /*unused*/,
+    const amrex::Real /*unused*/,
+    const amrex::Real /*unused*/,
+    const amrex::Real /*unused*/,
+    const amrex::Real /*unused*/,
+    const amrex::Real /*unused*/) const
+{
+    return 0.0;
+}
+
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::Real GpxExact::operator()(
+    const amrex::Real u0,
+    const amrex::Real /*unused*/,
+    const amrex::Real omega,
+    const amrex::Real x,
+    const amrex::Real /*unused*/,
+    const amrex::Real t) const
+{
+    return 0.5 * amr_wind::utils::pi() *
+           std::sin(2.0 * amr_wind::utils::pi() * (x - u0 * t)) *
+           std::exp(-4.0 * omega * t);
+}
+
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::Real GpyExact::operator()(
+    const amrex::Real /*unused*/,
+    const amrex::Real v0,
+    const amrex::Real omega,
+    const amrex::Real /*unused*/,
+    const amrex::Real y,
+    const amrex::Real t) const
+{
+    return 0.5 * amr_wind::utils::pi() *
+           std::sin(2.0 * amr_wind::utils::pi() * (y - v0 * t)) *
+           std::exp(-4.0 * omega * t);
+}
+
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::Real GpzExact::operator()(
+    const amrex::Real /*unused*/,
+    const amrex::Real /*unused*/,
+    const amrex::Real /*unused*/,
+    const amrex::Real /*unused*/,
+    const amrex::Real /*unused*/,
+    const amrex::Real /*unused*/) const
+{
+    return 0.0;
+}
+
 } // namespace
 
 ConvectingTaylorVortex::ConvectingTaylorVortex(const CFDSim& sim)
     : m_time(sim.time())
+    , m_sim(sim)
     , m_repo(sim.repo())
     , m_mesh(sim.mesh())
     , m_velocity(sim.repo().get_field("velocity"))
+    , m_gradp(sim.repo().get_field("gp"))
     , m_density(sim.repo().get_field("density"))
 {
-    amrex::ParmParse pp("CTV");
-    pp.query("density", m_rho);
-    pp.query("u0", m_u0);
-    pp.query("v0", m_v0);
+    {
+        amrex::ParmParse pp("CTV");
+        pp.query("density", m_rho);
+        pp.query("u0", m_u0);
+        pp.query("v0", m_v0);
+        pp.query("activate_pressure", m_activate_pressure);
+        pp.query("error_log_file", m_output_fname);
+    }
     {
         amrex::Real nu;
         amrex::ParmParse pp("transport");
         pp.query("viscosity", nu);
-        m_omega = utils::pi() * nu;
+        m_omega = utils::pi() * utils::pi() * nu;
     }
     if (amrex::ParallelDescriptor::IOProcessor()) {
         std::ofstream f;
         f.open(m_output_fname.c_str());
         f << std::setw(m_w) << "time" << std::setw(m_w) << "L2_u"
-          << std::setw(m_w) << "L2_v" << std::endl;
+          << std::setw(m_w) << "L2_v" << std::setw(m_w) << "L2_w"
+          << std::setw(m_w) << "L2_gpx" << std::setw(m_w) << "L2_gpy"
+          << std::setw(m_w) << "L2_gpz" << std::endl;
         f.close();
     }
 }
@@ -75,14 +131,21 @@ void ConvectingTaylorVortex::initialize_fields(
     const auto u0 = m_u0;
     const auto v0 = m_v0;
     const auto omega = m_omega;
+    const bool activate_pressure = m_activate_pressure;
 
     auto& velocity = m_velocity(level);
     auto& density = m_density(level);
+    auto& pressure = m_repo.get_field("p")(level);
+    auto& gradp = m_repo.get_field("gp")(level);
 
     density.setVal(m_rho);
 
     UExact u_exact;
     VExact v_exact;
+    WExact w_exact;
+    GpxExact gpx_exact;
+    GpyExact gpy_exact;
+    GpzExact gpz_exact;
 
     for (amrex::MFIter mfi(velocity); mfi.isValid(); ++mfi) {
         const auto& vbx = mfi.validbox();
@@ -90,6 +153,7 @@ void ConvectingTaylorVortex::initialize_fields(
         const auto& dx = geom.CellSizeArray();
         const auto& problo = geom.ProbLoArray();
         auto vel = velocity.array(mfi);
+        auto gp = gradp.array(mfi);
 
         amrex::ParallelFor(
             vbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
@@ -97,8 +161,28 @@ void ConvectingTaylorVortex::initialize_fields(
                 const amrex::Real y = problo[1] + (j + 0.5) * dx[1];
                 vel(i, j, k, 0) = u_exact(u0, v0, omega, x, y, 0.0);
                 vel(i, j, k, 1) = v_exact(u0, v0, omega, x, y, 0.0);
-                vel(i, j, k, 2) = 0.0;
+                vel(i, j, k, 2) = w_exact(u0, v0, omega, x, y, 0.0);
+
+                if (activate_pressure) {
+                    gp(i, j, k, 0) = gpx_exact(u0, v0, omega, x, y, 0.0);
+                    gp(i, j, k, 1) = gpy_exact(u0, v0, omega, x, y, 0.0);
+                    gp(i, j, k, 2) = gpz_exact(u0, v0, omega, x, y, 0.0);
+                }
             });
+
+        if (activate_pressure) {
+            const auto& nbx = mfi.nodaltilebox();
+            auto pres = pressure.array(mfi);
+
+            amrex::ParallelFor(
+                nbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+                    const amrex::Real x = problo[0] + i * dx[0];
+                    const amrex::Real y = problo[1] + j * dx[1];
+                    pres(i, j, k, 0) =
+                        -0.25 * (std::cos(2.0 * utils::pi() * x) +
+                                 std::cos(2.0 * utils::pi() * y));
+                });
+        }
     }
 }
 
@@ -107,7 +191,7 @@ amrex::Real ConvectingTaylorVortex::compute_error(const Field& field)
 {
 
     amrex::Real error = 0.0;
-    const amrex::Real time = m_time.current_time();
+    const amrex::Real time = m_time.new_time();
     const auto u0 = m_u0;
     const auto v0 = m_v0;
     const auto omega = m_omega;
@@ -127,6 +211,22 @@ amrex::Real ConvectingTaylorVortex::compute_error(const Field& field)
                 m_mesh.boxArray(lev), m_mesh.DistributionMap(lev), 1, 0,
                 amrex::MFInfo());
             level_mask.setVal(1);
+        }
+
+        if (m_sim.has_overset()) {
+            for (amrex::MFIter mfi(field(lev)); mfi.isValid(); ++mfi) {
+                const auto& vbx = mfi.validbox();
+
+                const auto& iblank_arr =
+                    m_repo.get_int_field("iblank_cell")(lev).array(mfi);
+                const auto& imask_arr = level_mask.array(mfi);
+                amrex::ParallelFor(
+                    vbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+                        if (iblank_arr(i, j, k) < 1) {
+                            imask_arr(i, j, k) = 0;
+                        }
+                    });
+            }
         }
 
         const auto& dx = m_mesh.Geom(lev).CellSizeArray();
@@ -165,12 +265,19 @@ void ConvectingTaylorVortex::output_error()
 {
     const amrex::Real u_err = compute_error<UExact>(m_velocity);
     const amrex::Real v_err = compute_error<VExact>(m_velocity);
+    const amrex::Real w_err = compute_error<WExact>(m_velocity);
+    const amrex::Real gpx_err = compute_error<GpxExact>(m_gradp);
+    const amrex::Real gpy_err = compute_error<GpyExact>(m_gradp);
+    const amrex::Real gpz_err = compute_error<GpzExact>(m_gradp);
 
     if (amrex::ParallelDescriptor::IOProcessor()) {
         std::ofstream f;
         f.open(m_output_fname.c_str(), std::ios_base::app);
         f << std::setprecision(12) << std::setw(m_w) << m_time.new_time()
-          << std::setw(m_w) << u_err << std::setw(m_w) << v_err << std::endl;
+          << std::setw(m_w) << u_err << std::setw(m_w) << v_err
+          << std::setw(m_w) << w_err << std::setw(m_w) << gpx_err
+          << std::setw(m_w) << gpy_err << std::setw(m_w) << gpz_err
+          << std::endl;
         f.close();
     }
 }

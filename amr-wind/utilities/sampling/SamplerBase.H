@@ -11,11 +11,17 @@ class CFDSim;
 namespace sampling {
 
 /** Abstract representation of data probes to sample flow data
+ *  \ingroup sampling
+ *
+ *  This class defines the interface by which the positions of the data-probes
+ *  are defined and access from the Sampling class. All data probe definitions
+ *  must be sub-classes of this base class.
  */
 class SamplerBase : public Factory<SamplerBase, CFDSim&>
 {
 public:
-    using SampleLocType = amrex::Vector<amrex::Array<amrex::Real, AMREX_SPACEDIM>>;
+    using SampleLocType =
+        amrex::Vector<amrex::Array<amrex::Real, AMREX_SPACEDIM>>;
 
     static const std::string base_identifier() { return "SamplerBase"; }
 
@@ -23,9 +29,10 @@ public:
 
     //! Name used to refer to this sampler (e.g., file I/O)
     virtual std::string label() const = 0;
-    virtual std::string& label() =0;
+    virtual std::string& label() = 0;
 
-    //! Unique numeric identifier used to track particles belonging to this instance
+    //! Unique numeric identifier used to track particles belonging to this
+    //! instance
     virtual int id() const = 0;
     virtual int& id() = 0;
 
@@ -38,12 +45,20 @@ public:
     //! Populate the vector with coordinates of the sampling locations
     virtual void sampling_locations(SampleLocType&) const = 0;
 
+    //! Update the sampling locations
+    virtual void update_sampling_locations() {}
+
+    //! Run specific output for the sampler
+    virtual bool output_netcdf_field(double*, ncutils::NCVar&) { return true; }
+
     //! Populate metadata in the NetCDF file
     virtual void define_netcdf_metadata(const ncutils::NCGroup&) const {}
     virtual void populate_netcdf_metadata(const ncutils::NCGroup&) const {}
+    virtual void output_netcdf_data(const ncutils::NCGroup&, const size_t) const
+    {}
 };
 
-}
-}
+} // namespace sampling
+} // namespace amr_wind
 
 #endif /* SAMPLERBASE_H */

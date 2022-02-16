@@ -6,24 +6,38 @@
 namespace amr_wind {
 namespace turbulence {
 
-template<typename Transport>
+/** Laminar model
+ *  \ingroup turb_model
+ *
+ *  Implementation of laminar flow model
+ */
+template <typename Transport>
 class Laminar : public TurbModel<Transport>
 {
 public:
-    static std::string identifier() { return "Laminar-" + Transport::identifier(); }
+    static std::string identifier()
+    {
+        return "Laminar-" + Transport::identifier();
+    }
 
-    Laminar(CFDSim& sim)
-        : TurbModel<Transport>(sim)
-    {}
+    explicit Laminar(CFDSim& sim) : TurbModel<Transport>(sim) {}
 
     virtual ~Laminar() = default;
 
-    virtual std::string model_name() override { return "laminar"; }
+    //! String representation of this model for I/O
+    virtual std::string model_name() const override { return "laminar"; }
 
     //! Update the effective/turbulent viscosity field
     virtual void update_turbulent_viscosity(const FieldState fstate) override;
 
-    //! Return the turbulent viscosity field (just the same as the effective field)
+    //! No post advance work for this model
+    virtual void post_advance_work() override {}
+
+    //! No model specific coefficient for this model
+    virtual void parse_model_coeffs() override {}
+
+    //! Return the turbulent viscosity field (just the same as the effective
+    //! field)
     virtual Field& mu_turb() override { return this->mueff(); }
 
     //! Return the thermal diffusivity field (just the same as effective field)
@@ -39,10 +53,14 @@ public:
     virtual void update_alphaeff(Field& alphaeff) override;
 
     //! Interface to update scalar diffusivity based on Schmidt number
-    virtual void update_scalar_diff(Field& deff, const std::string& name) override;
+    virtual void
+    update_scalar_diff(Field& deff, const std::string& name) override;
+
+    //! Return model coefficients dictionary
+    virtual TurbulenceModel::CoeffsDictType model_coeffs() const override;
 };
 
-}
-}
+} // namespace turbulence
+} // namespace amr_wind
 
 #endif /* LAMINARMODEL_H */

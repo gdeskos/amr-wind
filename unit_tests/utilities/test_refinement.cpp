@@ -26,10 +26,12 @@ public:
     }
 
 protected:
-    virtual void ErrorEst(
+    void ErrorEst(
         int lev, amrex::TagBoxArray& tags, amrex::Real time, int ngrow) override
     {
-        for (auto& ref : m_refine_crit) (*ref)(lev, tags, time, ngrow);
+        for (auto& ref : m_refine_crit) {
+            (*ref)(lev, tags, time, ngrow);
+        }
     }
 
 private:
@@ -79,7 +81,7 @@ TEST_F(NestRefineTest, box_refine)
 
     create_mesh_instance<NestRefineMesh>();
     std::unique_ptr<amr_wind::CartBoxRefinement> box_refine(
-        new amr_wind::CartBoxRefinement);
+        new amr_wind::CartBoxRefinement(sim()));
     box_refine->read_inputs(mesh(), ss);
 
     // Store the target boxarray for future tests
@@ -120,7 +122,7 @@ TEST_F(NestRefineTest, level_warning)
         CaptureOutput io;
         create_mesh_instance<NestRefineMesh>();
         std::unique_ptr<amr_wind::CartBoxRefinement> box_refine(
-            new amr_wind::CartBoxRefinement);
+            new amr_wind::CartBoxRefinement(sim()));
         box_refine->read_inputs(mesh(), ss);
 
         auto msg = io.stdout().str();
@@ -145,12 +147,12 @@ TEST_F(NestRefineTest, bbox_limits)
 
     create_mesh_instance<NestRefineMesh>();
     std::unique_ptr<amr_wind::CartBoxRefinement> box_refine(
-        new amr_wind::CartBoxRefinement);
+        new amr_wind::CartBoxRefinement(sim()));
     box_refine->read_inputs(mesh(), ss);
 
     auto targets = box_refine->boxarray_vec();
-    EXPECT_EQ(targets.size(), 1u);
-    EXPECT_EQ(targets[0].size(), 1u);
+    EXPECT_EQ(targets.size(), 1U);
+    EXPECT_EQ(targets[0].size(), 1U);
 
     auto domain = mesh().Geom(0).Domain();
     auto bx = targets[0][0];

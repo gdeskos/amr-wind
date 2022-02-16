@@ -10,11 +10,15 @@
 
 namespace godunov {
 
-void compute_advection(
+enum class scheme { PLM, PPM, PPM_NOLIM, WENOJS, WENOZ };
+
+void compute_fluxes(
     int lev,
     amrex::Box const& bx,
     int ncomp,
-    amrex::Array4<amrex::Real> const& dqdt,
+    amrex::Array4<amrex::Real> const& fx,
+    amrex::Array4<amrex::Real> const& fy,
+    amrex::Array4<amrex::Real> const& fz,
     amrex::Array4<amrex::Real const> const& q,
     amrex::Array4<amrex::Real const> const& umac,
     amrex::Array4<amrex::Real const> const& vmac,
@@ -25,7 +29,38 @@ void compute_advection(
     amrex::Real* p,
     amrex::Vector<amrex::Geometry> geom,
     amrex::Real dt,
-    bool godunov_ppm);
+    godunov::scheme godunov_scheme);
+
+void compute_advection(
+    int lev,
+    amrex::Box const& bx,
+    int ncomp,
+    amrex::Array4<amrex::Real> const& dqdt,
+    amrex::Array4<amrex::Real> const& fx,
+    amrex::Array4<amrex::Real> const& fy,
+    amrex::Array4<amrex::Real> const& fz,
+    amrex::Array4<amrex::Real const> const& umac,
+    amrex::Array4<amrex::Real const> const& vmac,
+    amrex::Array4<amrex::Real const> const& wmac,
+    int const* iconserv,
+    amrex::Vector<amrex::Geometry> geom);
+
+void predict_weno(
+    int lev,
+    amrex::Box const& bx,
+    int ncomp,
+    amrex::Array4<amrex::Real> const& Imx,
+    amrex::Array4<amrex::Real> const& Ipx,
+    amrex::Array4<amrex::Real> const& Imy,
+    amrex::Array4<amrex::Real> const& Ipy,
+    amrex::Array4<amrex::Real> const& Imz,
+    amrex::Array4<amrex::Real> const& Ipz,
+    amrex::Array4<amrex::Real const> const& q,
+    amrex::Array4<amrex::Real const> const& vel,
+    amrex::Vector<amrex::Geometry> geom,
+    amrex::Real dt,
+    amrex::Gpu::DeviceVector<amrex::BCRec>& bcrec_device,
+    bool weno_js);
 
 void predict_ppm(
     int lev,
@@ -41,7 +76,8 @@ void predict_ppm(
     amrex::Array4<amrex::Real const> const& vel,
     amrex::Vector<amrex::Geometry> geom,
     amrex::Real dt,
-    amrex::Gpu::DeviceVector<amrex::BCRec>& bcrec_device);
+    amrex::Gpu::DeviceVector<amrex::BCRec>& bcrec_device,
+    bool use_limiter);
 
 void predict_plm_x(
     int lev,

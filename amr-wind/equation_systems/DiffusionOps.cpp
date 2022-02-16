@@ -8,26 +8,37 @@ namespace pde {
 
 template <typename LinOp>
 DiffSolverIface<LinOp>::DiffSolverIface(
-    PDEFields& fields, const std::string& prefix)
+    PDEFields& fields, const bool has_overset, const std::string& prefix)
     : m_pdefields(fields)
     , m_density(fields.repo.get_field("density"))
     , m_options(prefix, m_pdefields.field.name() + "_" + prefix)
 {
-    amrex::LPInfo isolve;
+    amrex::LPInfo isolve = m_options.lpinfo();
     amrex::LPInfo iapply;
 
-    isolve.setMaxCoarseningLevel(m_options.max_coarsen_level);
     iapply.setMaxCoarseningLevel(0);
 
     const auto& mesh = m_pdefields.repo.mesh();
-    m_solver.reset(new LinOp(mesh.Geom(0, mesh.finestLevel()),
-                             mesh.boxArray(0, mesh.finestLevel()),
-                             mesh.DistributionMap(0, mesh.finestLevel()),
-                             isolve));
-    m_applier.reset(new LinOp(mesh.Geom(0, mesh.finestLevel()),
-                             mesh.boxArray(0, mesh.finestLevel()),
-                             mesh.DistributionMap(0, mesh.finestLevel()),
-                             iapply));
+    if (!has_overset) {
+        m_solver.reset(new LinOp(
+            mesh.Geom(0, mesh.finestLevel()),
+            mesh.boxArray(0, mesh.finestLevel()),
+            mesh.DistributionMap(0, mesh.finestLevel()), isolve));
+        m_applier.reset(new LinOp(
+            mesh.Geom(0, mesh.finestLevel()),
+            mesh.boxArray(0, mesh.finestLevel()),
+            mesh.DistributionMap(0, mesh.finestLevel()), iapply));
+    } else {
+        auto imask = fields.repo.get_int_field("mask_cell").vec_const_ptrs();
+        m_solver.reset(new LinOp(
+            mesh.Geom(0, mesh.finestLevel()),
+            mesh.boxArray(0, mesh.finestLevel()),
+            mesh.DistributionMap(0, mesh.finestLevel()), imask, isolve));
+        m_applier.reset(new LinOp(
+            mesh.Geom(0, mesh.finestLevel()),
+            mesh.boxArray(0, mesh.finestLevel()),
+            mesh.DistributionMap(0, mesh.finestLevel()), imask, iapply));
+    }
 
     m_solver->setMaxOrder(m_options.max_order);
     m_applier->setMaxOrder(m_options.max_order);
@@ -38,50 +49,51 @@ DiffSolverIface<LinOp>::DiffSolverIface(
 
 template <typename LinOp>
 void DiffSolverIface<LinOp>::setup_operator(
-    LinOp& linop, const amrex::Real alpha, const amrex::Real beta, const FieldState fstate)
+    LinOp& linop,
+    const amrex::Real alpha,
+    const amrex::Real beta,
+    const FieldState fstate)
 {
     BL_PROFILE("amr-wind::setup_operator");
     auto& repo = m_pdefields.repo;
     const int nlevels = repo.num_active_levels();
-    auto& density = m_density.state(fstate);
 
     linop.setScalars(alpha, beta);
     for (int lev = 0; lev < nlevels; ++lev) {
-        linop.setACoeffs(lev, density(lev));
         linop.setLevelBC(lev, &m_pdefields.field(lev));
     }
+    this->set_acoeffs(linop, fstate);
     set_bcoeffs(linop);
 }
 
-template<typename LinOp>
+template <typename LinOp>
+void DiffSolverIface<LinOp>::set_acoeffs(LinOp& linop, const FieldState fstate)
+{
+    BL_PROFILE("amr-wind::set_acoeffs");
+    auto& repo = m_pdefields.repo;
+    const int nlevels = repo.num_active_levels();
+    const auto& density = m_density.state(fstate);
+
+    for (int lev = 0; lev < nlevels; ++lev) {
+        linop.setACoeffs(lev, density(lev));
+    }
+}
+
+template <typename LinOp>
 void DiffSolverIface<LinOp>::setup_solver(amrex::MLMG& mlmg)
 {
     BL_PROFILE("amr-wind::setup_solver");
-    auto& opts = m_options;
-
-    if (opts.bottom_solver_type == "smoother") {
-        mlmg.setBottomSolver(amrex::MLMG::BottomSolver::smoother);
-    } else if (opts.bottom_solver_type == "hypre") {
-        mlmg.setBottomSolver(amrex::MLMG::BottomSolver::hypre);
-    }
-
-    mlmg.setMaxIter(opts.max_iter);
-    mlmg.setMaxFmgIter(opts.fmg_max_iter);
-    mlmg.setCGMaxIter(opts.cg_max_iter);
-    mlmg.setVerbose(opts.verbose);
-    mlmg.setCGVerbose(opts.cg_verbose);
+    // Set all MLMG options
+    m_options(mlmg);
 }
 
-
-template<typename LinOp>
-void DiffSolverIface<LinOp>::linsys_solve(const amrex::Real dt)
+template <typename LinOp>
+void DiffSolverIface<LinOp>::linsys_solve_impl()
 {
     FieldState fstate = FieldState::New;
-    this->setup_operator(*this->m_solver, 1.0, dt, fstate);
-
     auto& repo = this->m_pdefields.repo;
     auto& field = this->m_pdefields.field;
-    auto& density = m_density.state(fstate);
+    const auto& density = m_density.state(fstate);
     const int nlevels = repo.num_active_levels();
     const int ndim = field.num_comp();
     auto rhs_ptr = repo.create_scratch_field("rhs", field.num_comp(), 0);
@@ -118,9 +130,16 @@ void DiffSolverIface<LinOp>::linsys_solve(const amrex::Real dt)
     io::print_mlmg_info(field.name() + "_solve", mlmg);
 }
 
+template <typename LinOp>
+void DiffSolverIface<LinOp>::linsys_solve(const amrex::Real dt)
+{
+    FieldState fstate = FieldState::New;
+    this->setup_operator(*this->m_solver, 1.0, dt, fstate);
+    this->linsys_solve_impl();
+}
+
 template class DiffSolverIface<amrex::MLABecLaplacian>;
 template class DiffSolverIface<amrex::MLTensorOp>;
-
 
 } // namespace pde
 } // namespace amr_wind

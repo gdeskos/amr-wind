@@ -1,3 +1,5 @@
+#include <limits>
+
 #include "amr-wind/utilities/sampling/PlaneSampler.H"
 
 #include "AMReX_ParmParse.H"
@@ -5,7 +7,7 @@
 namespace amr_wind {
 namespace sampling {
 
-PlaneSampler::PlaneSampler(const CFDSim&) {}
+PlaneSampler::PlaneSampler(const CFDSim& /*unused*/) {}
 
 PlaneSampler::~PlaneSampler() = default;
 
@@ -33,7 +35,13 @@ void PlaneSampler::initialize(const std::string& key)
     }
 
     // Update total number of points
-    m_npts = m_npts_dir[0] * m_npts_dir[1] * m_poffsets.size();
+    const size_t tmp = m_poffsets.size() * m_npts_dir[0] * m_npts_dir[1];
+    if (tmp > static_cast<size_t>(std::numeric_limits<int>::max())) {
+        amrex::Abort(
+            "PlaneSampler: Plane definition " + key +
+            " exceeds 32-bit integer limits");
+    }
+    m_npts = static_cast<int>(tmp);
 }
 
 void PlaneSampler::sampling_locations(SampleLocType& locs) const
@@ -66,8 +74,8 @@ void PlaneSampler::sampling_locations(SampleLocType& locs) const
 #ifdef AMR_WIND_USE_NETCDF
 void PlaneSampler::define_netcdf_metadata(const ncutils::NCGroup& grp) const
 {
-    const std::vector<int> ijk{m_npts_dir[0], m_npts_dir[1],
-                               static_cast<int>(m_poffsets.size())};
+    const std::vector<int> ijk{
+        m_npts_dir[0], m_npts_dir[1], static_cast<int>(m_poffsets.size())};
     grp.put_attr("sampling_type", identifier());
     grp.put_attr("ijk_dims", ijk);
     grp.put_attr("origin", m_origin);
@@ -77,11 +85,14 @@ void PlaneSampler::define_netcdf_metadata(const ncutils::NCGroup& grp) const
     grp.put_attr("offsets", m_poffsets);
 }
 
-void PlaneSampler::populate_netcdf_metadata(const ncutils::NCGroup&) const
-{}
-#else
-void PlaneSampler::define_netcdf_metadata(const ncutils::NCGroup&) const {}
 void PlaneSampler::populate_netcdf_metadata(const ncutils::NCGroup&) const {}
+#else
+void PlaneSampler::define_netcdf_metadata(
+    const ncutils::NCGroup& /*unused*/) const
+{}
+void PlaneSampler::populate_netcdf_metadata(
+    const ncutils::NCGroup& /*unused*/) const
+{}
 #endif
 
 } // namespace sampling

@@ -7,16 +7,38 @@
 #include "amr-wind/equation_systems/PDE.H"
 #include "amr-wind/equation_systems/icns/MomentumSource.H"
 
+#include "AMReX_MLTensorOp.H"
+
 namespace amr_wind {
 namespace pde {
 
+/**
+ *  \defgroup icns Incompressible Navier-Stokes
+ *
+ *  Incompressible Navier-Stokes equation system
+ *
+ *  \ingroup eqsys
+ */
+
+/**
+ *  \defgroup icns_src ICNS Source terms
+ *
+ *  Source terms used with incompressible Navier-Stokes momentum equation
+ *
+ *  \ingroup icns
+ */
+
+/** Characteristics of ICNS equation system
+ *  \ingroup icns
+ */
 struct ICNS : VectorTransport
 {
-    using MLDiffOp = amrex::MLTensorOp;
     using SrcTerm = MomentumSource;
 
     static std::string pde_name() { return "ICNS"; }
     static std::string var_name() { return "velocity"; }
+
+    static constexpr int ndim = AMREX_SPACEDIM;
 
     static constexpr bool multiply_rho = false;
     static constexpr bool has_diffusion = true;

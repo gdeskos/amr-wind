@@ -2,7 +2,7 @@
 #            SIMULATION STOP            #
 #.......................................#
 time.stop_time               =   0.2   # Max (simulated) time to evolve
-time.max_step                =   200   # Max number of time steps
+time.max_step                =   20   # Max number of time steps
 
 #¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨#
 #         TIME STEP COMPUTATION         #
@@ -15,14 +15,14 @@ time.cfl              =   0.5        # CFL factor
 #.......................................#
 time.plot_interval  =  20   # Steps between plot files
 time.checkpoint_interval =   -1  # Steps between checkpoint files
-io.KE_int = 1        # calculate kinetic energy 
+io.output_default_variables = 0
+io.outputs = density p
+io.derived_outputs = "components(velocity,0,1)" "components(gp,0,1)"
 #¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨#
 #               PHYSICS                 #
 #.......................................#
-incflo.gravity          = 0.  0.  0.  # Gravitational force (3D)
-incflo.density             = 1.          # Reference density 
 incflo.use_godunov      = 1
-incflo.use_ppm = 0
+incflo.godunov_type = "plm"
 transport.viscosity = 0.001
 transport.laminar_prandtl = 1.0
 turbulence.model = Laminar

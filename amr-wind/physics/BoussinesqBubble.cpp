@@ -1,3 +1,5 @@
+#include <memory>
+
 #include "amr-wind/physics/BoussinesqBubble.H"
 #include "amr-wind/physics/BoussinesqBubbleFieldInit.H"
 #include "amr-wind/CFDSim.H"
@@ -16,7 +18,7 @@ BoussinesqBubble::BoussinesqBubble(CFDSim& sim)
     m_temperature = &(teqn.fields().field);
 
     // Instantiate the BoussinesqBubble field initializer
-    m_field_init.reset(new BoussinesqBubbleFieldInit());
+    m_field_init = std::make_unique<BoussinesqBubbleFieldInit>();
 }
 
 /** Initialize the velocity and temperature fields at the beginning of the
@@ -24,9 +26,7 @@ BoussinesqBubble::BoussinesqBubble(CFDSim& sim)
  *
  *  \sa amr_wind::BoussinesqBubbleFieldInit
  */
-void BoussinesqBubble::initialize_fields(
-    int level,
-    const amrex::Geometry& geom)
+void BoussinesqBubble::initialize_fields(int level, const amrex::Geometry& geom)
 {
     auto& velocity = m_velocity(level);
     auto& density = m_density(level);

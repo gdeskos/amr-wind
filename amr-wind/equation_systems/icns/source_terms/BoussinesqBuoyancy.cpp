@@ -19,7 +19,8 @@ namespace icns {
 BoussinesqBuoyancy::BoussinesqBuoyancy(const CFDSim& sim)
     : m_temperature(sim.repo().get_field("temperature"))
 {
-    amrex::ParmParse pp_boussinesq_buoyancy(this->identifier());
+    amrex::ParmParse pp_boussinesq_buoyancy(
+        amr_wind::pde::icns::BoussinesqBuoyancy::identifier());
     pp_boussinesq_buoyancy.get("reference_temperature", m_ref_theta);
 
     if (pp_boussinesq_buoyancy.contains("thermal_expansion_coeff")) {
@@ -44,8 +45,8 @@ void BoussinesqBuoyancy::operator()(
 {
     const amrex::Real T0 = m_ref_theta;
     const amrex::Real beta = m_beta;
-    const amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> gravity{{
-        m_gravity[0], m_gravity[1], m_gravity[2]}};
+    const amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> gravity{
+        {m_gravity[0], m_gravity[1], m_gravity[2]}};
 
     const auto& temp =
         m_temperature.state(field_impl::phi_state(fstate))(lev).const_array(

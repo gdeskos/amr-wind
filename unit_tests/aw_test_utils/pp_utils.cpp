@@ -1,8 +1,20 @@
+#include "aw_test_utils/AmrexTestEnv.H"
 #include "pp_utils.H"
 #include "AMReX_ParmParse.H"
 
+extern amr_wind_tests::AmrexTestEnv* utest_env;
+
 namespace amr_wind_tests {
 namespace pp_utils {
+
+bool has_managed_memory()
+{
+#if defined(AMREX_USE_HIP)
+    return false;
+#else
+    return utest_env->has_managed_memory();
+#endif
+}
 
 void default_time_inputs()
 {
@@ -31,8 +43,8 @@ void default_mesh_inputs()
 
     {
         amrex::ParmParse pp("geometry");
-        amrex::Vector<amrex::Real> problo {{0.0, 0.0, 0.0}};
-        amrex::Vector<amrex::Real> probhi {{8.0, 8.0, 8.0}};
+        amrex::Vector<amrex::Real> problo{{0.0, 0.0, 0.0}};
+        amrex::Vector<amrex::Real> probhi{{8.0, 8.0, 8.0}};
         amrex::Vector<int> periodic{{1, 1, 1}};
 
         pp.addarr("prob_lo", problo);
@@ -46,5 +58,5 @@ void default_mesh_inputs()
     }
 }
 
-}
-}
+} // namespace pp_utils
+} // namespace amr_wind_tests

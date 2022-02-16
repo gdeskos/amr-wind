@@ -8,14 +8,24 @@
 namespace amr_wind {
 namespace pde {
 
-template<typename PDE, typename Scheme>
+/** RHS computation operator
+ *  \ingroup pdeop
+ *
+ *  Accumulates the convective, diffusion, and source terms for predictor and
+ *  corrector steps.
+ */
+template <typename PDE, typename Scheme>
 struct ComputeRHSOp
 {
-    ComputeRHSOp(PDEFields& fields_in)
-    : fields(fields_in)
-    , density(fields_in.repo.get_field("density"))
+    explicit ComputeRHSOp(PDEFields& fields_in)
+        : fields(fields_in), density(fields_in.repo.get_field("density"))
     {}
 
+    /** Compute right-hand side for predictor steps
+     *
+     *  \param difftype Indicating whether time-integration is explicit/implicit
+     *  \param dt time step size
+     */
     void predictor_rhs(const DiffusionType difftype, const amrex::Real dt)
     {
         amrex::Real factor = 0.0;
@@ -50,6 +60,7 @@ struct ComputeRHSOp
         auto& src_term = fields.src_term;
         auto& diff_term = fields.diff_term.state(fstate);
         auto& conv_term = fields.conv_term.state(fstate);
+        auto& mask_cell = fields.repo.get_int_field("mask_cell");
 
         for (int lev = 0; lev < nlevels; ++lev) {
 #ifdef _OPENMP
@@ -64,6 +75,7 @@ struct ComputeRHSOp
                 const auto src = src_term(lev).const_array(mfi);
                 const auto diff = diff_term(lev).const_array(mfi);
                 const auto ddt_o = conv_term(lev).const_array(mfi);
+                const auto imask = mask_cell(lev).const_array(mfi);
 
                 if (PDE::multiply_rho) {
                     // Remove multiplication by density as it will be added back
@@ -74,8 +86,9 @@ struct ComputeRHSOp
                             int i, int j, int k, int n) noexcept {
                             fld(i, j, k, n) =
                                 rho_o(i, j, k) * fld_o(i, j, k, n) +
-                                dt * (ddt_o(i, j, k, n) + src(i, j, k, n) +
-                                      factor * diff(i, j, k, n));
+                                static_cast<amrex::Real>(imask(i, j, k)) * dt *
+                                    (ddt_o(i, j, k, n) + src(i, j, k, n) +
+                                     factor * diff(i, j, k, n));
 
                             fld(i, j, k, n) /= rho(i, j, k);
                         });
@@ -86,14 +99,20 @@ struct ComputeRHSOp
                             int i, int j, int k, int n) noexcept {
                             fld(i, j, k, n) =
                                 fld_o(i, j, k, n) +
-                                dt * (ddt_o(i, j, k, n) + src(i, j, k, n) +
-                                      factor * diff(i, j, k, n));
+                                static_cast<amrex::Real>(imask(i, j, k)) * dt *
+                                    (ddt_o(i, j, k, n) + src(i, j, k, n) +
+                                     factor * diff(i, j, k, n));
                         });
                 }
             }
         }
     }
 
+    /** Compute right-hand side for corrector steps
+     *
+     *  \param difftype Indicating whether time-integration is explicit/implicit
+     *  \param dt time step size
+     */
     void corrector_rhs(const DiffusionType difftype, const amrex::Real dt)
     {
         amrex::Real ofac = 0.0;
@@ -128,6 +147,7 @@ struct ComputeRHSOp
         auto& conv_term = fields.conv_term;
         auto& diff_term_old = fields.diff_term.state(FieldState::Old);
         auto& conv_term_old = fields.conv_term.state(FieldState::Old);
+        auto& mask_cell = fields.repo.get_int_field("mask_cell");
 
         for (int lev = 0; lev < nlevels; ++lev) {
 #ifdef _OPENMP
@@ -144,6 +164,7 @@ struct ComputeRHSOp
                 const auto ddt = conv_term(lev).const_array(mfi);
                 const auto diff_o = diff_term_old(lev).const_array(mfi);
                 const auto ddt_o = conv_term_old(lev).const_array(mfi);
+                const auto imask = mask_cell(lev).const_array(mfi);
 
                 if (PDE::multiply_rho) {
                     // Remove multiplication by density as it will be added back
@@ -154,7 +175,7 @@ struct ComputeRHSOp
                             int i, int j, int k, int n) noexcept {
                             fld(i, j, k, n) =
                                 rho_o(i, j, k) * fld_o(i, j, k, n) +
-                                dt *
+                                static_cast<amrex::Real>(imask(i, j, k)) * dt *
                                     (0.5 *
                                          (ddt_o(i, j, k, n) + ddt(i, j, k, n)) +
                                      ofac * diff_o(i, j, k, n) +
@@ -167,12 +188,13 @@ struct ComputeRHSOp
                         bx, PDE::ndim,
                         [=] AMREX_GPU_DEVICE(
                             int i, int j, int k, int n) noexcept {
-                            fld(i, j, k, n) = fld_o(i, j, k, n) +
-                                              dt * (0.5 * (ddt_o(i, j, k, n) +
-                                                           ddt(i, j, k, n)) +
-                                                    ofac * diff_o(i, j, k, n) +
-                                                    nfac * diff(i, j, k, n) +
-                                                    src(i, j, k, n));
+                            fld(i, j, k, n) =
+                                fld_o(i, j, k, n) +
+                                static_cast<amrex::Real>(imask(i, j, k)) * dt *
+                                    (0.5 *
+                                         (ddt_o(i, j, k, n) + ddt(i, j, k, n)) +
+                                     ofac * diff_o(i, j, k, n) +
+                                     nfac * diff(i, j, k, n) + src(i, j, k, n));
                         });
                 }
             }
@@ -184,7 +206,7 @@ struct ComputeRHSOp
     Field& density;
 };
 
-}
-}
+} // namespace pde
+} // namespace amr_wind
 
 #endif /* COMPRHSOPS_H */

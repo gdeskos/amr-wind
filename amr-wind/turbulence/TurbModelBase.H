@@ -64,8 +64,8 @@ inline void alpha_update(Field& evisc, Field& tvisc, Transport& transport)
 {
     auto lam_alpha = transport.alpha();
     field_ops::lincomb(
-        evisc, 1.0, *lam_alpha, 0, 1.0 / transport.turbulent_prandtl(),
-        tvisc, 0, 0, evisc.num_comp(), evisc.num_grow());
+        evisc, 1.0, *lam_alpha, 0, 1.0 / transport.turbulent_prandtl(), tvisc,
+        0, 0, evisc.num_comp(), evisc.num_grow());
 }
 
 template <
@@ -84,12 +84,19 @@ inline void scal_diff_update(
 } // namespace turb_base_impl
 
 /** Turbulence model aspects common to both LES and RANS models
+ *  \ingroup turb_model
+ *
+ *  This class implements more of the common methods from TurbulenceModel that
+ *  are common to most turbulence model. This is different from TurbModel in
+ *  that that class is also valid for Laminar which isn't really a turbulence
+ *  model but is a convenient way to represent the absence of a turbulence
+ *  model.
  */
-template<typename Transport>
+template <typename Transport>
 class TurbModelBase : public TurbModel<Transport>
 {
 public:
-    TurbModelBase(CFDSim& sim)
+    explicit TurbModelBase(CFDSim& sim)
         : TurbModel<Transport>(sim)
         , m_mu_turb(sim.repo().declare_field("mu_turb", 1, 1, 1))
     {
@@ -100,11 +107,12 @@ public:
         this->m_sim.io_manager().register_io_var(fields.mueff.name());
 
         m_mu_turb.set_default_fillpatch_bc(this->m_sim.time());
-
     }
 
+    //! Return the turbulent viscosity field
     virtual Field& mu_turb() override { return m_mu_turb; }
 
+    //! Return the turbulent thermal diffusivity field
     virtual Field& alpha_turb() override
     {
         AMREX_ASSERT(m_alpha_turb != nullptr);
@@ -113,13 +121,23 @@ public:
 
     // clang-format off
 
-    //! Interface to update effective viscosity (mu_eff = mu + mu_t)
+    /** Update the effective viscosity field
+     *
+     *  \f$\mu_\mathrm{eff} = \mu + \mu_t\f$
+     *
+     *  \param mueff Effective viscosity field
+     */
     virtual void update_mueff(Field& mueff) override
     {
         turb_base_impl::visc_update(mueff, this->m_mu_turb, this->m_transport);
     }
 
-    //! Interface to update effective thermal diffusivity
+    /** Update the effective thermal diffusivity field
+     *
+     *  \f$\alpha_\mathrm{eff} = \alpha + \alpha_t\f$
+     *
+     *  \param mueff Effective viscosity field
+     */
     virtual void update_alphaeff(Field& alphaeff) override
     {
         turb_base_impl::alpha_update(alphaeff, this->m_mu_turb, this->m_transport);
@@ -134,12 +152,14 @@ public:
     // clang-format on
 
 protected:
+    //! Reference to the turbulent viscosity field
     Field& m_mu_turb;
 
+    //! Reference to thermal diffusivity field
     Field* m_alpha_turb{nullptr};
 };
 
-}
-}
+} // namespace turbulence
+} // namespace amr_wind
 
 #endif /* TURBMODELBASE_H */

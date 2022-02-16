@@ -11,7 +11,9 @@ void SecondMomentAveraging::output_line_average_ascii(
         operator()();
     }
 
-    if (!amrex::ParallelDescriptor::IOProcessor()) return;
+    if (!amrex::ParallelDescriptor::IOProcessor()) {
+        return;
+    }
 
     std::ofstream outfile;
     outfile.precision(m_precision);
@@ -48,11 +50,13 @@ void SecondMomentAveraging::output_line_average_ascii(
     for (int i = 0; i < m_plane_average1.ncell_line(); ++i) {
         outfile << step << ", " << std::scientific << time << ", "
                 << m_plane_average1.line_centroids()[i];
-        for (int m = 0; m < ncomp1; ++m)
-            for (int n = 0; n < ncomp2; ++n)
+        for (int m = 0; m < ncomp1; ++m) {
+            for (int n = 0; n < ncomp2; ++n) {
                 outfile << ", " << std::scientific
                         << m_second_moments_line
-                               [m_num_moments * i + ncomp1 * m + n];
+                               [m_num_moments * i + ncomp2 * m + n];
+            }
+        }
 
         outfile << std::endl;
     }
@@ -81,7 +85,8 @@ SecondMomentAveraging::SecondMomentAveraging(
     m_num_moments = m_plane_average1.ncomp() * m_plane_average2.ncomp();
 
     m_second_moments_line.resize(
-        m_plane_average1.ncell_line() * m_num_moments, 0.0);
+        static_cast<size_t>(m_plane_average1.ncell_line()) * m_num_moments,
+        0.0);
 }
 
 void SecondMomentAveraging::operator()()
@@ -91,8 +96,8 @@ void SecondMomentAveraging::operator()()
 
     std::fill(m_second_moments_line.begin(), m_second_moments_line.end(), 0.0);
 
-    auto& field1 = m_plane_average1.field();
-    auto& field2 = m_plane_average2.field();
+    const auto& field1 = m_plane_average1.field();
+    const auto& field2 = m_plane_average2.field();
 
     const int level = m_plane_average1.level();
 
@@ -142,7 +147,7 @@ void SecondMomentAveraging::compute_average(
     const int nmoments = m_num_moments;
 
 #ifdef _OPENMP
-#pragma omp parallel if (Gpu::notInLaunchRegion())
+#pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
 #endif
     for (amrex::MFIter mfi(mfab1, amrex::TilingIfNotGPU()); mfi.isValid();
          ++mfi) {
@@ -151,21 +156,43 @@ void SecondMomentAveraging::compute_average(
         auto mfab_arr1 = mfab1.const_array(mfi);
         auto mfab_arr2 = mfab2.const_array(mfi);
 
-        amrex::ParallelFor(
-            bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-                const int ind = idxOp(i, j, k);
+        amrex::Box pbx =
+            PerpendicularBox<IndexSelector>(bx, amrex::IntVect{0, 0, 0});
 
-                int nf = 0;
-                for (int m = 0; m < ncomp1; ++m) {
-                    const amrex::Real up1 =
-                        mfab_arr1(i, j, k, m) - line_avg1[ncomp1 * ind + m];
-                    for (int n = 0; n < ncomp2; ++n) {
-                        const amrex::Real up2 =
-                            mfab_arr2(i, j, k, n) - line_avg2[ncomp2 * ind + n];
-                        amrex::HostDevice::Atomic::Add(
-                            &line_fluc[nmoments * ind + nf],
-                            up1 * up2 * denom);
-                        ++nf;
+        amrex::ParallelFor(
+            amrex::Gpu::KernelInfo().setReduction(true), pbx,
+            [=] AMREX_GPU_DEVICE(
+                int p_i, int p_j, int p_k,
+                amrex::Gpu::Handler const& handler) noexcept {
+                // Loop over the direction perpendicular to the plane.
+                // This reduces the atomic pressure on the destination arrays.
+
+                amrex::Box lbx = ParallelBox<IndexSelector>(
+                    bx, amrex::IntVect{p_i, p_j, p_k});
+
+                for (int k = lbx.smallEnd(2); k <= lbx.bigEnd(2); ++k) {
+                    for (int j = lbx.smallEnd(1); j <= lbx.bigEnd(1); ++j) {
+                        for (int i = lbx.smallEnd(0); i <= lbx.bigEnd(0); ++i) {
+
+                            const int ind = idxOp(i, j, k);
+
+                            int nf = 0;
+                            for (int m = 0; m < ncomp1; ++m) {
+                                const amrex::Real up1 =
+                                    mfab_arr1(i, j, k, m) -
+                                    line_avg1[ncomp1 * ind + m];
+                                for (int n = 0; n < ncomp2; ++n) {
+                                    const amrex::Real up2 =
+                                        mfab_arr2(i, j, k, n) -
+                                        line_avg2[ncomp2 * ind + n];
+
+                                    amrex::Gpu::deviceReduceSum(
+                                        &line_fluc[nmoments * ind + nf],
+                                        up1 * up2 * denom, handler);
+                                    ++nf;
+                                }
+                            }
+                        }
                     }
                 }
             });
@@ -204,7 +231,7 @@ SecondMomentAveraging::line_average_interpolated(amrex::Real x, int comp) const
     int ind = 0;
 
     if (x > xlo + 0.5 * dx) {
-        ind = floor((x - xlo) / dx - 0.5);
+        ind = static_cast<int>(floor((x - xlo) / dx - 0.5));
         const amrex::Real x1 = xlo + (ind + 0.5) * dx;
         c = (x - x1) / dx;
     }
@@ -242,4 +269,17 @@ SecondMomentAveraging::line_average_cell(int ind, int comp1, int comp2) const
     return line_average_cell(ind, comp);
 }
 
+void SecondMomentAveraging::line_moment(
+    int comp, amrex::Vector<amrex::Real>& l_vec)
+{
+    BL_PROFILE("amr-wind::SecondMomentAveraging::line_moment");
+
+    AMREX_ALWAYS_ASSERT(comp >= 0 && comp < m_num_moments);
+
+    const int ncell_line = m_plane_average1.ncell_line();
+    for (int i = 0; i < ncell_line; i++) {
+        l_vec[i] = m_second_moments_line[m_num_moments * i + comp];
+    }
 }
+
+} // namespace amr_wind

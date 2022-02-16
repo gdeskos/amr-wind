@@ -10,26 +10,51 @@
 namespace amr_wind {
 namespace pde {
 
+/**
+ *  \defgroup temp_eqn Temperature transport equation
+ *  %Temperature transport equation
+ *
+ *  \ingroup eqsys
+ */
+
+/**
+ *  \defgroup temp_src Temperature Source terms
+ *
+ *  Source terms used with temperature transport equation
+ *
+ *  \ingroup temp_eqn
+ */
+
+/** Characteristics of temperature transport equation
+ *  \ingroup temp_eqn
+ */
 struct Temperature : ScalarTransport
 {
+    using MLDiffOp = amrex::MLABecLaplacian;
     using SrcTerm = TemperatureSource;
 
     static std::string pde_name() { return "Temperature"; }
     static std::string var_name() { return "temperature"; }
+
+    static constexpr amrex::Real default_bc_value = 0.0;
+
+    static constexpr int ndim = 1;
+    static constexpr bool multiply_rho = true;
+    static constexpr bool has_diffusion = true;
+    static constexpr bool need_nph_state = true;
 };
 
-template<>
+/** Effective thermal diffusivity update operator
+ *  \ingroup temp_eqn
+ */
+template <>
 struct TurbulenceOp<Temperature>
 {
-    TurbulenceOp(turbulence::TurbulenceModel& tmodel,
-                 PDEFields& fields)
+    TurbulenceOp(turbulence::TurbulenceModel& tmodel, PDEFields& fields)
         : m_tmodel(tmodel), m_fields(fields)
     {}
 
-    void operator()()
-    {
-        m_tmodel.update_alphaeff(m_fields.mueff);
-    }
+    void operator()() { m_tmodel.update_alphaeff(m_fields.mueff); }
 
     turbulence::TurbulenceModel& m_tmodel;
     PDEFields& m_fields;
@@ -37,6 +62,5 @@ struct TurbulenceOp<Temperature>
 
 } // namespace pde
 } // namespace amr_wind
-
 
 #endif /* TEMPERATURE_H */

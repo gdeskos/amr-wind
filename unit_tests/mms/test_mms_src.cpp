@@ -2,8 +2,8 @@
 #include "aw_test_utils/iter_tools.H"
 #include "aw_test_utils/test_utils.H"
 
-#include "amr-wind/mms/MMS.H"
-#include "amr-wind/mms/MMSForcing.H"
+#include "amr-wind/physics/mms/MMS.H"
+#include "amr-wind/physics/mms/MMSForcing.H"
 #include "amr-wind/equation_systems/icns/icns.H"
 #include "amr-wind/equation_systems/icns/icns_ops.H"
 
@@ -14,6 +14,11 @@ using ICNSFields =
 
 TEST_F(MMSMeshTest, mms_forcing)
 {
+#if defined(AMREX_USE_HIP)
+    GTEST_SKIP();
+#else
+    if (!pp_utils::has_managed_memory()) GTEST_SKIP();
+
     constexpr amrex::Real tol = 1.0e-12;
 
     // Initialize parameters
@@ -48,5 +53,6 @@ TEST_F(MMSMeshTest, mms_forcing)
         EXPECT_NEAR(min_val, min_golds[i], tol);
         EXPECT_NEAR(max_val, max_golds[i], tol);
     }
+#endif
 }
 } // namespace amr_wind_tests

@@ -11,6 +11,7 @@
 namespace amr_wind {
 
 /** Runtime selection of options based on string keyword lookup
+ *  \ingroup core
  *
  *  Factory provides an automated way to register subclasses that can be
  *  instantiated during runtime using string based lookups. The facility mimics
@@ -24,7 +25,7 @@ namespace amr_wind {
  *  Then new models, e.g., Smagorinsky, k-Omega SST/SAS, etc., are added as
  *  subclasses to this instance.
  *
- *  ```C++
+ *  ```
  *  // Create a base class that can be used to register and create instances
  *  //
  *  // The template arguments are the classname for CRTP and types of additional
@@ -32,14 +33,16 @@ namespace amr_wind {
  *  class TurbulenceModel : public Factory<TurbulenceModel, const CFDSim&>
  *  {
  *       // Define a base identifier string for debugging purposes
- *       static const std::string base_identifier() { return "TurbulenceModel"; }
+ *       static const std::string base_identifier() { return "TurbulenceModel";
+ * }
  *
  *       // Define API as appropriate here
  *  };
  *
  *  // Define a subclass
- *  // Instead of using the base class we use Base::Register to allow registration
- *  class Smagorinsky : public TurbulenceModel::Register<Smagorinsky>
+ *  // Instead of using the base class we use Base::Register to allow
+ * registration class Smagorinsky : public
+ * TurbulenceModel::Register<Smagorinsky>
  *  {
  *       // This is the keyword that is used to lookup and create this instance
  *       static const std::string identifier() { return "Smagorinsky"; }
@@ -52,6 +55,10 @@ namespace amr_wind {
  *  // tmodel is a std::unique_ptr<TurbulenceModel> instance
  *  auto tmodel = TurbulenceModel::create("Smagorinsky", sim);
  *  ```
+ *
+ *  \tparam Base base class (e.g., Physics)
+ *  \tparam Args Arguments types to be passed to the constructor during
+ * instantiation
  */
 template <class Base, class... Args>
 struct Factory
@@ -83,6 +90,7 @@ struct Factory
         }
     }
 
+    //! Class to handle registration of subclass for runtime selection
     template <class T>
     struct Register : public Base
     {
@@ -104,7 +112,7 @@ struct Factory
         {
             if (registered) {
                 auto& tbl = Factory::table();
-                const auto& it = tbl.find(T::identifier());
+                const auto it = tbl.find(T::identifier());
                 registered = (it != tbl.end());
             }
         }
@@ -120,14 +128,14 @@ private:
     using CreatorFunc = std::unique_ptr<Base> (*)(Args...);
     using LookupTable = std::unordered_map<std::string, CreatorFunc>;
 
-    //! Check if the keyword exists in table or print diagnostic message and abort
+    //! Check if the keyword exists in table or print diagnostic message and
+    //! abort
     static void key_exists_or_error(const std::string& key)
     {
         const auto& tbl = table();
         if (tbl.find(key) == tbl.end()) {
             // Print valid options
-            if (amrex::ParallelDescriptor::IOProcessor())
-                print(std::cout);
+            if (amrex::ParallelDescriptor::IOProcessor()) print(std::cout);
             // Quit with error
             amrex::Abort(
                 "In " + Base::base_identifier() +

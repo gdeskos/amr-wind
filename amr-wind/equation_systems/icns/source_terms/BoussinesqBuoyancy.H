@@ -8,12 +8,19 @@ namespace amr_wind {
 namespace pde {
 namespace icns {
 
+/** Boussinesq bouyancy source term
+ *  \ingroup icns_src we_abl
+ *
+ *  \f[
+ *    S = \beta g \left( T_\mathrm{ref} - T \right)
+ *  \f]
+ */
 class BoussinesqBuoyancy : public MomentumSource::Register<BoussinesqBuoyancy>
 {
 public:
     static const std::string identifier() { return "BoussinesqBuoyancy"; }
 
-    BoussinesqBuoyancy(const CFDSim& sim);
+    explicit BoussinesqBuoyancy(const CFDSim& sim);
 
     virtual ~BoussinesqBuoyancy();
 

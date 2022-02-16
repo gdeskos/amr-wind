@@ -2,6 +2,8 @@
 #include "amr-wind/turbulence/TurbulenceModel.H"
 #include "amr-wind/utilities/IOManager.H"
 #include "amr-wind/utilities/PostProcessing.H"
+#include "amr-wind/overset/OversetManager.H"
+#include "amr-wind/core/ExtSolver.H"
 
 #include "AMReX_ParmParse.H"
 
@@ -9,11 +11,11 @@ namespace amr_wind {
 
 CFDSim::CFDSim(amrex::AmrCore& mesh)
     : m_mesh(mesh)
-    , m_time()
     , m_repo(m_mesh)
     , m_pde_mgr(*this)
     , m_io_mgr(new IOManager(*this))
     , m_post_mgr(new PostProcessManager(*this))
+    , m_ext_solver_mgr(new ExtSolverMgr)
 {}
 
 CFDSim::~CFDSim() = default;
@@ -33,6 +35,7 @@ void CFDSim::create_turbulence_model()
 
     const std::string identifier = turbulence_model + "-" + transport_model;
     m_turbulence = turbulence::TurbulenceModel::create(identifier, *this);
+    m_turbulence->parse_model_coeffs();
 }
 
 void CFDSim::init_physics()
@@ -41,8 +44,19 @@ void CFDSim::init_physics()
     amrex::Vector<std::string> phys_names;
     pp.queryarr("physics", phys_names);
 
-    for (auto& phy: phys_names)
+    for (auto& phy : phys_names) {
         m_physics_mgr.create(phy, *this);
+    }
 }
+
+void CFDSim::activate_overset()
+{
+    amrex::ParmParse pp("overset");
+    std::string otype = "TIOGA";
+
+    m_overset_mgr = OversetManager::create(otype, *this);
+}
+
+bool CFDSim::has_overset() const { return (static_cast<bool>(m_overset_mgr)); }
 
 } // namespace amr_wind

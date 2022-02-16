@@ -7,6 +7,9 @@
 namespace amr_wind {
 namespace transport {
 
+/** Fluid transport model with constant properties
+ *  \ingroup transport
+ */
 class ConstTransport : public TransportModel
 {
 public:
@@ -14,7 +17,7 @@ public:
 
     static const std::string identifier() { return "ConstTransport"; }
 
-    ConstTransport(FieldRepo& repo) : m_repo(repo)
+    explicit ConstTransport(CFDSim& sim) : m_repo(sim.repo())
     {
         amrex::ParmParse pp("transport");
         pp.query("viscosity", m_mu);
@@ -26,8 +29,7 @@ public:
 
     inline amrex::Real viscosity() const { return m_mu; }
 
-    inline amrex::Real thermal_diffusivity() const
-    { return m_mu / m_Pr; }
+    inline amrex::Real thermal_diffusivity() const { return m_mu / m_Pr; }
 
     inline amrex::Real laminar_prandtl() const { return m_Pr; }
 
@@ -52,7 +54,7 @@ public:
     }
 
     //! Return the dynamic visocity field
-    inline std::unique_ptr<ScratchField> mu()
+    inline std::unique_ptr<ScratchField> mu() override
     {
         auto mu = m_repo.create_scratch_field(1, 1);
         for (int lev = 0; lev < m_repo.num_active_levels(); ++lev) {
@@ -62,7 +64,7 @@ public:
     }
 
     //! Return the thermal diffusivity field
-    inline std::unique_ptr<ScratchField> alpha()
+    inline std::unique_ptr<ScratchField> alpha() override
     {
         auto alpha = mu();
         amrex::Real inv_Pr = 1.0 / m_Pr;
@@ -72,7 +74,8 @@ public:
         return alpha;
     }
 
-    inline std::unique_ptr<ScratchField> scalar_diffusivity(const std::string& scalar_name)
+    inline std::unique_ptr<ScratchField>
+    scalar_diffusivity(const std::string& scalar_name) override
     {
         amrex::Real lam_schmidt = laminar_schmidt(scalar_name);
 
@@ -99,7 +102,7 @@ private:
     amrex::Real m_Prt{1.0};
 };
 
-}
-}
+} // namespace transport
+} // namespace amr_wind
 
 #endif /* CONSTTRANSPORT_H */

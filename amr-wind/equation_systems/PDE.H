@@ -12,14 +12,18 @@ namespace amr_wind {
 namespace pde {
 
 /** Implementation of the PDE interface for transport equations
+ *  \ingroup eqsys
  *
  *  This class takes two traits, one describing the PDE type and the other
  *  describing the numerical scheme (e.g., Godunov, MOL) to generate a family of
  *  PDE systems and its solution process. Each operation is performed by a
  *  separate operator object that can be customized based on the different
  *  traits as necessary.
+ *
+ *  \tparam PDE The PDE trait (e.g., ICNS, Temperature, etc.)
+ *  \tparam Scheme Numerical scheme trait (e.g., Godunov, MOL)
  */
-template<typename PDE, typename Scheme>
+template <typename PDE, typename Scheme>
 class PDESystem : public PDEBase::Register<PDESystem<PDE, Scheme>>
 {
 public:
@@ -30,18 +34,22 @@ public:
     //! through the factor iterface
     static std::string identifier()
     {
-        return PDE::pde_name() + "-"  + Scheme::scheme_name();
+        return PDE::pde_name() + "-" + Scheme::scheme_name();
     }
 
+    /**
+     *  \param sim A CFDSim instance
+     *  \param probtype Unique identifier for a problem type
+     */
     PDESystem(CFDSim& sim, const int probtype)
         : m_sim(sim)
         , m_time(sim.time())
         , m_repo(sim.repo())
         , m_fields(FieldRegOp<PDE, Scheme>(m_sim)(m_time, probtype))
         , m_src_op(m_fields)
-        , m_adv_op(m_fields)
         , m_rhs_op(m_fields)
         , m_bc_op(m_fields, m_time)
+        , m_post_solve_op(m_sim, m_fields)
     {
         m_bc_op.init_bcs();
     }
@@ -51,20 +59,37 @@ public:
     {
         if (PDE::has_diffusion) {
             BL_PROFILE("amr-wind::" + this->identifier() + "::initialize");
-            m_diff_op.reset(new DiffusionOp<PDE, Scheme>(m_fields));
-            m_turb_op.reset(new TurbulenceOp<PDE>(m_sim.turbulence_model(), m_fields));
+            m_diff_op.reset(
+                new DiffusionOp<PDE, Scheme>(m_fields, m_sim.has_overset()));
+            m_turb_op.reset(
+                new TurbulenceOp<PDE>(m_sim.turbulence_model(), m_fields));
         }
 
+        bool variable_density =
+            (!m_sim.pde_manager().constant_density() ||
+             m_sim.physics_manager().contains("MultiPhase"));
+
+        m_adv_op.reset(new AdvectionOp<PDE, Scheme>(
+            m_fields, m_sim.has_overset(), variable_density));
         m_src_op.init_source_terms(m_sim);
     }
 
     //! Perform update actions after a regrid is performed
     void post_regrid_actions() override
     {
-        if (PDE::has_diffusion){
-            BL_PROFILE("amr-wind::" + this->identifier() + "::post_regrid_actions");
-            m_diff_op.reset(new DiffusionOp<PDE, Scheme>(m_fields));
+        if (PDE::has_diffusion) {
+            BL_PROFILE(
+                "amr-wind::" + this->identifier() + "::post_regrid_actions");
+            m_diff_op.reset(
+                new DiffusionOp<PDE, Scheme>(m_fields, m_sim.has_overset()));
         }
+
+        bool variable_density =
+            (!m_sim.pde_manager().constant_density() ||
+             m_sim.physics_manager().contains("MultiPhase"));
+
+        m_adv_op.reset(new AdvectionOp<PDE, Scheme>(
+            m_fields, m_sim.has_overset(), variable_density));
     }
 
     //! Return the object holding the fields necessary for solving this PDE
@@ -77,9 +102,9 @@ public:
         m_src_op(fstate);
     }
 
-    void compute_mueff(const FieldState ) override
+    void compute_mueff(const FieldState) override
     {
-        if (PDE::has_diffusion){
+        if (PDE::has_diffusion) {
             BL_PROFILE("amr-wind::" + this->identifier() + "::compute_mueff");
             (*m_turb_op)();
         }
@@ -87,8 +112,9 @@ public:
 
     void compute_diffusion_term(const FieldState fstate) override
     {
-        if (PDE::has_diffusion){
-            BL_PROFILE("amr-wind::" + this->identifier() + "::compute_diffusion_term");
+        if (PDE::has_diffusion) {
+            BL_PROFILE(
+                "amr-wind::" + this->identifier() + "::compute_diffusion_term");
             m_bc_op.apply_bcs(fstate);
             m_diff_op->compute_diff_term(fstate);
         }
@@ -96,30 +122,42 @@ public:
 
     void compute_advection_term(const FieldState fstate) override
     {
-        BL_PROFILE("amr-wind::" + this->identifier() + "::compute_advection_term");
-        m_adv_op(fstate, m_time.deltaT());
+        BL_PROFILE(
+            "amr-wind::" + this->identifier() + "::compute_advection_term");
+        (*m_adv_op)(fstate, m_time.deltaT());
+    }
+
+    virtual void pre_advection_actions(const FieldState fstate) override
+    {
+        BL_PROFILE(
+            "amr-wind::" + this->identifier() + "::pre_advection_actions");
+        m_adv_op->preadvect(fstate, m_time.deltaT());
     }
 
     virtual void compute_predictor_rhs(const DiffusionType difftype) override
     {
-        BL_PROFILE("amr-wind::" + this->identifier() + "::compute_predictor_rhs");
+        BL_PROFILE(
+            "amr-wind::" + this->identifier() + "::compute_predictor_rhs");
         m_rhs_op.predictor_rhs(difftype, m_time.deltaT());
     }
 
     virtual void compute_corrector_rhs(const DiffusionType difftype) override
     {
-        BL_PROFILE("amr-wind::" + this->identifier() + "::compute_corrector_rhs");
+        BL_PROFILE(
+            "amr-wind::" + this->identifier() + "::compute_corrector_rhs");
         m_rhs_op.corrector_rhs(difftype, m_time.deltaT());
     }
 
     void solve(const amrex::Real dt) override
     {
-        if (PDE::has_diffusion){
+        if (PDE::has_diffusion) {
             BL_PROFILE("amr-wind::" + this->identifier() + "::linsys_solve");
             m_bc_op.apply_bcs(FieldState::New);
             m_diff_op->linsys_solve(dt);
         }
     }
+
+    void post_solve_actions() override { m_post_solve_op(m_time.new_time()); }
 
 protected:
     //! CFD simulation controller instance
@@ -137,7 +175,7 @@ protected:
     SrcTermOp<PDE> m_src_op;
 
     //! Advection term computation operator
-    AdvectionOp<PDE, Scheme> m_adv_op;
+    std::unique_ptr<AdvectionOp<PDE, Scheme>> m_adv_op;
 
     //! RHS computation operator
     ComputeRHSOp<PDE, Scheme> m_rhs_op;
@@ -149,6 +187,8 @@ protected:
     std::unique_ptr<TurbulenceOp<PDE>> m_turb_op;
 
     BCOp<PDE> m_bc_op;
+
+    PostSolveOp<PDE> m_post_solve_op;
 };
 
 } // namespace pde

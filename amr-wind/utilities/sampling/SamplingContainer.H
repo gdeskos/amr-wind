@@ -19,6 +19,7 @@ static constexpr int SNArrayReal = 0;
 static constexpr int SNArrayInt = 0;
 
 /** Indexing for the integer variables defined on the AMReX particle
+ *  \ingroup sampling
  */
 struct IIx
 {
@@ -30,13 +31,15 @@ struct IIx
 };
 
 /** Specialization of the AMReX ParticleContainer object for sampling data
+ *  \ingroup sampling
  *
  *  Represents the data probes as a collection of particles that are uniquely
  *  identified by three integer identifiers:
  *
  *   - a universal identifier (UID) that is unique to each particle,
  *   - a set identifier that represents a group (e.g., line, plane) of particles
- *   - a node identifier that represents indexing of this particle within the group
+ *   - a node identifier that represents indexing of this particle within the
+ * group
  *
  *  The quantities of interest are themselves stored as runtime components based
  *  on user-defined inputs.
@@ -60,7 +63,7 @@ class SamplingContainer
           SNArrayInt>
 {
 public:
-    SamplingContainer(amrex::AmrCore& mesh)
+    explicit SamplingContainer(amrex::AmrCore& mesh)
         : AmrParticleContainer<
               SNStructReal,
               SNStructInt,
@@ -71,17 +74,18 @@ public:
 
     /** Define the container and allocate memory for runtime components
      */
-    void setup_container(const int num_real_components,
-                         const int num_int_components = 0);
+    void setup_container(
+        const int num_real_components, const int num_int_components = 0);
 
     /** Create particle information for all the sampling locations
      */
-    void initialize_particles(
-        const amrex::Vector<std::unique_ptr<SamplerBase>>&);
+    void
+    initialize_particles(const amrex::Vector<std::unique_ptr<SamplerBase>>&);
 
     //! Perform field interpolation to sampling locations
     void interpolate_fields(const amrex::Vector<Field*> fields);
 
+    //! Populate the buffer with data for all the particles
     void populate_buffer(std::vector<double>& buf);
 
     int num_sampling_particles() const { return m_total_particles; }
@@ -91,7 +95,7 @@ public:
 private:
     amrex::AmrCore& m_mesh;
 
-    int m_total_particles;
+    int m_total_particles{0};
 };
 
 } // namespace sampling

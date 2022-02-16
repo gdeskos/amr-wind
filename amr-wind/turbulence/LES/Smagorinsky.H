@@ -8,6 +8,9 @@
 namespace amr_wind {
 namespace turbulence {
 
+/** Smagorinsky LES Model
+ *  \ingroup turb_model
+ */
 template <typename Transport>
 class Smagorinsky : public TurbModelBase<Transport>
 {
@@ -17,13 +20,22 @@ public:
         return "Smagorinsky-" + Transport::identifier();
     }
 
-    Smagorinsky(CFDSim& sim);
+    explicit Smagorinsky(CFDSim& sim);
 
     //! Model name for debugging purposes
-    virtual std::string model_name() override { return "Smagorinsky"; }
+    virtual std::string model_name() const override { return "Smagorinsky"; }
 
     //! Update the turbulent viscosity field
     virtual void update_turbulent_viscosity(const FieldState fstate) override;
+
+    //! No post advance work for this model
+    virtual void post_advance_work() override {}
+
+    //! Parse turbulence model coefficients
+    virtual void parse_model_coeffs() override;
+
+    //! Return model coefficients dictionary
+    TurbulenceModel::CoeffsDictType model_coeffs() const override;
 
 private:
     //! Smagorinsky coefficient (default value set for ABL simulations)
@@ -31,7 +43,6 @@ private:
 
     const Field& m_vel;
     const Field& m_rho;
-
 };
 
 } // namespace turbulence

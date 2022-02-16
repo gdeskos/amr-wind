@@ -6,16 +6,32 @@
 #include <set>
 
 #include "AMReX_Vector.H"
+#include "AMReX_BoxArray.H"
+#include "AMReX_DistributionMapping.H"
 
 namespace amr_wind {
 
 class CFDSim;
 class Field;
+class IntField;
+class DerivedQtyMgr;
 
+/** Input/Output manager
+ *  \ingroup utilities
+ *
+ *  This class contains infrastructure to output solution fields during the
+ *  simulation as well as code that reads a checkpoint file during a restarted
+ *  simulation. By default the \ref eqsys register the necessary fields during
+ *  initialization and these fields are output into plot-file and checkpoint
+ *  file formats based on output frequencies managed by SimTime. The user can
+ *  request additional fields be output by setting appropriate parameters in the
+ *  input file. The class also provides the ability to override output of the
+ *  default fields and output a subset of those fields.
+ */
 class IOManager
 {
 public:
-    IOManager(CFDSim&);
+    explicit IOManager(CFDSim&);
 
     ~IOManager();
 
@@ -29,15 +45,24 @@ public:
     void write_plot_file();
 
     //! Write all necessary fields for restart
-    void write_checkpoint_file();
+    void write_checkpoint_file(const int start_level = 0);
 
     //! Read all necessary fields for a restart
-    void read_checkpoint_fields(const std::string& restart_file);
+    void read_checkpoint_fields(
+        const std::string& restart_file,
+        const amrex::Vector<amrex::BoxArray>& ba_chk,
+        const amrex::Vector<amrex::DistributionMapping>& dm_chk,
+        const amrex::IntVect& rep);
 
     //! Register a variable for output
     void register_output_var(const std::string& fname)
     {
         m_pltvars_default.insert(fname);
+    }
+
+    void register_output_int_var(const std::string& fname)
+    {
+        m_int_pltvars_default.insert(fname);
     }
 
     //! Register a variable for restart file
@@ -53,24 +78,36 @@ public:
         m_chkvars.insert(fname);
     }
 
-    const std::string& restart_file()
-    { return m_restart_file; }
+    //! Name of the checkpoint file to be read during a restart
+    const std::string& restart_file() { return m_restart_file; }
+
+    bool is_restart() const { return !m_restart_file.empty(); }
+
+    const amrex::Vector<Field*>& plot_fields() const { return m_plt_fields; }
 
 private:
-    void write_header(const std::string&);
+    void write_header(const std::string&, const int start_level);
 
     void write_info_file(const std::string&);
 
     CFDSim& m_sim;
 
+    std::unique_ptr<DerivedQtyMgr> m_derived_mgr;
+
     //! Default output variables registered automatically in the code
     std::set<std::string> m_pltvars_default;
+
+    //! Default output integer variales registered automatically in the code
+    std::set<std::string> m_int_pltvars_default;
 
     //! Variables for output in checkpoint/restart files
     std::set<std::string> m_chkvars;
 
     //! Final list of fields to be output
     amrex::Vector<Field*> m_plt_fields;
+
+    //! Final list of integer fields to be output
+    amrex::Vector<IntField*> m_int_plt_fields;
 
     //! Final list of fields for restart
     amrex::Vector<Field*> m_chk_fields;
@@ -92,6 +129,9 @@ private:
 
     //! Flag indicating whether default fields should be output
     bool m_output_default_vars{true};
+
+    //! Flag indicating whether we should allow missing restart fields
+    bool m_allow_missing_restart_fields{true};
 };
 
 } // namespace amr_wind

@@ -15,7 +15,23 @@ class CFDSim;
 
 namespace pde {
 
+/**
+ *  \defgroup eqsys Equation Systems
+ *
+ *  Governing partial-differential equations
+ *
+ *  The governing equations and their solution procedure is implemented within
+ *  equation systems that all inherit from PDEBase class. Each term of the
+ *  governing equation is implemented as a \ref pdeop that can be specialized
+ *  for different equations. The behavior is specialized using two traits: 1. a
+ *  PDE trait, e.g., ICNS representing the incompressible Navier-Stokes
+ *  equation, or the Density trait representing the scalar density transport
+ *  equation; and 2. a Scheme trait, e.g., Godunov or MOL that determines the
+ *  discretization process.
+ */
+
 /** Abstract interface defining a PDE and its solution process withn AMR-Wind
+ *  \ingroup eqsys
  *
  *  The exact behavior is implemented by subclass PDESystem that is specialized
  *  using two traits: the PDE type trait, and the numerical scheme trait.
@@ -55,6 +71,9 @@ public:
     //! Compute the diffusion term used in the RHS of the PDE system
     virtual void compute_diffusion_term(const FieldState fstate) = 0;
 
+    //! Perform necessary steps to prepare for advection calculations
+    virtual void pre_advection_actions(const FieldState fstate) = 0;
+
     //! Compute the time derivative and advective term for the PDE system
     virtual void compute_advection_term(const FieldState fstate) = 0;
 
@@ -78,6 +97,9 @@ public:
     //! Solve the diffusion linear system and update the field
     virtual void solve(const amrex::Real dt) = 0;
 
+    //! Perform post-processing actions after a system solve
+    virtual void post_solve_actions() = 0;
+
     //! Base class identifier used for factory registration interface
     static std::string base_identifier() { return "PDESystem"; }
 };
@@ -92,7 +114,7 @@ public:
 class PDEMgr : public CollMgr<PDEMgr, PDEBase>
 {
 public:
-    PDEMgr(CFDSim& sim);
+    explicit PDEMgr(CFDSim& sim);
 
     ~PDEMgr() = default;
 
@@ -100,11 +122,19 @@ public:
     PDEBase& icns() { return *m_icns; }
     const PDEBase& icns() const { return *m_icns; }
 
-    //! Create the incompressible Navier-Stokes instance and return its reference
+    //! Create the incompressible Navier-Stokes instance and return its
+    //! reference
     PDEBase& register_icns();
 
     //! Register a new PDE instance and return its reference
     PDEBase& register_transport_pde(const std::string& pde_name);
+
+    //! Advance states for all registered PDEs at the beginning of a timestep
+    void advance_states();
+
+    //! Call fillpatch operator on state variables for all registered PDEs
+    void fillpatch_state_fields(
+        const amrex::Real time, const FieldState fstate = FieldState::New);
 
     /** Return the vector containing all registered PDE instances
      *
@@ -116,6 +146,10 @@ public:
 
     //! Query if a PDE has already been registered
     bool has_pde(const std::string& pde_name) const;
+
+    int num_ghost_state() const;
+
+    bool constant_density() const { return m_constant_density; }
 
 private:
     //! Instance of the CFD simulation controller
@@ -132,6 +166,9 @@ private:
 
     //! Flag indicating whether Godunov scheme is active
     bool m_use_godunov{false};
+
+    //! Flag indicating whether density is constant for this simulation
+    bool m_constant_density{true};
 };
 
 } // namespace pde

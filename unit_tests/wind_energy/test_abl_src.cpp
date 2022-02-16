@@ -54,7 +54,7 @@ TEST_F(ABLMeshTest, abl_forcing)
     {
         auto& time = sim().time();
         time.new_timestep();
-        time.set_current_cfl(2.0);
+        time.set_current_cfl(2.0, 0.0, 0.0);
         EXPECT_NEAR(time.deltaT(), 0.1, tol);
 
         src_term.setVal(0.0);
@@ -140,6 +140,10 @@ TEST_F(ABLMeshTest, geostrophic_forcing)
 {
     constexpr amrex::Real tol = 1.0e-12;
     utils::populate_abl_params();
+
+    amrex::ParmParse pp("CoriolisForcing");
+    pp.add("latitude", 90.0);
+
     initialize_mesh();
 
     auto& pde_mgr = sim().pde_manager();
@@ -190,8 +194,8 @@ TEST_F(ABLMeshTest, coriolis_const_vel)
 
     // Velocity in x-direction test
     {
-        amrex::Real golds[AMREX_SPACEDIM] = {0.0, -corfac * latfac * vel_comp,
-                                             corfac * latfac * vel_comp};
+        amrex::Real golds[AMREX_SPACEDIM] = {
+            0.0, -corfac * latfac * vel_comp, corfac * latfac * vel_comp};
         vel.setVal(0.0);
         src_term.setVal(0.0);
         vel.setVal(vel_comp, 0);

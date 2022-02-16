@@ -2,7 +2,7 @@
 #            SIMULATION STOP            #
 #.......................................#
 time.stop_time               =   22000.0     # Max (simulated) time to evolve
-time.max_step                =   -1          # Max number of time steps
+time.max_step                =   10          # Max number of time steps
 
 #¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨#
 #         TIME STEP COMPUTATION         #
@@ -13,12 +13,9 @@ time.cfl              =   0.95         # CFL factor
 #¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨#
 #            INPUT AND OUTPUT           #
 #.......................................#
-io.KE_int = 1
-io.line_plot_int = 1
 io.restart_file = ../abl_godunov/chk00005
-time.plot_interval            =   500       # Steps between plot files
+time.plot_interval            =   10       # Steps between plot files
 time.checkpoint_interval           =  -1000       # Steps between checkpoint files
-amr.plt_tracer = 1
 
 #¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨#
 #               PHYSICS                 #
@@ -37,6 +34,7 @@ Smagorinsky_coeffs.Cs = 0.135
 incflo.physics = ABL
 ICNS.source_terms = BoussinesqBuoyancy CoriolisForcing ABLForcing
 BoussinesqBuoyancy.reference_temperature = 300.0
+ABL.reference_temperature = 300.0
 CoriolisForcing.latitude = 41.3
 ABLForcing.abl_forcing_height = 90
 
@@ -53,7 +51,7 @@ ABL.surface_roughness_z0 = 0.15
 #.......................................#
 amr.n_cell              = 48 48 48    # Grid cells at coarsest AMRlevel
 amr.max_level           = 0           # Max AMR level in hierarchy 
-
+amr.max_grid_size = 8
 #¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨#
 #              GEOMETRY                 #
 #.......................................#
@@ -61,12 +59,8 @@ geometry.prob_lo        =   0.       0.     0.  # Lo corner coordinates
 geometry.prob_hi        =   1000.  1000.  1000.  # Hi corner coordinates
 geometry.is_periodic    =   1   1   0   # Periodicity x y z (0/1)
 
-incflo.delp             =   0.  0.  0.  # Prescribed (cyclic) pressure gradient
-
 # Boundary conditions
 zlo.type =   "wall_model"
-zlo.temperature_type = "fixed_gradient"
-zlo.temperature = 0.0
 
 zhi.type =   "slip_wall"
 zhi.temperature_type = "fixed_gradient"
@@ -76,8 +70,3 @@ zhi.temperature = 0.003 # tracer is used to specify potential temperature gradie
 #              VERBOSITY                #
 #.......................................#
 incflo.verbose          =   0          # incflo_level
-
-#¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨#
-#              DEBUGGING                #
-#.......................................#
-amrex.fpe_trap_invalid  =   0           # Trap NaNs

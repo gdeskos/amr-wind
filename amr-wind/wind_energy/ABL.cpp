@@ -1,14 +1,14 @@
+#include <memory>
+
 #include "amr-wind/wind_energy/ABL.H"
 #include "amr-wind/wind_energy/ABLFieldInit.H"
+#include "amr-wind/wind_energy/ABLBoundaryPlane.H"
 #include "amr-wind/equation_systems/icns/source_terms/ABLForcing.H"
+#include "amr-wind/equation_systems/icns/source_terms/ABLMeanBoussinesq.H"
 #include "amr-wind/incflo.H"
 
 #include "AMReX_ParmParse.H"
 #include "AMReX_MultiFab.H"
-#include "amr-wind/utilities/PlaneAveraging.H"
-#include "amr-wind/utilities/FieldPlaneAveraging.H"
-#include "amr-wind/utilities/SecondMomentAveraging.H"
-#include "amr-wind/utilities/ThirdMomentAveraging.H"
 
 namespace amr_wind {
 
@@ -17,7 +17,6 @@ ABL::ABL(CFDSim& sim)
     , m_velocity(sim.pde_manager().icns().fields().field)
     , m_mueff(sim.pde_manager().icns().fields().mueff)
     , m_density(sim.repo().get_field("density"))
-    , m_pa(sim.pde_manager().icns().fields().field, sim.time(), 2)
     , m_abl_wall_func(sim)
 {
     // Register temperature equation
@@ -25,8 +24,23 @@ ABL::ABL(CFDSim& sim)
     auto& teqn = sim.pde_manager().register_transport_pde("Temperature");
     m_temperature = &(teqn.fields().field);
 
+    {
+        std::string statistics_mode = "precursor";
+        int dir = 2;
+        amrex::ParmParse pp("ABL");
+        pp.query("enable_hybrid_rl_mode", m_hybrid_rl);
+        pp.query("initial_sdr_value", m_init_sdr);
+        pp.query("normal_direction", dir);
+        pp.query("statistics_mode", statistics_mode);
+        m_stats =
+            ABLStatsBase::create(statistics_mode, sim, m_abl_wall_func, dir);
+    }
+
     // Instantiate the ABL field initializer
-    m_field_init.reset(new ABLFieldInit());
+    m_field_init = std::make_unique<ABLFieldInit>();
+
+    // Instantiate the ABL boundary plane IO
+    m_bndry_plane = std::make_unique<ABLBoundaryPlane>(sim);
 }
 
 ABL::~ABL() = default;
@@ -36,9 +50,7 @@ ABL::~ABL() = default;
  *
  *  \sa amr_wind::ABLFieldInit
  */
-void ABL::initialize_fields(
-    int level,
-    const amrex::Geometry& geom)
+void ABL::initialize_fields(int level, const amrex::Geometry& geom)
 {
     auto& velocity = m_velocity(level);
     auto& density = m_density(level);
@@ -57,18 +69,33 @@ void ABL::initialize_fields(
             vbx, geom, velocity.array(mfi), density.array(mfi),
             temp.array(mfi));
     }
+
+    if (m_sim.repo().field_exists("tke")) {
+        m_tke = &(m_sim.repo().get_field("tke"));
+        auto& tke = (*m_tke)(level);
+        m_field_init->init_tke(geom, tke);
+    }
 }
 
 void ABL::post_init_actions()
 {
+    if (m_hybrid_rl) {
+        m_sdr = &(m_sim.repo().get_field("sdr"));
+        m_sdr->setVal(m_init_sdr);
+    }
+
+    m_stats->post_init_actions();
+
     m_abl_wall_func.init_log_law_height();
 
-    m_pa();
-
-    m_abl_wall_func.update_umean(m_pa);
+    m_abl_wall_func.update_umean(
+        m_stats->vel_profile(), m_stats->theta_profile());
 
     // Register ABL wall function for velocity
     m_velocity.register_custom_bc<ABLVelWallFunc>(m_abl_wall_func);
+    (*m_temperature).register_custom_bc<ABLTempWallFunc>(m_abl_wall_func);
+
+    m_bndry_plane->post_init_actions();
 }
 
 /** Perform tasks at the beginning of a new timestep
@@ -83,59 +110,35 @@ void ABL::post_init_actions()
  */
 void ABL::pre_advance_work()
 {
-    const auto& time = m_sim.time();
-
-    m_pa();
-
-    m_abl_wall_func.update_umean(m_pa);
+    const auto& vel_pa = m_stats->vel_profile();
+    m_abl_wall_func.update_umean(
+        m_stats->vel_profile(), m_stats->theta_profile());
 
     if (m_abl_forcing != nullptr) {
         const amrex::Real zh = m_abl_forcing->forcing_height();
-        const amrex::Real vx = m_pa.line_average_interpolated(zh, 0);
-        const amrex::Real vy = m_pa.line_average_interpolated(zh, 1);
+        const amrex::Real vx = vel_pa.line_average_interpolated(zh, 0);
+        const amrex::Real vy = vel_pa.line_average_interpolated(zh, 1);
         // Set the mean velocities at the forcing height so that the source
         // terms can be computed during the time integration calls
         m_abl_forcing->set_mean_velocities(vx, vy);
     }
 
-    {
-        // TODO: This should be handled by PlaneAveraging
-        int output_interval = 1;
-        amrex::ParmParse pp("io");
-        pp.query("line_plot_int", output_interval);
-
-        if ((output_interval > 0) && (time.time_index() % output_interval == 0)) {
-            int plot_type = 0;
-            pp.query("line_plot_type", plot_type);
-            PlaneAveraging pa(2);
-            pa(m_sim.mesh().Geom(), m_density.vec_ptrs(), m_velocity.vec_ptrs(), m_mueff.vec_ptrs(), m_temperature->vec_ptrs());
-            pa.plot_line(time.time_index(), time.current_time(), plot_type);
-
-
-            // new way
-            m_pa.output_line_average_ascii(time.time_index(), time.current_time());
-
-            SecondMomentAveraging uu(m_pa, m_pa);
-            uu.output_line_average_ascii(time.time_index(), time.current_time());
-
-            ThirdMomentAveraging uuu(m_pa, m_pa, m_pa);
-            uuu.output_line_average_ascii(time.time_index(), time.current_time());
-
-            if(m_temperature != nullptr){
-                int dir = 2;
-                FieldPlaneAveraging pa_temp(*m_temperature, m_sim.time(), dir);
-                pa_temp.line_derivative_of_average_cell(2,0);
-                pa_temp.output_line_average_ascii(time.time_index(), time.current_time());
-
-                SecondMomentAveraging tu(pa_temp,m_pa);
-                tu.output_line_average_ascii(time.time_index(), time.current_time());
-            }
-
-            FieldPlaneAveraging pa_mueff(m_mueff, m_sim.time(), 2);
-            pa_mueff.output_line_average_ascii(time.time_index(), time.current_time());
-        }
-
+    if (m_abl_mean_bous != nullptr) {
+        m_abl_mean_bous->mean_temperature_update(m_stats->theta_profile());
     }
+
+    m_bndry_plane->pre_advance_work();
+}
+
+/** Perform tasks at the end of a new timestep
+ *
+ *  For ABL simulations, this method writes all plane-averaged profiles and
+ *  integrated statistics to output
+ */
+void ABL::post_advance_work()
+{
+    m_stats->post_advance_work();
+    m_bndry_plane->post_advance_work();
 }
 
 } // namespace amr_wind

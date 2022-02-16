@@ -4,6 +4,7 @@
 #include <string>
 #include <memory>
 #include <unordered_map>
+#include <algorithm>
 
 #include "AMReX_MultiFab.H"
 #include "AMReX_BCRec.H"
@@ -11,6 +12,7 @@
 
 #include "amr-wind/incflo_enums.H"
 #include "amr-wind/core/FieldDescTypes.H"
+#include "amr-wind/core/ViewField.H"
 
 namespace amr_wind {
 
@@ -21,6 +23,7 @@ class FieldBCIface;
 class SimTime;
 
 /** Information common to a field that has multiple states
+ *  \ingroup fields
  */
 struct FieldInfo
 {
@@ -28,7 +31,7 @@ struct FieldInfo
     static constexpr int max_field_states = 5;
 
     FieldInfo(
-        const std::string& basename,
+        std::string basename,
         const int ncomp,
         const int ngrow,
         const int nstates,
@@ -59,7 +62,7 @@ struct FieldInfo
 
     ///@{
     //! Boundary condition data
-    amrex::GpuArray<BC, AMREX_SPACEDIM*2> m_bc_type;
+    amrex::GpuArray<BC, AMREX_SPACEDIM * 2> m_bc_type;
     amrex::Vector<amrex::Vector<amrex::Real>> m_bc_values;
     amrex::GpuArray<const amrex::Real*, AMREX_SPACEDIM * 2> m_bc_values_d;
     amrex::Gpu::DeviceVector<amrex::Real> m_bc_values_dview;
@@ -82,6 +85,7 @@ struct FieldInfo
 };
 
 /** Computational field
+ *  \ingroup fields
  *
  *  This is an abstraction of a collection of MultiFabs over multiple levels,
  *  and allows operations on the field as a whole. The Field cannot be
@@ -136,11 +140,11 @@ public:
     inline int num_time_states() const { return m_info->m_nstates; }
 
     //! Number of states available for this field
-    inline int num_states() const {
-        int ns = 0;
-        for (auto* ff: m_info->m_states) {
-            if (ff != nullptr) ++ns;
-        }
+    inline int num_states() const
+    {
+        int ns = std::count_if(
+            m_info->m_states.begin(), m_info->m_states.end(),
+            [](const Field* ff) { return (ff != nullptr); });
         AMREX_ASSERT(num_time_states() <= ns);
         return ns;
     }
@@ -164,7 +168,12 @@ public:
         return (m_info->m_states[fid] != nullptr);
     }
 
-    amrex::GpuArray<BC, AMREX_SPACEDIM*2>& bc_type()
+    const amrex::GpuArray<BC, AMREX_SPACEDIM * 2>& bc_type() const
+    {
+        return m_info->m_bc_type;
+    }
+
+    amrex::GpuArray<BC, AMREX_SPACEDIM * 2>& bc_type()
     {
         return m_info->m_bc_type;
     }
@@ -178,11 +187,16 @@ public:
     //! Return reference to host view of BCRec array
     amrex::Vector<amrex::BCRec>& bcrec() { return m_info->m_bcrec; }
 
-    const amrex::GpuArray<const amrex::Real*, AMREX_SPACEDIM*2>& bc_values_device() const
-    { return m_info->m_bc_values_d; }
+    const amrex::GpuArray<const amrex::Real*, AMREX_SPACEDIM * 2>&
+    bc_values_device() const
+    {
+        return m_info->m_bc_values_d;
+    }
 
     const amrex::Gpu::DeviceVector<amrex::BCRec>& bcrec_device() const
-    { return m_info->m_bcrec_d; }
+    {
+        return m_info->m_bcrec_d;
+    }
 
     //! Copy BC data from host to device
     //!
@@ -191,10 +205,7 @@ public:
     inline void copy_bc_to_device() { m_info->copy_bc_to_device(); }
 
     //! Return flag indicating whether BCs have been initialized
-    inline bool bc_initialized() const
-    {
-        return m_info->m_bc_copied_to_device;
-    }
+    inline bool bc_initialized() const { return m_info->m_bc_copied_to_device; }
 
     //! Return a flag indicating whether a fillpatch Op has been registered
     inline bool has_fillpatch_op() const
@@ -237,11 +248,6 @@ public:
     //! Create a new time state after the field has been created
     Field& create_state(const FieldState fstate) noexcept;
 
-    /** \defgroup These methods wrappers to MultiFab methods
-     *
-     *  @{
-     */
-
     // NOTE: We break naming rules for methods here to provide 1-1 mapping with
     // the underlying MultiFab method names.
 
@@ -252,20 +258,32 @@ public:
      *
      *  \param value Constant value for initialization
      *  \param start_comp Starting component index (0-based)
-     *  \param num_comp Number of components from starting component to initialize
-     *  \param num_ghost Number of ghost cells to include
+     *  \param num_comp Number of components from starting component to
+     * initialize \param num_ghost Number of ghost cells to include
      */
-    void setVal(amrex::Real value, int start_comp, int num_comp=1, int nghost=0) noexcept;
+    void setVal(
+        amrex::Real value,
+        int start_comp,
+        int num_comp = 1,
+        int nghost = 0) noexcept;
 
     /** Set components to those in the vector for a multi-component field
      */
-    void setVal(const amrex::Vector<amrex::Real>& values, int nghost=0) noexcept;
+    void
+    setVal(const amrex::Vector<amrex::Real>& values, int nghost = 0) noexcept;
+
+    /** Return a sub-view of the Field instance
+     */
+    ViewField<Field> subview(const int scomp = 0, const int ncomp = 1)
+    {
+        return {*this, scomp, ncomp};
+    }
 
     /** Register a custom fillpatch class instance for this field
      *
      *  The class must be a subclass of amr_wind::FieldFillPatchOpsBase
      */
-    template<typename T, class... Args>
+    template <typename T, class... Args>
     void register_fill_patch_op(Args&&... args)
     {
         m_info->m_fillpatch_op.reset(new T(*this, std::forward<Args>(args)...));
@@ -273,10 +291,11 @@ public:
 
     /** Register a custom boundary conditions class
      */
-    template<typename T, class... Args>
+    template <typename T, class... Args>
     void register_custom_bc(Args&&... args)
     {
-        m_info->m_bc_func.emplace_back(new T(*this, std::forward<Args>(args)...));
+        m_info->m_bc_func.emplace_back(
+            new T(*this, std::forward<Args>(args)...));
     }
 
     void fillpatch(amrex::Real time) noexcept;
@@ -299,6 +318,18 @@ public:
         amrex::MultiFab& mfab,
         const amrex::IntVect& nghost) noexcept;
 
+    void fillphysbc(
+        int lev,
+        amrex::Real time,
+        amrex::MultiFab& mfab,
+        const amrex::IntVect& nghost) noexcept;
+
+    void set_inflow(
+        int lev,
+        amrex::Real time,
+        amrex::MultiFab& mfab,
+        const amrex::IntVect& nghost) noexcept;
+
     inline void fillpatch(
         int lev,
         amrex::Real time,
@@ -309,19 +340,28 @@ public:
     }
 
     inline void fillpatch_from_coarse(
-        int lev,
-        amrex::Real time,
-        amrex::MultiFab& mfab,
-        int nghost) noexcept
+        int lev, amrex::Real time, amrex::MultiFab& mfab, int nghost) noexcept
     {
         fillpatch_from_coarse(lev, time, mfab, amrex::IntVect(nghost));
+    }
+
+    inline void fillphysbc(
+        int lev, amrex::Real time, amrex::MultiFab& mfab, int nghost) noexcept
+    {
+        fillphysbc(lev, time, mfab, amrex::IntVect(nghost));
+    }
+
+    inline void set_inflow(
+        int lev, amrex::Real time, amrex::MultiFab& mfab, int nghost) noexcept
+    {
+        set_inflow(lev, time, mfab, amrex::IntVect(nghost));
     }
 
 protected:
     Field(
         FieldRepo& repo,
-        const std::string& name,
-        const std::shared_ptr<FieldInfo>& finfo,
+        std::string name,
+        std::shared_ptr<FieldInfo> finfo,
         const unsigned fid,
         FieldState state);
 

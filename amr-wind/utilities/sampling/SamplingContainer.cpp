@@ -46,9 +46,9 @@ void sample_field(
             (p.pos(2) - problo[2] - offset[2] * dx[2]) * dxi[2];
 
         // Index of the low corner
-        const int i = std::floor(x);
-        const int j = std::floor(y);
-        const int k = std::floor(z);
+        const int i = static_cast<int>(amrex::Math::floor(x));
+        const int j = static_cast<int>(amrex::Math::floor(y));
+        const int k = static_cast<int>(amrex::Math::floor(z));
 
         // Interpolation weights in each direction (linear basis)
         const amrex::Real wx_hi = (x - i);
@@ -76,8 +76,12 @@ void SamplingContainer::setup_container(
 {
     BL_PROFILE("amr-wind::SamplingContainer::setup");
     const bool communicate_comp = true;
-    for (int i = 0; i < num_real_components; ++i) AddRealComp(communicate_comp);
-    for (int i = 0; i < num_int_components; ++i) AddIntComp(communicate_comp);
+    for (int i = 0; i < num_real_components; ++i) {
+        AddRealComp(communicate_comp);
+    }
+    for (int i = 0; i < num_int_components; ++i) {
+        AddIntComp(communicate_comp);
+    }
 
     const int nlevels = m_mesh.finestLevel() + 1;
     for (int lev = 0; lev < nlevels; ++lev) {
@@ -99,10 +103,14 @@ void SamplingContainer::initialize_particles(
     const int owner = ParticleDistributionMap(lev)[0];
 
     // Let only the MPI rank owning the first box do the work
-    if (owner != iproc) return;
+    if (owner != iproc) {
+        return;
+    }
 
     int num_particles = 0;
-    for (auto& probes : samplers) num_particles += probes->num_points();
+    for (const auto& probes : samplers) {
+        num_particles += probes->num_points();
+    }
     m_total_particles = num_particles;
 
     const int grid_id = 0;
@@ -113,27 +121,33 @@ void SamplingContainer::initialize_particles(
     ptile.resize(num_particles);
 
     int pidx = 0;
+    const int nextid = ParticleType::NextID();
     auto* pstruct = ptile.GetArrayOfStructs()().data();
     SamplerBase::SampleLocType locs;
-    for (auto& probe : samplers) {
+    for (const auto& probe : samplers) {
         probe->sampling_locations(locs);
-
         const int npts = locs.size();
-        for (int ip = 0; ip < npts; ++ip) {
-            auto& pp = pstruct[pidx];
-            pp.id() = ParticleType::NextID();
+        const auto probe_id = probe->id();
+        amrex::Gpu::DeviceVector<amrex::Real> dlocs(npts * AMREX_SPACEDIM);
+        amrex::Gpu::copy(
+            amrex::Gpu::hostToDevice, locs.begin(), locs.end(), dlocs.begin());
+        const auto* dpos = dlocs.data();
+
+        amrex::ParallelFor(npts, [=] AMREX_GPU_DEVICE(const int ip) noexcept {
+            const auto uid = pidx + ip;
+            auto& pp = pstruct[uid];
+            pp.id() = nextid + uid;
             pp.cpu() = iproc;
 
-            pp.pos(0) = locs[ip][0];
-            pp.pos(1) = locs[ip][1];
-            pp.pos(2) = locs[ip][2];
-
-            pp.idata(IIx::uid) = pidx;
-            pp.idata(IIx::sid) = probe->id();
+            for (int n = 0; n < AMREX_SPACEDIM; ++n) {
+                pp.pos(n) = dpos[ip * AMREX_SPACEDIM + n];
+            }
+            pp.idata(IIx::uid) = uid;
+            pp.idata(IIx::sid) = probe_id;
             pp.idata(IIx::nid) = ip;
-
-            ++pidx;
-        }
+        });
+        amrex::Gpu::streamSynchronize();
+        pidx += npts;
     }
 
     AMREX_ALWAYS_ASSERT(pidx == num_particles);
@@ -212,25 +226,30 @@ void SamplingContainer::populate_buffer(std::vector<double>& buf)
 {
     BL_PROFILE("amr-wind::SamplingContainer::populate_buffer");
 
+    amrex::Gpu::DeviceVector<double> dbuf(buf.size(), 0.0);
+    auto* dbuf_ptr = dbuf.data();
     const int nlevels = m_mesh.finestLevel() + 1;
-    for (int lev=0; lev < nlevels; ++lev) {
-        for (int fid=0; fid < NumRuntimeRealComps(); ++fid) {
+    for (int lev = 0; lev < nlevels; ++lev) {
+        for (int fid = 0; fid < NumRuntimeRealComps(); ++fid) {
             const int offset = fid * num_sampling_particles();
             for (ParIterType pti(*this, lev); pti.isValid(); ++pti) {
                 const int np = pti.numParticles();
                 auto* pstruct = pti.GetArrayOfStructs()().data();
                 auto* parr = &pti.GetStructOfArrays().GetRealData(fid)[0];
 
-                for (int ip=0; ip < np; ++ip) {
-                    auto& pp = pstruct[ip];
-                    const int pidx = pp.idata(IIx::uid);
-                    const int ii = offset + pidx;
-
-                    buf[ii] = parr[ip];
-                }
+                amrex::ParallelFor(
+                    np, [=] AMREX_GPU_DEVICE(const int ip) noexcept {
+                        auto& pp = pstruct[ip];
+                        const int pidx = pp.idata(IIx::uid);
+                        const int ii = offset + pidx;
+                        dbuf_ptr[ii] = parr[ip];
+                    });
             }
         }
     }
+
+    amrex::Gpu::copy(
+        amrex::Gpu::deviceToHost, dbuf.begin(), dbuf.end(), buf.begin());
     amrex::ParallelDescriptor::ReduceRealSum(
         buf.data(), buf.size(), amrex::ParallelDescriptor::IOProcessorNumber());
 }

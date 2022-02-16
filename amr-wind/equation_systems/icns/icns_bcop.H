@@ -3,13 +3,15 @@
 
 #include "amr-wind/equation_systems/icns/icns.H"
 #include "amr-wind/equation_systems/BCOps.H"
+#include "amr-wind/boundary_conditions/velocity_bcs.H"
 
 namespace amr_wind {
 namespace pde {
 
 /** BC operations for incompressible Navier-Stokes
+ *  \ingroup icns
  */
-template<>
+template <>
 struct BCOp<ICNS>
 {
     BCOp(PDEFields& fields, const SimTime& time)
@@ -22,6 +24,9 @@ struct BCOp<ICNS>
     {
         BCVelocity bc(m_fields.field);
         bc();
+        const auto udfs = bc.get_dirichlet_udfs();
+        vel_bc::register_velocity_dirichlet(
+            m_fields.field, m_fields.repo.mesh(), m_time, udfs);
 
         auto& density = m_fields.repo.get_field("density");
         const amrex::Real density_default = 1.0;
@@ -55,7 +60,7 @@ struct BCOp<ICNS>
     const SimTime& m_time;
 };
 
-}
-}
+} // namespace pde
+} // namespace amr_wind
 
 #endif /* ICNS_BCOP_H */

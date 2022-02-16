@@ -1,5 +1,4 @@
 #include "amr-wind/equation_systems/icns/source_terms/ABLForcing.H"
-#include "amr-wind/utilities/PlaneAveraging.H"
 #include "amr-wind/CFDSim.H"
 #include "amr-wind/wind_energy/ABL.H"
 
@@ -14,6 +13,7 @@ ABLForcing::ABLForcing(const CFDSim& sim) : m_time(sim.time())
 {
     const auto& abl = sim.physics_manager().get<amr_wind::ABL>();
     abl.register_forcing_term(this);
+    abl.abl_statistics().register_forcing_term(this);
 
     amrex::ParmParse pp_abl(identifier());
     // TODO: Allow forcing at multiple heights
@@ -29,16 +29,15 @@ ABLForcing::ABLForcing(const CFDSim& sim) : m_time(sim.time())
 ABLForcing::~ABLForcing() = default;
 
 void ABLForcing::operator()(
-    const int,
-    const amrex::MFIter&,
+    const int /*lev*/,
+    const amrex::MFIter& /*mfi*/,
     const amrex::Box& bx,
-    const FieldState,
+    const FieldState /*fstate*/,
     const amrex::Array4<amrex::Real>& src_term) const
 {
-    const auto& dt = m_time.deltaT();
 
-    const amrex::Real dudt = (m_target_vel[0] - m_mean_vel[0]) / dt;
-    const amrex::Real dvdt = (m_target_vel[1] - m_mean_vel[1]) / dt;
+    const amrex::Real dudt = m_abl_forcing[0];
+    const amrex::Real dvdt = m_abl_forcing[1];
 
     amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
         src_term(i, j, k, 0) += dudt;

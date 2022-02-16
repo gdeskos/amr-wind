@@ -8,3 +8,6 @@ add_subdirectory(temperature)
 add_subdirectory(density)
 add_subdirectory(tke)
 add_subdirectory(sdr)
+add_subdirectory(levelset)
+add_subdirectory(vof)
+

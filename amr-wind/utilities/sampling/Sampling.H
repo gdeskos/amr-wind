@@ -8,10 +8,24 @@
 #include "amr-wind/utilities/sampling/SamplerBase.H"
 #include "amr-wind/utilities/sampling/SamplingContainer.H"
 
+/**
+ *  \defgroup sampling Data-sampling utilities
+ *  Data-sampling utilities
+ *
+ *  Sampling contains various data-probes sampling utilities that are
+ *  implemented in using the [AMReX
+ *  particles](https://amrex-codes.github.io/amrex/docs_html/Particle.html)
+ *  interface. It supports output in native AMReX particles binary format as
+ *  well as NetCDF format.
+ *
+ *  \ingroup utilities
+ */
+
 namespace amr_wind {
 namespace sampling {
 
 /** Collection of data sampling objects
+ *  \ingroup sampling
  *
  *  A concrete impelementation of the post-processing interface that deals with
  *  data probes. Multiple instances of sampling entities (e.g., point cloud or
@@ -19,28 +33,47 @@ namespace sampling {
  *  probles are represented as amr_wind::sampling::SamplingContainer for
  *  tracking their position within the CFD mesh and updating the fields of
  *  interest.
+ *
+ *  This class manages the interpolation and the field management. The actual
+ *  definition of probes are managed by subclasses of SamplerBase.
  */
 class Sampling : public PostProcessBase::Register<Sampling>
 {
 public:
     static const std::string identifier() { return "Sampling"; }
 
-    Sampling(CFDSim&, const std::string&);
+    Sampling(CFDSim&, std::string);
 
     virtual ~Sampling();
 
+    //! Perform actions before mesh is created
+    void pre_init_actions() override {}
+
     //! Read user inputs and create the different data probe instances
-    void initialize();
+    void initialize() override;
 
     //! Interpolate fields at a given timestep and output to disk
-    void post_advance_work();
+    void post_advance_work() override;
+
+    //! Actions to perform post regrid e.g. redistribute particles
+    void post_regrid_actions() override;
 
     // Public for CUDA
 
     //! Write sampled data in binary format
     virtual void impl_write_native();
 
+    int num_total_particles() const { return m_total_particles; }
+
+    const amrex::Vector<std::string>& var_names() const { return m_var_names; }
+
 protected:
+    //! Update the container by re-initializing the particles
+    void update_container();
+
+    //! Conduct work to update the particles
+    void update_sampling_locations();
+
     //! Output data based on user-defined format
     virtual void process_output();
 
@@ -56,6 +89,8 @@ protected:
      *  runs as it can have significant impacts on code performance.
      */
     virtual void write_ascii();
+
+    SamplingContainer& sampling_container() { return *m_scontainer; }
 
 private:
     CFDSim& m_sim;
@@ -84,8 +119,12 @@ private:
     std::string m_out_fmt{"native"};
 #endif
 
+    // number of field components
+    int m_ncomp{0};
+
     //! Number of particles:
-    size_t m_total_particles;
+    size_t m_total_particles{0};
+
     //! Frequency of data sampling and output
     int m_out_freq{100};
 };

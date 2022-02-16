@@ -12,7 +12,7 @@ class PhysicsEx : public amr_wind::Physics::Register<PhysicsEx>
 public:
     static const std::string identifier() { return "PhysicsEx"; }
 
-    PhysicsEx(amr_wind::CFDSim&);
+    explicit PhysicsEx(amr_wind::CFDSim&);
 
     virtual ~PhysicsEx() = default;
 
@@ -23,6 +23,6 @@ public:
     void post_advance_work() override;
 };
 
-}
+} // namespace amr_wind_tests
 
 #endif /* PHYSICS_TEST_UTILS_H */

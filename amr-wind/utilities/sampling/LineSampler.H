@@ -7,6 +7,7 @@ namespace amr_wind {
 namespace sampling {
 
 /** Sample data along a line
+ *  \ingroup sampling
  *
  *  Defines probes along a line defined by `start` and `end` coordinates and
  *  divides it into equal segements as determined by `num_points`. The length of
@@ -17,7 +18,7 @@ class LineSampler : public SamplerBase::Register<LineSampler>
 public:
     static const std::string identifier() { return "LineSampler"; }
 
-    LineSampler(const CFDSim&);
+    explicit LineSampler(const CFDSim&);
 
     virtual ~LineSampler();
 
@@ -26,6 +27,8 @@ public:
      *  \param key Prefix used to parse inputs from file
      */
     void initialize(const std::string& key) override;
+
+    void check_bounds();
 
     //! Populate and return a vector of probe locations to be sampled
     void sampling_locations(SampleLocType&) const override;
@@ -44,7 +47,7 @@ public:
     //! Number of probe locations along the line
     int num_points() const override { return m_npts; }
 
-private:
+protected:
     const CFDSim& m_sim;
 
     amrex::Vector<amrex::Real> m_start;
@@ -55,7 +58,7 @@ private:
     int m_npts{0};
 };
 
-}
-}
+} // namespace sampling
+} // namespace amr_wind
 
 #endif /* LINESAMPLER_H */

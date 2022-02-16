@@ -11,7 +11,7 @@ namespace ctv {
 namespace {
 struct UExact
 {
-    AMREX_GPU_DEVICE AMREX_FORCE_INLINE amrex::Real operator()(
+    AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::Real operator()(
         const amrex::Real,
         const amrex::Real,
         const amrex::Real,
@@ -23,7 +23,7 @@ struct UExact
 
 struct VExact
 {
-    AMREX_GPU_DEVICE AMREX_FORCE_INLINE amrex::Real operator()(
+    AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::Real operator()(
         const amrex::Real,
         const amrex::Real,
         const amrex::Real,
@@ -33,16 +33,65 @@ struct VExact
     const int m_comp{1};
 };
 
+struct WExact
+{
+    AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::Real operator()(
+        const amrex::Real,
+        const amrex::Real,
+        const amrex::Real,
+        const amrex::Real,
+        const amrex::Real,
+        const amrex::Real) const;
+    const int m_comp{2};
+};
+
+struct GpxExact
+{
+    AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::Real operator()(
+        const amrex::Real,
+        const amrex::Real,
+        const amrex::Real,
+        const amrex::Real,
+        const amrex::Real,
+        const amrex::Real) const;
+    const int m_comp{0};
+};
+
+struct GpyExact
+{
+    AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::Real operator()(
+        const amrex::Real,
+        const amrex::Real,
+        const amrex::Real,
+        const amrex::Real,
+        const amrex::Real,
+        const amrex::Real) const;
+    const int m_comp{1};
+};
+
+struct GpzExact
+{
+    AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::Real operator()(
+        const amrex::Real,
+        const amrex::Real,
+        const amrex::Real,
+        const amrex::Real,
+        const amrex::Real,
+        const amrex::Real) const;
+    const int m_comp{2};
+};
+
 } // namespace
 
 /** Convecting Taylor Vortex physics
+ *  \ingroup physics
  */
 class ConvectingTaylorVortex : public Physics::Register<ConvectingTaylorVortex>
 {
 public:
     static const std::string identifier() { return "ConvectingTaylorVortex"; }
 
-    ConvectingTaylorVortex(const CFDSim& sim);
+    explicit ConvectingTaylorVortex(const CFDSim& sim);
 
     virtual ~ConvectingTaylorVortex() = default;
 
@@ -59,11 +108,19 @@ public:
 
     void post_advance_work() override;
 
+    amrex::Real get_u0() { return m_u0; }
+
+    amrex::Real get_v0() { return m_v0; }
+
+    amrex::Real get_omega() { return m_omega; }
+
 private:
     const amr_wind::SimTime& m_time;
+    const amr_wind::CFDSim& m_sim;
     const FieldRepo& m_repo;
     const amrex::AmrCore& m_mesh;
     Field& m_velocity;
+    Field& m_gradp;
     Field& m_density;
     void output_error();
 
@@ -83,7 +140,9 @@ private:
     const int m_w{18};
 
     //! error log file
-    const std::string m_output_fname{"ctv.log"};
+    std::string m_output_fname{"ctv.log"};
+
+    bool m_activate_pressure{false};
 };
 } // namespace ctv
 } // namespace amr_wind

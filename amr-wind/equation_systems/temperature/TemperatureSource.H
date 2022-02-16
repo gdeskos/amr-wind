@@ -13,6 +13,11 @@ class CFDSim;
 
 namespace pde {
 
+/** Representation of a temperature source term
+ *  \ingroup temp_src
+ *
+ *  All temperature source terms must inherit from this class
+ */
 class TemperatureSource : public Factory<TemperatureSource, const CFDSim&>
 {
 public:
@@ -30,6 +35,5 @@ public:
 
 } // namespace pde
 } // namespace amr_wind
-
 
 #endif /* TEMPERATURESOURCE_H */

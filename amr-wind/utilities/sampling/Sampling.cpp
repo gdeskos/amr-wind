@@ -1,3 +1,6 @@
+#include <memory>
+#include <utility>
+
 #include "amr-wind/utilities/sampling/Sampling.H"
 #include "amr-wind/utilities/io_utils.H"
 #include "amr-wind/utilities/ncutils/nc_interface.H"
@@ -7,8 +10,8 @@
 namespace amr_wind {
 namespace sampling {
 
-Sampling::Sampling(CFDSim& sim, const std::string& label)
-    : m_sim(sim), m_label(label)
+Sampling::Sampling(CFDSim& sim, std::string label)
+    : m_sim(sim), m_label(std::move(label))
 {}
 
 Sampling::~Sampling() = default;
@@ -31,7 +34,7 @@ void Sampling::initialize()
     }
 
     // Process field information
-    int ncomp = 0;
+    m_ncomp = 0;
     auto& repo = m_sim.repo();
     for (const auto& fname : field_names) {
         if (!repo.field_exists(fname)) {
@@ -42,7 +45,7 @@ void Sampling::initialize()
         }
 
         auto& fld = repo.get_field(fname);
-        ncomp += fld.num_comp();
+        m_ncomp += fld.num_comp();
         m_fields.emplace_back(&fld);
         ioutils::add_var_names(m_var_names, fld.name(), fld.num_comp());
     }
@@ -51,7 +54,7 @@ void Sampling::initialize()
     int idx = 0;
     m_total_particles = 0;
     for (auto& lbl : labels) {
-        const std::string key = m_label + "/" + lbl;
+        const std::string key = m_label + "." + lbl;
         amrex::ParmParse pp1(key);
         std::string stype = "LineSampler";
 
@@ -65,28 +68,60 @@ void Sampling::initialize()
         m_samplers.emplace_back(std::move(obj));
     }
 
+    update_container();
+
+    if (m_out_fmt == "netcdf") {
+        prepare_netcdf_file();
+    }
+}
+
+void Sampling::update_container()
+{
+    BL_PROFILE("amr-wind::Sampling::update_container");
+
     // Initialize the particle container based on user inputs
-    m_scontainer.reset(new SamplingContainer(m_sim.mesh()));
-    m_scontainer->setup_container(ncomp);
+    m_scontainer = std::make_unique<SamplingContainer>(m_sim.mesh());
+    m_scontainer->setup_container(m_ncomp);
     m_scontainer->initialize_particles(m_samplers);
     // Redistribute particles to appropriate boxes/MPI ranks
     m_scontainer->Redistribute();
     m_scontainer->num_sampling_particles() = m_total_particles;
+}
 
-    if (m_out_fmt == "netcdf") prepare_netcdf_file();
+void Sampling::update_sampling_locations()
+{
+    BL_PROFILE("amr-wind::Sampling::update_sampling_locations");
+
+    for (const auto& obj : m_samplers) {
+        obj->update_sampling_locations();
+    }
+
+    update_container();
 }
 
 void Sampling::post_advance_work()
 {
+
     BL_PROFILE("amr-wind::Sampling::post_advance_work");
     const auto& time = m_sim.time();
     const int tidx = time.time_index();
     // Skip processing if it is not an output timestep
-    if (!(tidx % m_out_freq == 0)) return;
+    if (!(tidx % m_out_freq == 0)) {
+        return;
+    }
+
+    update_sampling_locations();
 
     m_scontainer->interpolate_fields(m_fields);
 
     process_output();
+}
+
+void Sampling::post_regrid_actions()
+{
+
+    BL_PROFILE("amr-wind::Sampling::post_regrid_actions");
+    m_scontainer->Redistribute();
 }
 
 void Sampling::process_output()
@@ -126,7 +161,8 @@ void Sampling::write_ascii()
                    << std::endl;
 
     const std::string post_dir = "post_processing";
-    const std::string sname = amrex::Concatenate(m_label, m_sim.time().time_index());
+    const std::string sname =
+        amrex::Concatenate(m_label, m_sim.time().time_index());
 
     if (!amrex::UtilCreateDirectory(post_dir, 0755)) {
         amrex::CreateDirectoryFailed(post_dir);
@@ -140,7 +176,8 @@ void Sampling::prepare_netcdf_file()
 #ifdef AMR_WIND_USE_NETCDF
 
     const std::string post_dir = "post_processing";
-    const std::string sname = amrex::Concatenate(m_label, m_sim.time().time_index());
+    const std::string sname =
+        amrex::Concatenate(m_label, m_sim.time().time_index());
     if (!amrex::UtilCreateDirectory(post_dir, 0755)) {
         amrex::CreateDirectoryFailed(post_dir);
     }
@@ -161,13 +198,13 @@ void Sampling::prepare_netcdf_file()
     ncf.def_dim("ndim", AMREX_SPACEDIM);
     ncf.def_var("time", NC_DOUBLE, {nt_name});
     // Define groups for each sampler
-    for (const auto& obj: m_samplers) {
+    for (const auto& obj : m_samplers) {
         auto grp = ncf.def_group(obj->label());
 
         grp.def_dim(npart_name, obj->num_points());
         obj->define_netcdf_metadata(grp);
         grp.def_var("coordinates", NC_DOUBLE, {npart_name, "ndim"});
-        for (const auto& vname: m_var_names)
+        for (const auto& vname : m_var_names)
             grp.def_var(vname, NC_DOUBLE, two_dim);
     }
     ncf.exit_def_mode();
@@ -176,7 +213,7 @@ void Sampling::prepare_netcdf_file()
         const std::vector<size_t> start{0, 0};
         std::vector<size_t> count{0, AMREX_SPACEDIM};
         SamplerBase::SampleLocType locs;
-        for (const auto& obj: m_samplers) {
+        for (const auto& obj : m_samplers) {
             auto grp = ncf.group(obj->label());
             obj->populate_netcdf_metadata(grp);
             obj->sampling_locations(locs);
@@ -185,6 +222,7 @@ void Sampling::prepare_netcdf_file()
             xyz.put(&locs[0][0], start, count);
         }
     }
+
 #else
     amrex::Abort(
         "NetCDF support was not enabled during build time. Please recompile or "
@@ -208,20 +246,30 @@ void Sampling::write_netcdf()
         ncf.var("time").put(&time, {nt}, {1});
     }
 
+    for (const auto& obj : m_samplers) {
+        auto grp = ncf.group(obj->label());
+        obj->output_netcdf_data(grp, nt);
+    }
+
     std::vector<size_t> start{nt, 0};
     std::vector<size_t> count{1, 0};
 
     const int nvars = m_var_names.size();
-    for (int iv=0; iv < nvars; ++iv) {
+    for (int iv = 0; iv < nvars; ++iv) {
         start[1] = 0;
         count[1] = 0;
         int offset = iv * m_scontainer->num_sampling_particles();
-        for (const auto& obj: m_samplers) {
-            count[1] = obj->num_points();
+        for (const auto& obj : m_samplers) {
             auto grp = ncf.group(obj->label());
             auto var = grp.var(m_var_names[iv]);
-            var.put(&buf[offset], start, count);
-            offset += count[1];
+            // Do sampler specific output if needed
+            bool do_output = obj->output_netcdf_field(&buf[offset], var);
+            // Do generic output if specific output returns true
+            if (do_output) {
+                count[1] = obj->num_points();
+                var.put(&buf[offset], start, count);
+                offset += count[1];
+            }
         }
     }
     ncf.close();

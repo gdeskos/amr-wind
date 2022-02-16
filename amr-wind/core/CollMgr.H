@@ -9,11 +9,15 @@
 namespace amr_wind {
 
 /** Interface to manage objects of sub-classes based on factory registration
+ *  \ingroup core
  *
  *  Provides boiler-plate code to register a collection and then query using
  *  lookup keywords
+ *
+ *  \tparam Collection Class holding instances of collection (e.g., PhysicsMgr)
+ *  \tparam Base class of the collection (e.g., Physics)
  */
-template<typename Collection, typename Type, bool allow_duplicates=false>
+template <typename Collection, typename Type, bool allow_duplicates = false>
 class CollMgr
 {
 public:
@@ -27,17 +31,17 @@ public:
     CollMgr(const CollMgr&) = delete;
     CollMgr& operator=(const CollMgr&) = delete;
 
-    /** Create a new object and register it in the vector and setup lookup options
+    /** Create a new object and register it in the vector and setup lookup
+     * options
      */
-    template<class ... Args>
-    Type& create(const std::string& key, Args&& ... args)
+    template <class... Args>
+    Type& create(const std::string& key, Args&&... args)
     {
         if (!allow_duplicates && contains(key)) {
             return operator()(key);
         }
 
-        m_obj_vec.emplace_back(
-            Type::create(key, std::forward<Args>(args)...));
+        m_obj_vec.emplace_back(Type::create(key, std::forward<Args>(args)...));
         m_obj_map[key] = m_obj_vec.size() - 1;
 
         return *m_obj_vec.back();
@@ -66,7 +70,7 @@ public:
     }
 
     //! Return object for a lookup key cast into its exact class definition
-    template<typename T>
+    template <typename T>
     T& operator()(const std::string& key)
     {
         return dynamic_cast<T&>(operator()(key));
@@ -80,6 +84,6 @@ protected:
     std::unordered_map<std::string, int> m_obj_map;
 };
 
-}
+} // namespace amr_wind
 
 #endif /* COLLMGR_H */

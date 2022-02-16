@@ -11,7 +11,9 @@ void ThirdMomentAveraging::output_line_average_ascii(
         operator()();
     }
 
-    if (!amrex::ParallelDescriptor::IOProcessor()) return;
+    if (!amrex::ParallelDescriptor::IOProcessor()) {
+        return;
+    }
 
     std::ofstream outfile;
     outfile.precision(m_precision);
@@ -51,13 +53,16 @@ void ThirdMomentAveraging::output_line_average_ascii(
     for (int i = 0; i < m_plane_average1.ncell_line(); ++i) {
         outfile << step << ", " << std::scientific << time << ", "
                 << m_plane_average1.line_centroids()[i];
-        for (int m = 0; m < ncomp1; ++m)
-            for (int n = 0; n < ncomp2; ++n)
-                for (int p = 0; p < ncomp3; ++p)
+        for (int m = 0; m < ncomp1; ++m) {
+            for (int n = 0; n < ncomp2; ++n) {
+                for (int p = 0; p < ncomp3; ++p) {
                     outfile << ", " << std::scientific
                             << m_third_moments_line
-                                   [m_num_moments * i + ncomp1 * ncomp2 * m +
-                                    ncomp2 * n + p];
+                                   [m_num_moments * i + ncomp2 * ncomp3 * m +
+                                    ncomp3 * n + p];
+                }
+            }
+        }
 
         outfile << std::endl;
     }
@@ -96,7 +101,8 @@ ThirdMomentAveraging::ThirdMomentAveraging(
                     m_plane_average3.ncomp();
 
     m_third_moments_line.resize(
-        m_plane_average1.ncell_line() * m_num_moments, 0.0);
+        static_cast<size_t>(m_plane_average1.ncell_line()) * m_num_moments,
+        0.0);
 }
 
 void ThirdMomentAveraging::operator()()
@@ -104,9 +110,9 @@ void ThirdMomentAveraging::operator()()
 
     m_last_updated_index = m_plane_average1.last_updated_index();
 
-    auto& field1 = m_plane_average1.field();
-    auto& field2 = m_plane_average2.field();
-    auto& field3 = m_plane_average3.field();
+    const auto& field1 = m_plane_average1.field();
+    const auto& field2 = m_plane_average2.field();
+    const auto& field3 = m_plane_average3.field();
 
     std::fill(m_third_moments_line.begin(), m_third_moments_line.end(), 0.0);
 
@@ -164,7 +170,7 @@ void ThirdMomentAveraging::compute_average(
     const int nmoments = m_num_moments;
 
 #ifdef _OPENMP
-#pragma omp parallel if (Gpu::notInLaunchRegion())
+#pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
 #endif
     for (amrex::MFIter mfi(mfab1, amrex::TilingIfNotGPU()); mfi.isValid();
          ++mfi) {
@@ -174,26 +180,48 @@ void ThirdMomentAveraging::compute_average(
         auto mfab_arr2 = mfab2.const_array(mfi);
         auto mfab_arr3 = mfab3.const_array(mfi);
 
+        amrex::Box pbx =
+            PerpendicularBox<IndexSelector>(bx, amrex::IntVect{0, 0, 0});
+
         amrex::ParallelFor(
-            bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-                const int ind = idxOp(i, j, k);
+            amrex::Gpu::KernelInfo().setReduction(true), pbx,
+            [=] AMREX_GPU_DEVICE(
+                int p_i, int p_j, int p_k,
+                amrex::Gpu::Handler const& handler) noexcept {
+                // Loop over the direction perpendicular to the plane.
+                // This reduces the atomic pressure on the destination arrays.
 
-                int nf = 0;
-                for (int m = 0; m < ncomp1; ++m) {
-                    const amrex::Real up1 =
-                        mfab_arr1(i, j, k, m) - line_avg1[ncomp1 * ind + m];
-                    for (int n = 0; n < ncomp2; ++n) {
-                        const amrex::Real up2 =
-                            mfab_arr2(i, j, k, n) - line_avg2[ncomp2 * ind + n];
-                        for (int p = 0; p < ncomp3; ++p) {
+                amrex::Box lbx = ParallelBox<IndexSelector>(
+                    bx, amrex::IntVect{p_i, p_j, p_k});
 
-                            const amrex::Real up3 = mfab_arr3(i, j, k, n) -
-                                                    line_avg3[ncomp3 * ind + p];
+                for (int k = lbx.smallEnd(2); k <= lbx.bigEnd(2); ++k) {
+                    for (int j = lbx.smallEnd(1); j <= lbx.bigEnd(1); ++j) {
+                        for (int i = lbx.smallEnd(0); i <= lbx.bigEnd(0); ++i) {
 
-                            amrex::HostDevice::Atomic::Add(
-                                &line_fluc[nmoments * ind + nf],
-                                up1 * up2 * up3 * denom);
-                            ++nf;
+                            const int ind = idxOp(i, j, k);
+
+                            int nf = 0;
+                            for (int m = 0; m < ncomp1; ++m) {
+                                const amrex::Real up1 =
+                                    mfab_arr1(i, j, k, m) -
+                                    line_avg1[ncomp1 * ind + m];
+                                for (int n = 0; n < ncomp2; ++n) {
+                                    const amrex::Real up2 =
+                                        mfab_arr2(i, j, k, n) -
+                                        line_avg2[ncomp2 * ind + n];
+                                    for (int p = 0; p < ncomp3; ++p) {
+
+                                        const amrex::Real up3 =
+                                            mfab_arr3(i, j, k, p) -
+                                            line_avg3[ncomp3 * ind + p];
+
+                                        amrex::Gpu::deviceReduceSum(
+                                            &line_fluc[nmoments * ind + nf],
+                                            up1 * up2 * up3 * denom, handler);
+                                        ++nf;
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -235,7 +263,7 @@ ThirdMomentAveraging::line_average_interpolated(amrex::Real x, int comp) const
     int ind = 0;
 
     if (x > xlo + 0.5 * dx) {
-        ind = floor((x - xlo) / dx - 0.5);
+        ind = static_cast<int>(floor((x - xlo) / dx - 0.5));
         const amrex::Real x1 = xlo + (ind + 0.5) * dx;
         c = (x - x1) / dx;
     }
@@ -277,4 +305,17 @@ amrex::Real ThirdMomentAveraging::line_average_cell(
     return line_average_cell(ind, comp);
 }
 
+void ThirdMomentAveraging::line_moment(
+    int comp, amrex::Vector<amrex::Real>& l_vec)
+{
+    BL_PROFILE("amr-wind::ThirdMomentAveraging::line_moment");
+
+    AMREX_ALWAYS_ASSERT(comp >= 0 && comp < m_num_moments);
+
+    const int ncell_line = m_plane_average1.ncell_line();
+    for (int i = 0; i < ncell_line; i++) {
+        l_vec[i] = m_third_moments_line[m_num_moments * i + comp];
+    }
 }
+
+} // namespace amr_wind

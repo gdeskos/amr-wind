@@ -12,14 +12,40 @@
 namespace amr_wind {
 namespace pde {
 
-template<typename PDE, typename Scheme>
+/**
+ *  \defgroup pdeop PDE Operators
+ *  PDE Operators
+ *
+ *  The different terms in a PDE as well as other actions on a PDE are
+ *  implemented within AMR-Wind using operator classes. These operators can be
+ *  specialized for a given PDE or a Scheme based on specific traits that are
+ *  passed to the amr_wind::pde::PDESytem class.
+ *
+ *  \ingroup eqsys
+ */
+
+/** %Field registration operator
+ *  \ingroup pdeop
+ *
+ *  When a PDESystem is created, this operator is called first and is
+ *  responsible for creating all the necessary fields that will be accessed by
+ *  the PDE during the solution process.
+ */
+template <typename PDE, typename Scheme>
 struct FieldRegOp
 {
-    FieldRegOp(CFDSim& sim_in) : sim(sim_in) {}
+    explicit FieldRegOp(CFDSim& sim_in) : sim(sim_in) {}
 
+    /** Perform initialization activities
+     *
+     *  Declares the necessary fields, sets their I/O properties
+     *
+     *  \return The collection of fields for this PDE
+     */
     PDEFields operator()(const SimTime& time, const int probtype)
     {
-        auto fields = create_fields_instance<PDE, Scheme>(time, sim.repo(), probtype);
+        auto fields =
+            create_fields_instance<PDE, Scheme>(time, sim.repo(), probtype);
 
         // Register solution variable for this PDE as output/restart variable
         sim.io_manager().register_io_var(fields.field.name());
@@ -29,32 +55,50 @@ struct FieldRegOp
     CFDSim& sim;
 };
 
-template<typename PDE>
+/** Base implementation of source terms for a PDE
+ *  \ingroup pdeop
+ *
+ *  Holds a collection of source terms that are initialized using at runtime
+ *  based on user inputs. The implementation consults the `source_terms` input
+ *  variable within the PDE namespace (e.g., `ICNS.source_terms` for momentum
+ *  sources) and initializes them. These source terms are then accumulated into
+ *  the PDEFields::src_term during solution process.
+ *
+ *  \sa MomentumSource, TemperatureSource
+ */
+template <typename PDE>
 struct SrcTermOpBase
 {
-    SrcTermOpBase(PDEFields& fields_in)
-    : fields(fields_in)
-    , m_density(fields_in.repo.get_field("density")) {}
+    explicit SrcTermOpBase(PDEFields& fields_in)
+        : fields(fields_in), m_density(fields_in.repo.get_field("density"))
+    {}
 
+    /** Initialize the source terms
+     *
+     *  At this stage the mesh has been created
+     */
     void init_source_terms(const CFDSim& sim)
     {
         amrex::ParmParse pp(PDE::pde_name());
         amrex::Vector<std::string> src_terms;
         pp.queryarr("source_terms", src_terms);
-        for (auto& src_name: src_terms)
-        {
+
+        for (auto& src_name : src_terms) {
+            // Prefer to use emplace_back here
+            // cppcheck-suppress useStlAlgorithm
             sources.emplace_back(PDE::SrcTerm::create(src_name, sim));
         }
     }
 
+    //! Helper method to multiply the source terms with density
     void multiply_rho(const FieldState fstate)
     {
         BL_PROFILE("amr-wind::" + PDE::pde_name() + "::multiply_rho");
         const auto rhostate = field_impl::phi_state(fstate);
-        auto& density = m_density.state(rhostate);
+        const auto& density = m_density.state(rhostate);
 
         const int nlevels = fields.repo.num_active_levels();
-        for (int lev=0; lev < nlevels; ++lev) {
+        for (int lev = 0; lev < nlevels; ++lev) {
             auto& src_term = fields.src_term(lev);
 #ifdef _OPENMP
 #pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
@@ -74,6 +118,7 @@ struct SrcTermOpBase
         }
     }
 
+    //! Update source terms during time-integration procedure
     void operator()(const FieldState fstate)
     {
         // Zero out source term
@@ -83,7 +128,7 @@ struct SrcTermOpBase
         if (this->sources.size() == 0) return;
 
         const int nlevels = this->fields.repo.num_active_levels();
-        for (int lev=0; lev < nlevels; ++lev) {
+        for (int lev = 0; lev < nlevels; ++lev) {
             auto& src_term = this->fields.src_term(lev);
 #ifdef _OPENMP
 #pragma omp parallel if (amrex::Gpu::notInLaunchRegion())
@@ -93,7 +138,7 @@ struct SrcTermOpBase
                 const auto& bx = mfi.tilebox();
                 const auto& vf = src_term.array(mfi);
 
-                for (auto& src: this->sources) {
+                for (auto& src : this->sources) {
                     (*src)(lev, mfi, bx, fstate, vf);
                 }
             }
@@ -107,25 +152,31 @@ struct SrcTermOpBase
     amrex::Vector<std::unique_ptr<typename PDE::SrcTerm>> sources;
 };
 
-template<typename PDE>
+/** Implementation of source terms for scalar transport equations
+ *  \ingroup pdeop
+ */
+template <typename PDE>
 struct SrcTermOp : SrcTermOpBase<PDE>
 {
-    SrcTermOp(PDEFields& fields_in) : SrcTermOpBase<PDE>(fields_in) {}
+    explicit SrcTermOp(PDEFields& fields_in) : SrcTermOpBase<PDE>(fields_in) {}
 };
 
-template<typename PDE, typename Scheme, typename = void>
+template <typename PDE, typename Scheme, typename = void>
 struct AdvectionOp
 {};
 
-template<typename PDE, typename Scheme, typename = void>
+template <typename PDE, typename Scheme, typename = void>
 struct DiffusionOp
 {};
 
-template<typename PDE>
+/** Turbulence update operator for scalar transport equations
+ *  \ingroup pdeop
+ */
+template <typename PDE>
 struct TurbulenceOp
 {
-    TurbulenceOp(turbulence::TurbulenceModel& tmodel,
-                 PDEFields& fields)
+    // cppcheck-suppress uninitMemberVar
+    TurbulenceOp(turbulence::TurbulenceModel& tmodel, PDEFields& fields)
         : m_tmodel(tmodel), m_fields(fields)
     {}
 
@@ -138,10 +189,29 @@ struct TurbulenceOp
     PDEFields& m_fields;
 };
 
-template<typename PDE, typename = void>
+/** Boundary condition update operator
+ *  \ingroup pdeop
+ */
+template <typename PDE, typename = void>
 struct BCOp;
 
-}
-}
+/** Actions to be performed after a PDE solve
+ *  \ingroup pdeop
+ */
+template <typename PDE>
+struct PostSolveOp
+{
+    explicit PostSolveOp(CFDSim& sim, PDEFields& fields)
+        : m_sim(sim), m_fields(fields)
+    {}
+
+    void operator()(const amrex::Real time) { m_fields.field.fillpatch(time); }
+
+    CFDSim& m_sim;
+    PDEFields& m_fields;
+};
+
+} // namespace pde
+} // namespace amr_wind
 
 #endif /* PDEOPS_H */

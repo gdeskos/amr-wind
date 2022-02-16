@@ -8,20 +8,22 @@
 namespace amr_wind {
 
 /** Boussinesq Bubble physics
+ *  \ingroup physics
+ *
+ *  \sa BoussinesqBubbleFieldInit
  */
 class BoussinesqBubble : public Physics::Register<BoussinesqBubble>
 {
 public:
     static const std::string identifier() { return "BoussinesqBubble"; }
 
-    BoussinesqBubble(CFDSim& sim);
+    explicit BoussinesqBubble(CFDSim& sim);
 
     virtual ~BoussinesqBubble() = default;
 
-    //! Initialize the temperature and velocity fields for BoussinesqBubble simulations
-    void initialize_fields(
-        int level,
-        const amrex::Geometry& geom) override;
+    //! Initialize the temperature and velocity fields for BoussinesqBubble
+    //! simulations
+    void initialize_fields(int level, const amrex::Geometry& geom) override;
 
     void post_init_actions() override {}
 
@@ -42,6 +44,6 @@ private:
     std::unique_ptr<BoussinesqBubbleFieldInit> m_field_init;
 };
 
-}
+} // namespace amr_wind
 
 #endif /* BoussinesqBubble_H */
