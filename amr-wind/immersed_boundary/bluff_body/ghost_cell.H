@@ -10,7 +10,7 @@ namespace ib {
 /** GHOST CELL METHOD
  */
 
-AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE void ghost_cell(
+/*AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE void ghost_cell(
     int i,
     int j,
     int k,
@@ -24,6 +24,7 @@ AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE void ghost_cell(
     amrex::Real& vely,
     amrex::Real& velz) noexcept
 {}
+*/
 
 /** VANDERMONDE MATRIX
  *
@@ -53,16 +54,63 @@ AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE void ghost_cell(
  *        | /
  *        |/----> x
  */
+
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE void vandermonde_matrix(
-    amrex::Real xIP,
-    amrex::Real yIP,
-    amrex::Real zIP,
-    amrex::Real dx,
-    amrex::Real dy,
-    amrex::Real dz,
-    amrex::Vector<amrex::Real> Vmatrix)
+    const amrex::Vector<amrex::Real>& x_loc_NIP,
+    const amrex::Vector<amrex::Real>& y_loc_NIP,
+    const amrex::Vector<amrex::Real>& z_loc_NIP,
+    amrex::Array2D<amrex::Real, 0, 7, 0, 7>& Vmatrix)
+{
+    const int Np = 8;
+
+    for (int row = 0; row < Np; row++) {
+        amrex::Real xloc = x_loc_NIP[row];
+        amrex::Real yloc = y_loc_NIP[row];
+        amrex::Real zloc = z_loc_NIP[row];
+
+        Vmatrix(row, 0) = xloc * yloc * zloc;
+        Vmatrix(row, 1) = xloc * yloc;
+        Vmatrix(row, 2) = xloc * zloc;
+        Vmatrix(row, 3) = yloc * zloc;
+        Vmatrix(row, 4) = xloc;
+        Vmatrix(row, 5) = yloc;
+        Vmatrix(row, 6) = zloc;
+        Vmatrix(row, 7) = 1.0;
+    }
+}
+
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE void gauss_siedel_coeffVector(
+    amrex::Array2D<amrex::Real, 0, 7, 0, 7>& Vmatrix,
+    const amrex::Vector<amrex::Real>& phi,
+    amrex::Vector<amrex::Real>& coeff)
 {
     // Find neighboring cells by defining a 8x3 vector
+    const int Np = 8;
+    const int Niter = 100;
+    int n = 0;
+
+    amrex::Real sum_c1;
+    amrex::Real sum_c2;
+
+    while (n < Niter) {
+        for (int row = 0; row < Np; row++) {
+            sum_c1 = 0.0;
+            sum_c2 = 0.0;
+
+            amrex::Real inv_Vrr = 1.0 / Vmatrix(row, row);
+
+            for (int col = 0; col <= (row - 1); col++) {
+                sum_c1 = sum_c1 + Vmatrix(row, col) * coeff[col];
+            }
+
+            for (int col = row + 1; col <= (Np - 1); col++) {
+                sum_c2 = sum_c2 + Vmatrix(row, col) * coeff[col];
+            }
+
+            coeff[row] = inv_Vrr * (phi[row] - sum_c1 - sum_c2);
+        }
+        n++;
+    }
 }
 
 } // namespace ib
