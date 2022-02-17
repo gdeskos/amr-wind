@@ -30,6 +30,20 @@ void incflo::ReadParameters()
         // Godunov-related flags
         pp.query("use_godunov", m_use_godunov);
 
+        // Semi-implicit convection
+        int convection_type = 0;
+        pp.query("convection_type", convection_type);
+
+        if (convection_type == 0) {
+          m_conv_type = ConvectionType::Explicit;
+        } else if (convection_type == 1) {
+          m_conv_type = ConvectionType::Semi_Implicit;
+        } else {
+            amrex::Abort(
+                "We currently require convection_type = 0 for explicit, or 1 for "
+                "Semi-Implicit"); 
+        }
+
         // The default for diffusion_type is 2, i.e. the default m_diff_type is
         // DiffusionType::Implicit
         int diffusion_type = 2;
@@ -46,11 +60,13 @@ void incflo::ReadParameters()
                 "Crank-Nicolson or 2 for implicit");
         }
 
-        if (!m_use_godunov && m_time.max_cfl() > 0.5) {
+/*        if (!m_use_godunov && m_time.max_cfl() > 0.5) {
             amrex::Abort(
                 "We currently require cfl <= 0.5 when using the MOL advection "
                 "scheme");
         }
+*/
+
         if (m_use_godunov && m_time.max_cfl() > 1.0) {
             amrex::Abort(
                 "We currently require cfl <= 1.0 when using the Godunov "

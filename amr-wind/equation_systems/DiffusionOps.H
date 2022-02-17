@@ -7,6 +7,7 @@
 #include "amr-wind/equation_systems/PDEOps.H"
 #include "amr-wind/equation_systems/PDEHelpers.H"
 #include "amr-wind/diffusion/diffusion.H"
+#include "amr-wind/incflo.H"
 
 #include "AMReX_MLABecLaplacian.H"
 #include "AMReX_MLTensorOp.H"
@@ -40,6 +41,10 @@ public:
      *
      *  \param dt timestep size
      */
+/*
+    virtual void linsys_solve(const ConvectionType convtype, const amrex::Real dt);
+*/
+
     virtual void linsys_solve(const amrex::Real dt);
 
     virtual void linsys_solve_impl();
@@ -51,6 +56,14 @@ protected:
         const amrex::Real alpha,
         const amrex::Real beta,
         const FieldState fstate);
+
+/*    virtual void setup_operator(
+        LinOp& linop,
+        const amrex::Real alpha,
+        const amrex::Real beta,
+        const FieldState fstate,
+        const ConvectionType convtype);
+*/
 
     virtual void setup_solver(amrex::MLMG& mlmg);
 

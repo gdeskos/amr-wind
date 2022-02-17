@@ -3,6 +3,8 @@
 
 enum struct DiffusionType { Invalid, Explicit, Crank_Nicolson, Implicit };
 
+enum struct ConvectionType { Invalid, Explicit, Semi_Implicit };
+
 enum struct BC {
     pressure_inflow,
     pressure_outflow,

@@ -94,6 +94,9 @@ public:
     //! Solve the diffusion linear system and update the field
     virtual void solve(const amrex::Real dt) = 0;
 
+/*    virtual void solve(const amrex::Real dt, const ConvectionType convtype) = 0;
+*/
+
     //! Perform post-processing actions after a system solve
     virtual void post_solve_actions() = 0;
 

@@ -3,6 +3,9 @@
 
 #include "AMReX_MLTensorOp.H"
 
+#include "amr-wind/incflo.H"
+#include "amr-wind/incflo_enums.H"
+
 namespace amr_wind {
 namespace pde {
 
@@ -48,6 +51,17 @@ DiffSolverIface<LinOp>::DiffSolverIface(
     // operators.
 }
 
+/*
+template <typename LinOp>
+void DiffSolverIface<LinOp>::setup_operator(
+    LinOp& linop,
+    const amrex::Real alpha,
+    const amrex::Real beta,
+    const FieldState fstate,
+    const ConvectionType convtype)
+{
+*/
+
 template <typename LinOp>
 void DiffSolverIface<LinOp>::setup_operator(
     LinOp& linop,
@@ -64,10 +78,16 @@ void DiffSolverIface<LinOp>::setup_operator(
         linop.setLevelBC(lev, &m_pdefields.field(lev));
     }
 
-    //    this->set_acoeffs(linop, fstate);
-
-    this->set_acoeffs_implicit(linop, beta, fstate);
-
+/*    if (convtype == ConvectionType::Explicit) { 
+      this->set_acoeffs(linop, fstate);
+    } else {
+      this->set_acoeffs_implicit(linop, beta, fstate);
+    }
+*/
+//      this->set_acoeffs(linop, fstate);
+ 
+      this->set_acoeffs_implicit(linop, beta, fstate);
+ 
     set_bcoeffs(linop);
 }
 
@@ -213,9 +233,20 @@ template <typename LinOp>
 void DiffSolverIface<LinOp>::linsys_solve(const amrex::Real dt)
 {
     FieldState fstate = FieldState::New;
+
     this->setup_operator(*this->m_solver, 1.0, dt, fstate);
     this->linsys_solve_impl();
 }
+
+/*template <typename LinOp>
+void DiffSolverIface<LinOp>::linsys_solve(const ConvectionType convtype, const amrex::Real dt)
+{
+    FieldState fstate = FieldState::New;
+
+    this->setup_operator(*this->m_solver, 1.0, dt, fstate, convtype);
+    this->linsys_solve_impl();
+}
+*/
 
 template class DiffSolverIface<amrex::MLABecLaplacian>;
 template class DiffSolverIface<amrex::MLTensorOp>;

@@ -322,7 +322,14 @@ void incflo::ApplyPredictor(bool incremental_projection)
         Real dt_diff = (m_diff_type == DiffusionType::Implicit)
                            ? m_time.deltaT()
                            : 0.5 * m_time.deltaT();
-        icns().solve(dt_diff);
+
+/*        if (m_conv_type == ConvectionType::Explicit)
+          icns().solve(dt_diff);
+        else
+          icns().solve(dt_diff,m_conv_type);
+*/
+
+          icns().solve(dt_diff);
     }
     icns().post_solve_actions();
 

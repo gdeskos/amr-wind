@@ -172,6 +172,9 @@ private:
     // Default to MOL (not Godunov)
     bool m_use_godunov = false;
 
+    // Semi-implicit convection
+    ConvectionType m_conv_type = ConvectionType::Explicit;
+
     //! number of cells on all levels including covered cells
     amrex::Long m_cell_count{-1};
 

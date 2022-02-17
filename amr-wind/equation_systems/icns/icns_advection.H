@@ -8,6 +8,9 @@
 #include "AMReX_MultiFabUtil.H"
 #include "hydro_MacProjector.H"
 
+#include "amr-wind/incflo.H"
+#include "amr-wind/diffusion/diffusion.H"
+
 namespace amr_wind {
 namespace pde {
 
@@ -49,6 +52,7 @@ struct AdvectionOp<ICNS, fvm::Godunov>
     {
 
         amrex::ParmParse pp("incflo");
+
         pp.query("godunov_type", godunov_type);
         if (pp.contains("use_ppm") || pp.contains("use_limiter"))
             amrex::Abort(
@@ -331,7 +335,10 @@ struct AdvectionOp<ICNS, fvm::MOL>
         , v_mac(fields_in.repo.get_field("v_mac"))
         , w_mac(fields_in.repo.get_field("w_mac"))
         , m_macproj_op(fields.repo, has_overset, variable_density)
-    {}
+    {
+        amrex::ParmParse pp("incflo");
+//	pp.query("convection_type", m_conv_type);
+    }
 
     void operator()(const FieldState fstate, const amrex::Real dt)
     {
@@ -411,11 +418,13 @@ struct AdvectionOp<ICNS, fvm::MOL>
                     bx, AMREX_SPACEDIM, conv_term(lev).array(mfi), fx, fy, fz,
                     geom[lev].InvCellSizeArray());
 
-                mol::compute_convective_rate_implicit_correction(
-                    bx, AMREX_SPACEDIM, conv_term(lev).array(mfi),
-                    dof_field(lev).const_array(mfi),
-                    u_mac(lev).const_array(mfi), v_mac(lev).const_array(mfi),
-                    w_mac(lev).const_array(mfi), geom[lev].InvCellSizeArray());
+                //if (m_conv_type == ConvectionType::Semi_Implicit) {
+                  mol::compute_convective_rate_implicit_correction(
+                      bx, AMREX_SPACEDIM, conv_term(lev).array(mfi),
+                      dof_field(lev).const_array(mfi),
+                      u_mac(lev).const_array(mfi), v_mac(lev).const_array(mfi),
+                      w_mac(lev).const_array(mfi), geom[lev].InvCellSizeArray());
+                //}
             }
         }
     }
@@ -426,6 +435,8 @@ struct AdvectionOp<ICNS, fvm::MOL>
     Field& w_mac;
 
     MacProjOp m_macproj_op;
+
+    ConvectionType m_conv_type = ConvectionType::Explicit;
 };
 
 } // namespace pde

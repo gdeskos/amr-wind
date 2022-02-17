@@ -7,6 +7,7 @@
 #include "amr-wind/equation_systems/PDEOps.H"
 #include "amr-wind/equation_systems/CompRHSOps.H"
 #include "amr-wind/equation_systems/DiffusionOps.H"
+#include "amr-wind/incflo.H"
 
 namespace amr_wind {
 namespace pde {
@@ -149,6 +150,17 @@ public:
             m_diff_op->linsys_solve(dt);
         }
     }
+
+/*
+    void solve(const amrex::Real dt, const ConvectionType convtype) override
+    {
+        if (PDE::has_diffusion) {
+            BL_PROFILE("amr-wind::" + this->identifier() + "::linsys_solve");
+            m_bc_op.apply_bcs(FieldState::New);
+            m_diff_op->linsys_solve(convtype, dt);
+        }
+    }
+*/
 
     void post_solve_actions() override { m_post_solve_op(m_time.new_time()); }
 
