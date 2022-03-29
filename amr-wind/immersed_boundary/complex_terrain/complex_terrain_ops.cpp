@@ -8,7 +8,6 @@
 
 // Used for mms
 #include "amr-wind/physics/ConvectingTaylorVortex.H"
-
 #include "AMReX_ParmParse.H"
 
 namespace amr_wind {

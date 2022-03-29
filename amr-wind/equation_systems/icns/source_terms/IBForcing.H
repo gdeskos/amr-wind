@@ -26,6 +26,8 @@ public:
 
 private:
     const Field& m_ib_src;
+    const Field& m_ib_normal;
+    const Field& m_diffterm;
 };
 
 } // namespace icns

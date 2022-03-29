@@ -101,6 +101,17 @@ struct InitDataOp<Sphere>
     }
 };
 
+template <>
+struct ComputeSourceOp<Sphere>
+{
+    void operator()(
+        Sphere::DataType& /*data*/,
+        const int /*lev*/,
+        const amrex::MFIter& /*mfi*/,
+        const amrex::Geometry& /*geom*/)
+    {}
+};
+
 } // namespace ops
 } // namespace ib
 } // namespace amr_wind

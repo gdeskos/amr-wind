@@ -79,6 +79,8 @@ private:
     //! Outputs processor
     ops::ProcessOutputsOp<GeomTrait> m_out_op;
 
+    ops::ComputeSourceOp<GeomTrait> m_src_op;
+
 public:
     static std::string identifier() { return GeomTrait::identifier(); }
 
@@ -110,10 +112,12 @@ public:
     void compute_forces() override { ops::ComputeForceOp<GeomTrait>()(m_data); }
 
     void compute_source_term(
-        const int /*lev*/,
-        const amrex::MFIter& /*mfi*/,
-        const amrex::Geometry& /*geom*/) override
-    {}
+        const int lev,
+        const amrex::MFIter& mfi,
+        const amrex::Geometry& geom) override
+    {
+        ops::ComputeSourceOp<GeomTrait>()(m_data, lev, mfi, geom);
+    }
 
     void prepare_outputs(const std::string& out_dir) override
     {

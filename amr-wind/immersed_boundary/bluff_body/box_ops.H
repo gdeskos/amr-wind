@@ -113,6 +113,17 @@ struct InitDataOp<Box>
     }
 };
 
+template <>
+struct ComputeSourceOp<Box>
+{
+    void operator()(
+        Box::DataType& /*data*/,
+        const int /*lev*/,
+        const amrex::MFIter& /*mfi*/,
+        const amrex::Geometry& /*geom*/)
+    {}
+};
+
 } // namespace ops
 } // namespace ib
 } // namespace amr_wind

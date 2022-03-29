@@ -5,6 +5,8 @@
 #include "amr-wind/immersed_boundary/IBOps.H"
 #include "amr-wind/immersed_boundary/IB.H"
 #include "amr-wind/immersed_boundary/complex_terrain/complex_terrain_ops.H"
+#include "amr-wind/wind_energy/actuator/actuator_utils.H"
+#include "amr-wind/utilities/tensor_ops.H"
 
 namespace amr_wind {
 namespace ib {
@@ -22,16 +24,18 @@ struct ReadInputsOp<Flat>
 
         complex_terrain::read_inputs(wdata, info, pp);
         pp.get("height", wdata.height);
+        pp.get("drag_coefficient", wdata.drag_coefficient);
+        pp.get("eps_spread", wdata.eps_spread);
     }
 };
 
 template <>
 struct InitDataOp<Flat>
 {
+    //! Immersed boundary force term for wall modeled terrain
     void operator()(Flat::DataType& data)
     {
         const auto& wdata = data.meta();
-
         auto& sim = data.sim();
         // cppcheck-suppress constVariable
         auto& mask_node = sim.repo().get_int_field("mask_node");
@@ -40,7 +44,6 @@ struct InitDataOp<Flat>
 
         auto nlevels = sim.repo().num_active_levels();
         auto geom = sim.mesh().Geom();
-
         amrex::Real h = wdata.height;
 
         for (int lev = 0; lev < nlevels; ++lev) {

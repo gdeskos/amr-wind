@@ -2,9 +2,7 @@
 #define IBOPS_H
 
 #include "amr-wind/immersed_boundary/IBTypes.H"
-#include "AMReX_Vector.H"
 #include "amr-wind/CFDSim.H"
-
 namespace amr_wind {
 namespace ib {
 namespace ops {
@@ -62,6 +60,9 @@ struct UpdateVelOp;
  */
 template <typename GeomTrait, typename = void>
 struct ComputeForceOp;
+
+template <typename GeomTrait, typename = void>
+struct ComputeSourceOp;
 
 template <typename GeomTrait, typename = void>
 struct ProcessOutputsOp;

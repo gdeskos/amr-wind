@@ -153,6 +153,17 @@ struct InitDataOp<Hill>
     }
 };
 
+template <>
+struct ComputeSourceOp<Hill>
+{
+    void operator()(
+        Hill::DataType& /*data*/,
+        const int /*lev*/,
+        const amrex::MFIter& /*mfi*/,
+        const amrex::Geometry& /*geom*/)
+    {}
+};
+
 } // namespace ops
 } // namespace ib
 } // namespace amr_wind
