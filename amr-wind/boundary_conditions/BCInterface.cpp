@@ -91,6 +91,8 @@ void BCIface::read_bctype()
             ibctype[ori] = BC::slip_wall;
         } else if ((bcstr == "wall_model") || (bcstr == "wm")) {
             ibctype[ori] = BC::wall_model;
+        } else if ((bcstr == "moving_wall_model") || (bcstr == "mwm")) {
+            ibctype[ori] = BC::moving_wall_model;
         } else if ((bcstr == "zero_gradient") || (bcstr == "zg")) {
             ibctype[ori] = BC::zero_gradient;
         } else if ((bcstr == "fixed_gradient") || (bcstr == "fg")) {
@@ -236,6 +238,21 @@ void BCVelocity::set_bcrec()
                 bcrec[dir].setHi(dir, amrex::BCType::ext_dir);
             }
             break;
+        case BC::moving_wall_model:
+            if (side == amrex::Orientation::low) {
+                // Tangential directions use dirichlet boundary conditions (wave
+                // orbital velocity)
+                set_bcrec_lo(dir, amrex::BCType::ext_dir);
+                // Normal direction uses dirichlet (ext-dir)
+                bcrec[dir].setLo(dir, amrex::BCType::ext_dir);
+            } else {
+                // Tangential directions use dirichlet boundary conditions (wave
+                // orbital velocity)
+                set_bcrec_hi(dir, amrex::BCType::ext_dir);
+                // Normal direction uses dirichlet (ext-dir)
+                bcrec[dir].setHi(dir, amrex::BCType::ext_dir);
+            }
+            break;
 
         default:
             amrex::Abort("Invalid incflo BC type encountered");
@@ -312,6 +329,7 @@ void BCScalar::set_bcrec()
 
         case BC::slip_wall:
         case BC::wall_model:
+        case BC::moving_wall_model:
         case BC::fixed_gradient:
             if (side == amrex::Orientation::low) {
                 set_bcrec_lo(dir, amrex::BCType::hoextrap);
