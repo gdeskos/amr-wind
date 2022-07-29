@@ -117,6 +117,9 @@ private:
 
     //! Hybrid RANS-LES with Nalu-wind
     bool m_hybrid_rl{false};
+
+    //! Wall kinematics
+    bool m_wall_kinematics{false};
 };
 
 } // namespace amr_wind

@@ -26,16 +26,16 @@ struct ShearStressConstant
         , term1(mo.utau * mo.kappa / mo.phi_h())
     {}
 
-    AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::Real
-    calc_vel_x(amrex::Real /* u */, amrex::Real /* wspd */) const
+    AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::Real calc_vel_x(
+        amrex::Real /* u */, amrex::Real ub, amrex::Real /* wspd */) const
     {
-        return u_mean / wspd_mean * utau2;
+        return (u_mean - ub) / wspd_mean * utau2;
     };
 
-    AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::Real
-    calc_vel_y(amrex::Real /* u */, amrex::Real /* wspd */) const
+    AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::Real calc_vel_y(
+        amrex::Real /* u */, amrex::Real vb, amrex::Real /* wspd */) const
     {
-        return v_mean / wspd_mean * utau2;
+        return (v_mean - vb) / wspd_mean * utau2;
     };
 
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::Real
@@ -62,15 +62,15 @@ struct ShearStressLocal
     {}
 
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::Real
-    calc_vel_x(amrex::Real u, amrex::Real wspd) const
+    calc_vel_x(amrex::Real u, amrex::Real ub, amrex::Real wspd) const
     {
-        return u / amrex::max(wspd, small_vel) * utau2;
+        return (u - ub) / amrex::max(wspd, small_vel) * utau2;
     };
 
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::Real
-    calc_vel_y(amrex::Real v, amrex::Real wspd) const
+    calc_vel_y(amrex::Real v, amrex::Real vb, amrex::Real wspd) const
     {
-        return v / amrex::max(wspd, small_vel) * utau2;
+        return (v - vb) / amrex::max(wspd, small_vel) * utau2;
     };
 
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::Real
@@ -95,15 +95,15 @@ struct ShearStressSchumann
     {}
 
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::Real
-    calc_vel_x(amrex::Real u, amrex::Real /* wspd */) const
+    calc_vel_x(amrex::Real u, amrex::Real ub, amrex::Real /* wspd */) const
     {
-        return u / wspd_mean * utau2;
+        return (u - ub) / wspd_mean * utau2;
     };
 
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::Real
-    calc_vel_y(amrex::Real v, amrex::Real /* wspd */) const
+    calc_vel_y(amrex::Real v, amrex::Real vb, amrex::Real /* wspd */) const
     {
-        return v / wspd_mean * utau2;
+        return (v - vb) / wspd_mean * utau2;
     };
 
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::Real
@@ -131,14 +131,14 @@ struct ShearStressMoeng
     {}
 
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::Real
-    calc_vel_x(amrex::Real u, amrex::Real wspd) const
+    calc_vel_x(amrex::Real u, amrex::Real /* ub */, amrex::Real wspd) const
     {
         return ((u - u_mean) * wspd_mean + wspd * u_mean) /
                (wspd_mean * wspd_mean) * utau2;
     };
 
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::Real
-    calc_vel_y(amrex::Real v, amrex::Real wspd) const
+    calc_vel_y(amrex::Real v, amrex::Real /* vb */, amrex::Real wspd) const
     {
         return ((v - v_mean) * wspd_mean + wspd * v_mean) /
                (wspd_mean * wspd_mean) * utau2;

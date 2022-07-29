@@ -32,6 +32,7 @@ ABL::ABL(CFDSim& sim)
         pp.query("initial_sdr_value", m_init_sdr);
         pp.query("normal_direction", dir);
         pp.query("statistics_mode", statistics_mode);
+        pp.query("wall_kinematics", m_wall_kinematics);
         m_stats =
             ABLStatsBase::create(statistics_mode, sim, m_abl_wall_func, dir);
     }
@@ -91,6 +92,10 @@ void ABL::post_init_actions()
     m_abl_wall_func.update_umean(
         m_stats->vel_profile(), m_stats->theta_profile());
 
+    if (m_wall_kinematics) {
+        m_abl_wall_func.update_wall_kinematics();
+    }
+
     // Register ABL wall function for velocity
     m_velocity.register_custom_bc<ABLVelWallFunc>(m_abl_wall_func);
     (*m_temperature).register_custom_bc<ABLTempWallFunc>(m_abl_wall_func);
@@ -113,6 +118,9 @@ void ABL::pre_advance_work()
     const auto& vel_pa = m_stats->vel_profile();
     m_abl_wall_func.update_umean(
         m_stats->vel_profile(), m_stats->theta_profile());
+    if (m_wall_kinematics) {
+        m_abl_wall_func.update_wall_kinematics();
+    }
 
     if (m_abl_forcing != nullptr) {
         const amrex::Real zh = m_abl_forcing->forcing_height();

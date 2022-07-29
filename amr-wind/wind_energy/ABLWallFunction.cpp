@@ -88,6 +88,13 @@ ABLWallFunction::ABLWallFunction(const CFDSim& sim)
     m_mo.alg_type =
         m_tempflux ? MOData::HEAT_FLUX : MOData::SURFACE_TEMPERATURE;
     m_mo.gravity = utils::vec_mag(m_gravity.data());
+
+    if (pp.contains("wall_kinematics")) {
+        m_wk.time = m_sim.time().current_time();
+        pp.query("ampltitude", m_wk.amp);
+        pp.query("wavelength", m_wk.lambda);
+        pp.query("wave_speed", m_wk.c);
+    }
 }
 
 void ABLWallFunction::init_log_law_height()
@@ -127,6 +134,12 @@ void ABLWallFunction::update_umean(
     m_mo.update_fluxes();
 }
 
+void ABLWallFunction::update_wall_kinematics()
+{
+    m_wk.time = m_sim.time().new_time();
+    amrex::Print() << m_wk.time << std::endl;
+}
+
 ABLVelWallFunc::ABLVelWallFunc(
     Field& /*unused*/, const ABLWallFunction& wall_func)
     : m_wall_func(wall_func)
@@ -148,7 +161,10 @@ ABLVelWallFunc::ABLVelWallFunc(
 
 template <typename ShearStress>
 void ABLVelWallFunc::wall_model(
-    Field& velocity, const FieldState rho_state, const ShearStress& tau)
+    Field& velocity,
+    const FieldState rho_state,
+    const ShearStress& tau,
+    const amrex::Real time)
 {
     BL_PROFILE("amr-wind::ABLVelWallFunc");
 
@@ -183,11 +199,12 @@ void ABLVelWallFunc::wall_model(
 #endif
         for (amrex::MFIter mfi(vel_lev, mfi_info); mfi.isValid(); ++mfi) {
             const auto& bx = mfi.validbox();
+            const auto& dx = geom.CellSizeArray();
+            const auto& problo = geom.ProbLoArray();
             auto varr = vel_lev.array(mfi);
             auto vold_arr = vold_lev.array(mfi);
             auto den = rho_lev.array(mfi);
             auto eta = eta_lev.array(mfi);
-
             if (bx.smallEnd(idim) == domain.smallEnd(idim) &&
                 velocity.bc_type()[zlo] == BC::wall_model) {
                 amrex::ParallelFor(
@@ -198,14 +215,27 @@ void ABLVelWallFunc::wall_model(
                         const amrex::Real vv = vold_arr(i, j, k, 1);
                         const amrex::Real wspd = std::sqrt(uu * uu + vv * vv);
 
+                        const amrex::Real A = 1.6;
+                        const amrex::Real lambda = 100;
+                        const amrex::Real c = 12.5;
+                        const amrex::Real x = problo[0] + (i + 0.5) * dx[0];
+                        const amrex::Real kappa = 2. * utils::pi() / lambda;
+
+                        const amrex::Real ub =
+                            A * kappa * c * std::cos(kappa * (x - c * time));
+                        const amrex::Real wb =
+                            A * kappa * c * std::sin(kappa * (x - c * time));
+
                         // Dirichlet BC
-                        varr(i, j, k - 1, 2) = 0.0;
+                        varr(i, j, k - 1, 2) = wb;
 
                         // Shear stress BC
+                        vold_arr(i, j, k - 1, 0) = ub;
                         varr(i, j, k - 1, 0) =
-                            tau.calc_vel_x(uu, wspd) * den(i, j, k) / mu;
+                            tau.calc_vel_x(uu, ub, wspd) * den(i, j, k) / mu +
+                            10. * (uu - ub);
                         varr(i, j, k - 1, 1) =
-                            tau.calc_vel_y(vv, wspd) * den(i, j, k) / mu;
+                            tau.calc_vel_y(vv, 0., wspd) * den(i, j, k) / mu;
                     });
             }
 
@@ -223,10 +253,10 @@ void ABLVelWallFunc::wall_model(
                         varr(i, j, k, 2) = 0.0;
 
                         // Shear stress BC
-                        varr(i, j, k, 0) =
-                            -tau.calc_vel_x(uu, wspd) * den(i, j, k - 1) / mu;
-                        varr(i, j, k, 1) =
-                            -tau.calc_vel_y(vv, wspd) * den(i, j, k - 1) / mu;
+                        varr(i, j, k, 0) = -tau.calc_vel_x(uu, 0.0, wspd) *
+                                           den(i, j, k - 1) / mu;
+                        varr(i, j, k, 1) = -tau.calc_vel_y(vv, 0.0, wspd) *
+                                           den(i, j, k - 1) / mu;
                     });
             }
         }
@@ -236,26 +266,27 @@ void ABLVelWallFunc::wall_model(
 void ABLVelWallFunc::operator()(Field& velocity, const FieldState rho_state)
 {
     const auto& mo = m_wall_func.mo();
+    const amrex::Real time = m_wall_func.wk().time;
 
     if (m_wall_shear_stress_type == "moeng") {
 
         auto tau = ShearStressMoeng(mo);
-        wall_model(velocity, rho_state, tau);
+        wall_model(velocity, rho_state, tau, time);
 
     } else if (m_wall_shear_stress_type == "constant") {
 
         auto tau = ShearStressConstant(mo);
-        wall_model(velocity, rho_state, tau);
+        wall_model(velocity, rho_state, tau, time);
 
     } else if (m_wall_shear_stress_type == "local") {
 
         auto tau = ShearStressLocal(mo);
-        wall_model(velocity, rho_state, tau);
+        wall_model(velocity, rho_state, tau, time);
 
     } else if (m_wall_shear_stress_type == "schumann") {
 
         auto tau = ShearStressSchumann(mo);
-        wall_model(velocity, rho_state, tau);
+        wall_model(velocity, rho_state, tau, time);
     }
 }
 

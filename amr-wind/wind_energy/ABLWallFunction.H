@@ -5,6 +5,7 @@
 #include "amr-wind/utilities/FieldPlaneAveraging.H"
 #include "amr-wind/core/FieldBCOps.H"
 #include "amr-wind/wind_energy/MOData.H"
+#include "amr-wind/wind_energy/WKData.H"
 
 namespace amr_wind {
 
@@ -25,6 +26,9 @@ public:
     MOData& mo() { return m_mo; }
     const MOData& mo() const { return m_mo; }
 
+    WKData& wk() { return m_wk; }
+    const WKData& wk() const { return m_wk; }
+
     //! Return the plane-averaged computed friction velocity at any given
     //! instance
     amrex::Real utau() const { return m_mo.utau; }
@@ -36,6 +40,9 @@ public:
     void
     update_umean(const VelPlaneAveraging& vpa, const FieldPlaneAveraging& tpa);
 
+    //! Update the wall velocity at a given timestep
+    void update_wall_kinematics();
+
 private:
     const CFDSim& m_sim;
 
@@ -43,6 +50,9 @@ private:
 
     //! Monin-Obukhov instance
     MOData m_mo;
+
+    //! Ocean waves boundary kinematics instance
+    WKData m_wk;
 
     int m_direction{2};   ///< Direction normal to wall
     bool m_use_fch{true}; ///< Use first cell height?
@@ -74,7 +84,10 @@ public:
 
     template <typename ShearStress>
     void wall_model(
-        Field& velocity, const FieldState rho_state, const ShearStress& tau);
+        Field& velocity,
+        const FieldState rho_state,
+        const ShearStress& tau,
+        const amrex::Real time);
 
 private:
     const ABLWallFunction& m_wall_func;
