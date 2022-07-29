@@ -137,7 +137,6 @@ void ABLWallFunction::update_umean(
 void ABLWallFunction::update_wall_kinematics()
 {
     m_wk.time = m_sim.time().new_time();
-    amrex::Print() << m_wk.time << std::endl;
 }
 
 ABLVelWallFunc::ABLVelWallFunc(
@@ -232,8 +231,7 @@ void ABLVelWallFunc::wall_model(
                         // Shear stress BC
                         vold_arr(i, j, k - 1, 0) = ub;
                         varr(i, j, k - 1, 0) =
-                            tau.calc_vel_x(uu, ub, wspd) * den(i, j, k) / mu +
-                            10. * (uu - ub);
+                            tau.calc_vel_x(uu, ub, wspd) * den(i, j, k) / mu;
                         varr(i, j, k - 1, 1) =
                             tau.calc_vel_y(vv, 0., wspd) * den(i, j, k) / mu;
                     });
