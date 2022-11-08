@@ -5,8 +5,8 @@
 #include "amr-wind/core/SimTime.H"
 
 /**
- *  \defgroup Breaking Waves modeling
- *  Breaking Waves modeling
+ *  \defgroup Water Waves modeling
+ *  WaterWaves modeling
  *
  *  This group documents all the wave mechanics related physics models available
  * in AMR-Wind
@@ -14,27 +14,16 @@
  *  \ingroup physics
  */
 
-/**
- *  \defgroup we_nwb NWB
- *  Numerical Wave Basin (NWB) modeling
- *
- *  \ingroup waves
- */
-
 namespace amr_wind {
 
-/** Numerical Wave Basin physics
- *  \ingroup we_abl
- *
- */
-class BreakingWaves : public Physics::Register<BreakingWaves>
+class WaterWaves : public Physics::Register<WaterWaves>
 {
 public:
-    static std::string identifier() { return "BreakingWaves"; }
+    static std::string identifier() { return "WaterWaves"; }
 
-    explicit BreakingWaves(CFDSim& sim);
+    explicit WaterWaves(CFDSim& sim);
 
-    ~BreakingWaves() override;
+    ~WaterWaves() override;
 
     void initialize_fields(int level, const amrex::Geometry& geom) override;
 
@@ -42,9 +31,11 @@ public:
 
     void post_regrid_actions() override {}
 
-    void pre_advance_work() override {}
+    void pre_advance_work() override;
 
     void post_advance_work() override {}
+
+    void freeze_waves_motion();
 
 private:
     const CFDSim& m_sim;
@@ -60,17 +51,23 @@ private:
     amrex::Real m_sdr0{1.0};
 
     //! Initial free surface amplitude magnitude
-    amrex::Real m_amplitude{0.1};
-
-    amrex::Real m_air_vel_shear_rate{0.1};
+    amrex::Real m_wave_steepness{0.1};
 
     //! Initial free surface wavelength
-    amrex::Real m_wavelength{2.0};
+    amrex::Real m_wave_length{1.0};
 
     //! Initial zero-level free-surface water depth
-    amrex::Real m_waterlevel{0.0};
+    amrex::Real m_water_level{0.0};
+
+    //! Initial air velocity shear profile
+    amrex::Real m_air_U0{1.};
+
+    //! Initial air near wall perturbation level
+    amrex::Real m_air_pert{0.2};
 
     bool m_laminar{false};
+
+    bool m_air_precursor{false};
 };
 
 } // namespace amr_wind
