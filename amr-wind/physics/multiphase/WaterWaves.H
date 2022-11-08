@@ -33,7 +33,9 @@ public:
 
     void pre_advance_work() override;
 
-    void post_advance_work() override;
+    void post_advance_work() override {}
+
+    void pre_pressure_correction_work() override;
 
     void freeze_waves_motion();
 
