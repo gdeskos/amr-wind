@@ -152,12 +152,20 @@ void WaterWaves::pre_advance_work()
     }
 }
 
+void WaterWaves::post_advance_work()
+{
+    if (m_air_precursor) {
+        freeze_waves_motion();
+    }
+}
+
 void WaterWaves::freeze_waves_motion()
 {
     const int nlevels = m_sim.repo().num_active_levels();
 
     for (int lev = 0; lev < nlevels; ++lev) {
         auto& velocity = m_velocity(lev);
+        auto& density = m_density(lev);
         auto& vof = m_sim.repo().get_field("vof")(lev);
 
         for (amrex::MFIter mfi(velocity); mfi.isValid(); ++mfi) {
