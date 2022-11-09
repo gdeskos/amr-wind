@@ -178,9 +178,9 @@ void WaterWaves::freeze_waves_motion()
             const amrex::Array4<amrex::Real>& rho = density.array(mfi);
             amrex::ParallelFor(
                 vbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-                    u(i, j, k, 0) = u(i, j, k, 0) * F(i, j, k);
-                    u(i, j, k, 1) = u(i, j, k, 1) * F(i, j, k);
-                    u(i, j, k, 2) = u(i, j, k, 2) * F(i, j, k);
+                    u(i, j, k, 0) = u(i, j, k, 0) * (1 - F(i, j, k));
+                    u(i, j, k, 1) = u(i, j, k, 1) * (1 - F(i, j, k));
+                    u(i, j, k, 2) = u(i, j, k, 2) * (1 - F(i, j, k));
                     rho(i, j, k) = rho2; // Making sure that the solver uses
                                          // only the air density
                 });
