@@ -163,26 +163,19 @@ void WaterWaves::freeze_waves_motion()
 {
     const int nlevels = m_sim.repo().num_active_levels();
 
-    const auto& mphase = m_sim.physics_manager().get<MultiPhase>();
-    const amrex::Real rho2 = mphase.rho2();
-
     for (int lev = 0; lev < nlevels; ++lev) {
         auto& velocity = m_velocity(lev);
-        auto& density = m_density(lev);
         auto& vof = m_sim.repo().get_field("vof")(lev);
 
         for (amrex::MFIter mfi(velocity); mfi.isValid(); ++mfi) {
             const auto& vbx = mfi.validbox();
             const amrex::Array4<amrex::Real>& F = vof.array(mfi);
             const amrex::Array4<amrex::Real>& u = velocity.array(mfi);
-            const amrex::Array4<amrex::Real>& rho = density.array(mfi);
             amrex::ParallelFor(
                 vbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
                     u(i, j, k, 0) = u(i, j, k, 0) * (1 - F(i, j, k));
                     u(i, j, k, 1) = u(i, j, k, 1) * (1 - F(i, j, k));
                     u(i, j, k, 2) = u(i, j, k, 2) * (1 - F(i, j, k));
-                    rho(i, j, k) = rho2; // Making sure that the solver uses
-                                         // only the air density
                 });
         }
     }
