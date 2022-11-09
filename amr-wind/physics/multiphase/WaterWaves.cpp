@@ -3,6 +3,7 @@
 #include "amr-wind/utilities/trig_ops.H"
 #include "amr-wind/CFDSim.H"
 #include "AMReX_ParmParse.H"
+#include "amr-wind/equation_systems/vof/volume_fractions.H"
 
 namespace amr_wind {
 
@@ -162,20 +163,28 @@ void WaterWaves::pre_pressure_correction_work()
 void WaterWaves::freeze_waves_motion()
 {
     const int nlevels = m_sim.repo().num_active_levels();
+    const auto& geom = m_sim.mesh().Geom();
 
     for (int lev = 0; lev < nlevels; ++lev) {
         auto& velocity = m_velocity(lev);
+        auto& levelset = m_sim.repo().get_field("levelset")(lev);
         auto& vof = m_sim.repo().get_field("vof")(lev);
+        const auto& dx = geom[lev].CellSizeArray();
 
-        for (amrex::MFIter mfi(velocity); mfi.isValid(); ++mfi) {
+        for (amrex::MFIter mfi(levelset); mfi.isValid(); ++mfi) {
             const auto& vbx = mfi.validbox();
-            const amrex::Array4<amrex::Real>& F = vof.array(mfi);
-            const amrex::Array4<amrex::Real>& u = velocity.array(mfi);
+            auto vel = velocity.array(mfi);
+            auto phi = levelset.array(mfi);
+            auto F =vof.array(mfi);
             amrex::ParallelFor(
                 vbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-                    u(i, j, k, 0) = u(i, j, k, 0) * (1 - F(i, j, k));
-                    u(i, j, k, 1) = u(i, j, k, 1) * (1 - F(i, j, k));
-                    u(i, j, k, 2) = u(i, j, k, 2) * (1 - F(i, j, k));
+                    amrex::Real eps = std::cbrt(2. * dx[0] * dx[1] * dx[2]);
+                    F(i,j,k) = multiphase::levelset_to_vof(i,j,k,eps,phi);
+                    if (phi(i, j, k) >= 0) {
+                        vel(i, j, k, 0) = 0.;
+                        vel(i, j, k, 1) = 0.;
+                        vel(i, j, k, 2) = 0.;
+                    }
                 });
         }
     }
