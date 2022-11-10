@@ -70,6 +70,8 @@ private:
     bool m_laminar{false};
 
     bool m_air_precursor{false};
+
+    int m_restart_vof_init{0};
 };
 
 } // namespace amr_wind

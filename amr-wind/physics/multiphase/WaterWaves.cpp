@@ -31,6 +31,14 @@ WaterWaves::WaterWaves(CFDSim& sim)
 
         pp.query("is_air_precursor", m_air_precursor);
 
+        if (!m_air_precursor) {
+            bool init_vof_after_precursor{true};
+            pp.query("init_vof_after_precursor", init_vof_after_precursor);
+            if (init_vof_after_precursor) {
+                m_restart_vof_init = 1;
+            }
+        }
+
         if (m_laminar) {
             pp.query("air_max_velocity", m_air_U0);
             pp.query("air_velocity_perturbation_magnitude", m_air_pert);
@@ -150,6 +158,15 @@ void WaterWaves::pre_advance_work()
 {
     if (m_air_precursor) {
         freeze_waves_motion();
+    } else {
+        if (m_restart_vof_init == 1) {
+            const int nlevels = m_sim.repo().num_active_levels();
+            const auto& geom = m_sim.mesh().Geom();
+            for (int lev = 0; lev < nlevels; ++lev) {
+                initialize_fields(lev, geom[lev]);
+            }
+        }
+        m_restart_vof_init += 1;
     }
 }
 
@@ -175,11 +192,11 @@ void WaterWaves::freeze_waves_motion()
             const auto& vbx = mfi.validbox();
             auto vel = velocity.array(mfi);
             auto phi = levelset.array(mfi);
-            auto F =vof.array(mfi);
+            auto F = vof.array(mfi);
             amrex::ParallelFor(
                 vbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
                     amrex::Real eps = std::cbrt(2. * dx[0] * dx[1] * dx[2]);
-                    F(i,j,k) = multiphase::levelset_to_vof(i,j,k,eps,phi);
+                    F(i, j, k) = multiphase::levelset_to_vof(i, j, k, eps, phi);
                     if (phi(i, j, k) >= 0) {
                         vel(i, j, k, 0) = 0.;
                         vel(i, j, k, 1) = 0.;
