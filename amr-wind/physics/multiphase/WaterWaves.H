@@ -39,6 +39,8 @@ public:
 
     void freeze_waves_motion();
 
+    void reset_waves_velocity();
+
 private:
     const CFDSim& m_sim;
 
