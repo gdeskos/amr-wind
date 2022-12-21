@@ -34,9 +34,6 @@ private:
     const CFDSim& m_sim;
 
     Field& m_velocity;
-
-        //! Monin-Obukhov instance
-    // MOData m_mo;
 };
 
 /** Applies Dirichlet boundary conditions
@@ -44,11 +41,14 @@ private:
 class WaveBCVel : public FieldBCIface
 {
 public:
-    WaveBCVel(Field& velocity);
+    WaveBCVel(Field& velocity, const SimTime& time);
 
     void operator()(Field& velocity, const FieldState rho_state) override;
 
 private:
+    //! Instance of Simulation Time class
+    const SimTime& m_time;
+
     //! Wave length
     amrex::Real m_wave_length{100.};
 

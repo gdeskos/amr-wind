@@ -13,12 +13,12 @@ LinearWaveForcing::LinearWaveForcing(CFDSim& sim)
 void LinearWaveForcing::post_init_actions()
 {
     // Register Dirichlet boundary conditions for velocity
-    m_velocity.register_custom_bc<WaveBCVel>();
+    m_velocity.register_custom_bc<WaveBCVel>(m_sim.time());
 }
 
 void LinearWaveForcing::pre_advance_work() {}
 
-WaveBCVel::WaveBCVel(Field& /*unused*/)
+WaveBCVel::WaveBCVel(Field& /*unused*/, const SimTime& time) : m_time(time)
 {
     amrex::ParmParse pp("LinearWaveForcing");
     pp.query("wave_length", m_wave_length);
@@ -33,6 +33,8 @@ void WaveBCVel::operator()(Field& velocity, const FieldState /*rho_state*/)
     const auto& repo = velocity.repo();
     const int nlevels = repo.num_active_levels();
 
+    const amrex::Real time = m_time.current_time();
+    amrex::Print() << time << std::endl;
     amrex::Orientation zlo(amrex::Direction::z, amrex::Orientation::low);
     amrex::Orientation zhi(amrex::Direction::z, amrex::Orientation::high);
     if ((velocity.bc_type()[zlo] != BC::moving_wall) &&
@@ -69,10 +71,10 @@ void WaveBCVel::operator()(Field& velocity, const FieldState /*rho_state*/)
                         // Dirichlet BC
                         const amrex::Real k_w = 2 * M_PI / l;
                         varr(i, j, k - 1, 0) =
-                            c * H / 2. * k_w * std::cos(k_w * x);
+                            c * H / 2. * k_w * std::cos(k_w * (x - c * time));
                         varr(i, j, k - 1, 1) = 0.0;
                         varr(i, j, k - 1, 2) =
-                            c * H / 2. * k_w * std::sin(k_w * x);
+                            c * H / 2. * k_w * std::sin(k_w * (x - c * time));
                     });
             }
 
