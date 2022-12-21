@@ -34,7 +34,6 @@ void WaveBCVel::operator()(Field& velocity, const FieldState /*rho_state*/)
     const int nlevels = repo.num_active_levels();
 
     const amrex::Real time = m_time.current_time();
-    amrex::Print() << time << std::endl;
     amrex::Orientation zlo(amrex::Direction::z, amrex::Orientation::low);
     amrex::Orientation zhi(amrex::Direction::z, amrex::Orientation::high);
     if ((velocity.bc_type()[zlo] != BC::moving_wall) &&
@@ -71,10 +70,10 @@ void WaveBCVel::operator()(Field& velocity, const FieldState /*rho_state*/)
                         // Dirichlet BC
                         const amrex::Real k_w = 2 * M_PI / l;
                         varr(i, j, k - 1, 0) =
-                            c * H / 2. * k_w * std::cos(k_w * (x - c * time));
+                            H / 2. * k_w * c * std::cos(k_w * (x - c * time));
                         varr(i, j, k - 1, 1) = 0.0;
                         varr(i, j, k - 1, 2) =
-                            c * H / 2. * k_w * std::sin(k_w * (x - c * time));
+                            H / 2. * k_w * c * std::sin(k_w * (x - c * time));
                     });
             }
 

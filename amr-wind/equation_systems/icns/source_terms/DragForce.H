@@ -1,8 +1,9 @@
 #ifndef DRAG_FORCE_H
 #define DRAG_FORCE_H
 
+#include "amr-wind/core/FieldRepo.H"
 #include "amr-wind/equation_systems/icns/MomentumSource.H"
-#include "amr-wind/core/SimTime.H"
+#include "amr-wind/wind_energy/MOData.H"
 
 namespace amr_wind::pde::icns {
 
@@ -19,7 +20,7 @@ public:
 
     ~DragForce() override;
 
-    void operator()(
+    virtual void operator()(
         const int lev,
         const amrex::MFIter& mfi,
         const amrex::Box& bx,
@@ -27,7 +28,13 @@ public:
         const amrex::Array4<amrex::Real>& src_term) const override;
 
 private:
-    const Field& m_drag_src;
+    const amrex::AmrCore& m_mesh;
+    const Field& m_vel;
+
+    //! reference to Monin-Obukhov
+    const MOData& m_mo;
+
+    int m_axis{2};
 };
 
 } // namespace amr_wind::pde::icns
