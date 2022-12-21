@@ -64,6 +64,8 @@ void BCIface::read_bctype()
             ibctype[ori] = BC::pressure_outflow;
         } else if ((bcstr == "mass_inflow") || (bcstr == "mi")) {
             ibctype[ori] = BC::mass_inflow;
+        } else if ((bcstr == "moving_wall") || (bcstr == "mw")) {
+            ibctype[ori] = BC::moving_wall;
         } else if ((bcstr == "no_slip_wall") || (bcstr == "nsw")) {
             ibctype[ori] = BC::no_slip_wall;
         } else if ((bcstr == "slip_wall") || (bcstr == "sw")) {
@@ -183,6 +185,7 @@ void BCVelocity::set_bcrec()
             break;
 
         case BC::wave_generation:
+        case BC::moving_wall:
         case BC::mass_inflow:
         case BC::no_slip_wall:
             if (side == amrex::Orientation::low) {
@@ -262,6 +265,7 @@ void BCScalar::set_bcrec()
             break;
 
         case BC::wave_generation:
+        case BC::moving_wall:
         case BC::mass_inflow:
         case BC::no_slip_wall:
             if (side == amrex::Orientation::low) {

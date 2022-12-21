@@ -28,6 +28,7 @@ Vector<Array<LinOpBCType, AMREX_SPACEDIM>> get_diffuse_tensor_bc(
                 break;
             }
             case BC::wave_generation:
+            case BC::moving_wall:
             case BC::mass_inflow:
             case BC::no_slip_wall: {
                 // All three components are Dirichlet
@@ -86,6 +87,7 @@ get_diffuse_scalar_bc(amr_wind::Field& scalar, Orientation::Side side) noexcept
                 r[dir] = LinOpBCType::inhomogNeumann;
                 break;
             }
+            case BC::moving_wall:
             case BC::mass_inflow:
             case BC::no_slip_wall: {
                 r[dir] = LinOpBCType::Dirichlet;
