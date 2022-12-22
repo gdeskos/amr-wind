@@ -7,16 +7,17 @@
 namespace amr_wind {
 
 LinearWaveForcing::LinearWaveForcing(CFDSim& sim)
-    : m_sim(sim), m_velocity(sim.pde_manager().icns().fields().field)
-{}
-
-void LinearWaveForcing::post_init_actions()
+    : m_sim(sim)
+    , m_velocity(sim.pde_manager().icns().fields().field)
+    , m_lwf_src(sim.repo().declare_field("surface_drag", 3))
 {
     // Register Dirichlet boundary conditions for velocity
     m_velocity.register_custom_bc<WaveBCVel>(m_sim.time());
 }
 
-void LinearWaveForcing::pre_advance_work() {}
+void LinearWaveForcing::post_init_actions() {}
+
+void LinearWaveForcing::pre_advance_work() { m_lwf_src.setVal(0.0); }
 
 WaveBCVel::WaveBCVel(Field& /*unused*/, const SimTime& time) : m_time(time)
 {
@@ -33,7 +34,7 @@ void WaveBCVel::operator()(Field& velocity, const FieldState /*rho_state*/)
     const auto& repo = velocity.repo();
     const int nlevels = repo.num_active_levels();
 
-    const amrex::Real time = m_time.current_time();
+    const amrex::Real t = m_time.current_time();
     amrex::Orientation zlo(amrex::Direction::z, amrex::Orientation::low);
     amrex::Orientation zhi(amrex::Direction::z, amrex::Orientation::high);
     if ((velocity.bc_type()[zlo] != BC::moving_wall) &&
@@ -68,12 +69,12 @@ void WaveBCVel::operator()(Field& velocity, const FieldState /*rho_state*/)
                     [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
                         const amrex::Real x = problo[0] + (i + 0.5) * dx[0];
                         // Dirichlet BC
-                        const amrex::Real k_w = 2 * M_PI / l;
+                        const amrex::Real k_w = 2. * M_PI / l;
                         varr(i, j, k - 1, 0) =
-                            H / 2. * k_w * c * std::cos(k_w * (x - c * time));
+                            H / 2. * k_w * c * std::cos(k_w * (x - c * t));
                         varr(i, j, k - 1, 1) = 0.0;
                         varr(i, j, k - 1, 2) =
-                            H / 2. * k_w * c * std::sin(k_w * (x - c * time));
+                            H / 2. * k_w * c * std::sin(k_w * (x - c * t));
                     });
             }
 
@@ -83,9 +84,9 @@ void WaveBCVel::operator()(Field& velocity, const FieldState /*rho_state*/)
                     amrex::bdryHi(bx, idim),
                     [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
                         // Dirichlet BC
-                        varr(i, j, k - 1, 0) = 1.0;
-                        varr(i, j, k - 1, 1) = 0.0;
-                        varr(i, j, k - 1, 2) = 0.0;
+                        varr(i, j, k + 1, 0) = 1.0;
+                        varr(i, j, k + 1, 1) = 0.0;
+                        varr(i, j, k + 1, 2) = 0.0;
                     });
             }
         }

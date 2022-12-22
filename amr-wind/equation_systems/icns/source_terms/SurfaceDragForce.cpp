@@ -1,4 +1,4 @@
-#include "amr-wind/equation_systems/icns/source_terms/DragForce.H"
+#include "amr-wind/equation_systems/icns/source_terms/SurfaceDragForce.H"
 #include "amr-wind/CFDSim.H"
 #include "amr-wind/core/FieldUtils.H"
 #include "amr-wind/wind_energy/ABL.H"
@@ -9,23 +9,38 @@
 
 namespace amr_wind::pde::icns {
 
-/** Drag Force
+/** Surface Drag Force
  */
-DragForce::DragForce(const CFDSim& sim)
-    : m_mesh(sim.mesh())
-    , m_vel(sim.repo().get_field("velocity"))
-    , m_mo(sim.physics_manager().get<amr_wind::ABL>().abl_wall_function().mo())
-{}
+SurfaceDragForce::SurfaceDragForce(const CFDSim& sim)
+    : m_surf_drag_src(sim.repo().get_field("surface_drag"))
+{
+    if (!sim.physics_manager().contains("LinearWaveForcing") ||
+        !sim.physics_manager().contains("SeaSurfaceDrag")) {
+        amrex::Abort(
+            "SurfaceDragForce requires LinearWaveForcing or SeaSurfaceDrag "
+            "physics to be active");
+    }
+}
 
-DragForce::~DragForce() = default;
+SurfaceDragForce::~SurfaceDragForce() = default;
 
-void DragForce::operator()(
+void SurfaceDragForce::operator()(
     const int lev,
     const amrex::MFIter& mfi,
     const amrex::Box& bx,
-    const FieldState fstate,
+    const FieldState /*fstate*/,
     const amrex::Array4<amrex::Real>& src_term) const
 {
+
+    const auto varr = m_surf_drag_src(lev).const_array(mfi);
+
+    amrex::ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+        src_term(i, j, k, 0) += varr(i, j, k, 0);
+        src_term(i, j, k, 1) += varr(i, j, k, 1);
+        src_term(i, j, k, 2) += varr(i, j, k, 2);
+    });
+
+    /*
     const auto& geom = m_mesh.Geom(lev);
     const auto& dx = m_mesh.Geom(lev).CellSizeArray();
     const auto& domain = geom.Domain();
@@ -44,6 +59,7 @@ void DragForce::operator()(
 
     amrex::ParallelFor(
         amrex::bdryLo(bx, idir),
+
         [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
             const amrex::Real uu = vel_arr(i, j, k, 0);
             const amrex::Real vv = vel_arr(i, j, k, 1);
@@ -53,12 +69,18 @@ void DragForce::operator()(
 
             const amrex::Real ur = uu - u_wall;
             const amrex::Real vr = vv - v_wall;
-            const amrex::Real wspd = std::sqrt(ur * ur + vr * vr);
+            const amrex::Real wspdr = std::sqrt(ur * ur + vr * vr);
 
-            src_term(i, j, k, 0) -= tau.calc_vel_x(uu - u_wall, wspd) / dx[2];
-            src_term(i, j, k, 1) -= tau.calc_vel_y(vv - v_wall, wspd) / dx[2];
+            const amrex::Real tau_D_xz = 0.0;
+            const amrex::Real tau_D_yz = 0.0;
+
+            src_term(i, j, k, 0) +=
+                (tau_D_xz - tau.calc_vel_x(ur, wspdr)) / dx[2];
+            src_term(i, j, k, 1) +=
+                (tau_D_yz - tau.calc_vel_y(vr, wspdr)) / dx[2];
             //        src_term(i, j, k, 2) += 0.0;
         });
+        */
 }
 
 } // namespace amr_wind::pde::icns

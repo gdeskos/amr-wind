@@ -6,7 +6,7 @@ target_sources(${amr_wind_lib_name} PRIVATE
   GravityForcing.cpp
   CoriolisForcing.cpp
   BodyForce.cpp
-  DragForce.cpp
+  SurfaceDragForce.cpp
   ABLMeanBoussinesq.cpp
   ActuatorForcing.cpp
   SynthTurbForcing.cpp

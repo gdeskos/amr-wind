@@ -1,5 +1,5 @@
-#ifndef DRAG_FORCE_H
-#define DRAG_FORCE_H
+#ifndef SURFACE_DRAG_FORCE_H
+#define SURFACE_DRAG_FORCE_H
 
 #include "amr-wind/core/FieldRepo.H"
 #include "amr-wind/equation_systems/icns/MomentumSource.H"
@@ -11,14 +11,14 @@ namespace amr_wind::pde::icns {
  *  \ingroup icns_src
  *
  */
-class DragForce : public MomentumSource::Register<DragForce>
+class SurfaceDragForce : public MomentumSource::Register<SurfaceDragForce>
 {
 public:
-    static std::string identifier() { return "DragForce"; }
+    static std::string identifier() { return "SurfaceDragForce"; }
 
-    explicit DragForce(const CFDSim& /*sim*/);
+    explicit SurfaceDragForce(const CFDSim& sim);
 
-    ~DragForce() override;
+    ~SurfaceDragForce() override;
 
     virtual void operator()(
         const int lev,
@@ -28,15 +28,9 @@ public:
         const amrex::Array4<amrex::Real>& src_term) const override;
 
 private:
-    const amrex::AmrCore& m_mesh;
-    const Field& m_vel;
-
-    //! reference to Monin-Obukhov
-    const MOData& m_mo;
-
-    int m_axis{2};
+    const Field& m_surf_drag_src;
 };
 
 } // namespace amr_wind::pde::icns
 
-#endif /* DRAG_FORCE_H */
+#endif /* SURFACE_DRAG_FORCE_H */

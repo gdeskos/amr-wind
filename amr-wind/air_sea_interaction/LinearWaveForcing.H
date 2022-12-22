@@ -34,6 +34,8 @@ private:
     const CFDSim& m_sim;
 
     Field& m_velocity;
+
+    Field& m_lwf_src;
 };
 
 /** Applies Dirichlet boundary conditions
