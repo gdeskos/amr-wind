@@ -1,5 +1,6 @@
 #include "amr-wind/air_sea_interaction/LinearWaveForcing.H"
 #include "amr-wind/incflo.H"
+#include "amr-wind/fvm/gradient.H"
 
 #include "AMReX_ParmParse.H"
 #include "AMReX_MultiFab.H"
@@ -17,7 +18,50 @@ LinearWaveForcing::LinearWaveForcing(CFDSim& sim)
 
 void LinearWaveForcing::post_init_actions() {}
 
-void LinearWaveForcing::pre_advance_work() { m_lwf_src.setVal(0.0); }
+void LinearWaveForcing::pre_advance_work()
+{
+    BL_PROFILE("amr-wind::LinearWaveForcing::pre_advance_work");
+
+    m_lwf_src.setVal(0.0);
+    const auto& repo = m_velocity.repo();
+    const int nlevels = repo.num_active_levels();
+
+    auto vel_gradient = m_sim.repo().create_scratch_field(
+        AMREX_SPACEDIM * AMREX_SPACEDIM, 1, FieldLoc::CELL);
+
+    // Compute gradients
+    fvm::gradient((*grad_vel), m_velocity);
+
+    const int idir = m_axis;
+
+    // FIXME: should not be doing this for every box
+    auto tau = ShearStressMoeng(m_mo);
+
+    for (int lev = 0; lev < nlevels; ++lev) {
+        auto& gradvel = (*vel_gradient)(lev);
+        auto& velocity = m_velocity(lev);
+
+        const auto& geom = repo.mesh().Geom(lev);
+        const auto& dx = repo.mesh().Geom(lev).CellSizeArray();
+        const auto& domain = geom.Domain();
+
+        // FIXME: only doing zlo for now
+        if (!(bx.smallEnd(idir) == domain.smallEnd(idir))) return;
+        if (idir != 2) return;
+
+        for (amrex::MFIter mfi(velocity); mfi.isValid(); ++mfi) {
+            const auto& bx = mfi.growntilebox(1);
+            const amrex::Array4<amrex::Real>& dveldx = gradvel.array(mfi);
+            const amrex::Array4<amrex::Real>& rho = density.array(mfi);
+
+            amrex::ParallelFor(
+                bx, AMREX_SPACEDIM,
+                [=] AMREX_GPU_DEVICE(int i, int j, int k, int n) noexcept {
+                    rhou(i, j, k, n) = vel(i, j, k, n) * rho(i, j, k);
+                });
+        }
+    }
+}
 
 WaveBCVel::WaveBCVel(Field& /*unused*/, const SimTime& time) : m_time(time)
 {

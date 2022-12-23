@@ -1,8 +1,8 @@
 target_sources(${amr_wind_lib_name}
   PRIVATE
 
-  SeaSurfaceDrag.cpp
+  VOFInterfaceDrag.cpp
   LinearWaveForcing.cpp
-  #WaveDragModel.cpp
+  WaveDragModel.cpp
   )
 

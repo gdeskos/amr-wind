@@ -1,18 +1,18 @@
-#ifndef SEA_SURFACE_DRAG_H
-#define SEA_SURFACE_DRAG_H
+#ifndef VOF_INTERFACE_DRAG_H
+#define VOF_INTERFACE_DRAG_H
 
 #include "amr-wind/core/Physics.H"
 #include "amr-wind/core/SimTime.H"
 namespace amr_wind {
 
-class SeaSurfaceDrag : public Physics::Register<SeaSurfaceDrag>
+class VOFInterfaceDrag : public Physics::Register<VOFInterfaceDrag>
 {
 public:
-    static std::string identifier() { return "SeaSurfaceDrag"; }
+    static std::string identifier() { return "VOFInterfaceDrag"; }
 
-    explicit SeaSurfaceDrag(CFDSim& sim);
+    explicit VOFInterfaceDrag(CFDSim& sim);
 
-    ~SeaSurfaceDrag() override;
+    ~VOFInterfaceDrag() override;
 
     void post_init_actions() override {}
 
@@ -29,4 +29,4 @@ private:
 };
 
 } // namespace amr_wind
-#endif /* SEA_SURFACE_DRAG_H */
+#endif /* VOF_INTERFACE_DRAG_H */
