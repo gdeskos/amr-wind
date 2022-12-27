@@ -3,6 +3,5 @@ target_sources(${amr_wind_lib_name}
 
   VOFInterfaceDrag.cpp
   LinearWaveForcing.cpp
-  WaveDragModel.cpp
   )
 

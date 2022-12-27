@@ -1,6 +1,8 @@
 #include "amr-wind/air_sea_interaction/LinearWaveForcing.H"
+#include "amr-wind/wind_energy/ABL.H"
 #include "amr-wind/incflo.H"
 #include "amr-wind/fvm/gradient.H"
+#include "amr-wind/wind_energy/ShearStress.H"
 
 #include "AMReX_ParmParse.H"
 #include "AMReX_MultiFab.H"
@@ -10,7 +12,9 @@ namespace amr_wind {
 LinearWaveForcing::LinearWaveForcing(CFDSim& sim)
     : m_sim(sim)
     , m_velocity(sim.pde_manager().icns().fields().field)
+    , m_eddy_viscosity(sim.repo().get_field("mu_velocity"))
     , m_lwf_src(sim.repo().declare_field("surface_drag", 3))
+    , m_mo(sim.physics_manager().get<ABL>().abl_wall_function().mo())
 {
     // Register Dirichlet boundary conditions for velocity
     m_velocity.register_custom_bc<WaveBCVel>(m_sim.time());
@@ -30,9 +34,9 @@ void LinearWaveForcing::pre_advance_work()
         AMREX_SPACEDIM * AMREX_SPACEDIM, 1, FieldLoc::CELL);
 
     // Compute gradients
-    fvm::gradient((*grad_vel), m_velocity);
+    fvm::gradient((*vel_gradient), m_velocity);
 
-    const int idir = m_axis;
+    const int idir = 2;
 
     // FIXME: should not be doing this for every box
     auto tau = ShearStressMoeng(m_mo);
@@ -45,19 +49,17 @@ void LinearWaveForcing::pre_advance_work()
         const auto& dx = repo.mesh().Geom(lev).CellSizeArray();
         const auto& domain = geom.Domain();
 
-        // FIXME: only doing zlo for now
-        if (!(bx.smallEnd(idir) == domain.smallEnd(idir))) return;
-        if (idir != 2) return;
-
         for (amrex::MFIter mfi(velocity); mfi.isValid(); ++mfi) {
             const auto& bx = mfi.growntilebox(1);
             const amrex::Array4<amrex::Real>& dveldx = gradvel.array(mfi);
-            const amrex::Array4<amrex::Real>& rho = density.array(mfi);
+            // FIXME: only doing zlo for now
+            if (!(bx.smallEnd(idir) == domain.smallEnd(idir))) return;
+            if (idir != 2) return;
 
             amrex::ParallelFor(
                 bx, AMREX_SPACEDIM,
                 [=] AMREX_GPU_DEVICE(int i, int j, int k, int n) noexcept {
-                    rhou(i, j, k, n) = vel(i, j, k, n) * rho(i, j, k);
+                    dveldx(i, j, k, n) = -2.0;
                 });
         }
     }
