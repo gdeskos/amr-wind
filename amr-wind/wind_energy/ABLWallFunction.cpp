@@ -5,6 +5,8 @@
 #include "amr-wind/diffusion/diffusion.H"
 #include "amr-wind/wind_energy/ShearStress.H"
 
+#include "amr-wind/air_sea_interaction/WaveDragModel.H"
+
 #include <cmath>
 
 #include "AMReX_ParmParse.H"
