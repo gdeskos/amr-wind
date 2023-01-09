@@ -12,7 +12,6 @@ namespace amr_wind {
 LinearWaveForcing::LinearWaveForcing(CFDSim& sim)
     : m_sim(sim)
     , m_velocity(sim.pde_manager().icns().fields().field)
-    , m_eddy_viscosity(sim.repo().get_field("mu_velocity"))
     , m_lwf_src(sim.repo().declare_field("surface_drag", 3))
     , m_mo(sim.physics_manager().get<ABL>().abl_wall_function().mo())
 {
@@ -25,44 +24,6 @@ void LinearWaveForcing::post_init_actions() {}
 void LinearWaveForcing::pre_advance_work()
 {
     BL_PROFILE("amr-wind::LinearWaveForcing::pre_advance_work");
-
-    m_lwf_src.setVal(0.0);
-    const auto& repo = m_velocity.repo();
-    const int nlevels = repo.num_active_levels();
-
-    auto vel_gradient = m_sim.repo().create_scratch_field(
-        AMREX_SPACEDIM * AMREX_SPACEDIM, 1, FieldLoc::CELL);
-
-    // Compute gradients
-    fvm::gradient((*vel_gradient), m_velocity);
-
-    const int idir = 2;
-
-    // FIXME: should not be doing this for every box
-    auto tau = ShearStressMoeng(m_mo);
-
-    for (int lev = 0; lev < nlevels; ++lev) {
-        auto& gradvel = (*vel_gradient)(lev);
-        auto& velocity = m_velocity(lev);
-
-        const auto& geom = repo.mesh().Geom(lev);
-        const auto& dx = repo.mesh().Geom(lev).CellSizeArray();
-        const auto& domain = geom.Domain();
-
-        for (amrex::MFIter mfi(velocity); mfi.isValid(); ++mfi) {
-            const auto& bx = mfi.growntilebox(1);
-            const amrex::Array4<amrex::Real>& dveldx = gradvel.array(mfi);
-            // FIXME: only doing zlo for now
-            if (!(bx.smallEnd(idir) == domain.smallEnd(idir))) return;
-            if (idir != 2) return;
-
-            amrex::ParallelFor(
-                bx, AMREX_SPACEDIM,
-                [=] AMREX_GPU_DEVICE(int i, int j, int k, int n) noexcept {
-                    dveldx(i, j, k, n) = -2.0;
-                });
-        }
-    }
 }
 
 WaveBCVel::WaveBCVel(Field& /*unused*/, const SimTime& time) : m_time(time)
@@ -121,18 +82,6 @@ void WaveBCVel::operator()(Field& velocity, const FieldState /*rho_state*/)
                         varr(i, j, k - 1, 1) = 0.0;
                         varr(i, j, k - 1, 2) =
                             H / 2. * k_w * c * std::sin(k_w * (x - c * t));
-                    });
-            }
-
-            if (bx.bigEnd(idim) == domain.bigEnd(idim) &&
-                velocity.bc_type()[zhi] == BC::moving_wall) {
-                amrex::ParallelFor(
-                    amrex::bdryHi(bx, idim),
-                    [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
-                        // Dirichlet BC
-                        varr(i, j, k + 1, 0) = 1.0;
-                        varr(i, j, k + 1, 1) = 0.0;
-                        varr(i, j, k + 1, 2) = 0.0;
                     });
             }
         }

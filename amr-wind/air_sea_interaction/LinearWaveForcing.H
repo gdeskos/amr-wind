@@ -34,9 +34,7 @@ private:
     const CFDSim& m_sim;
 
     Field& m_velocity;
-    Field& m_eddy_viscosity;
     Field& m_lwf_src;
-
     const MOData& m_mo;
 };
 
