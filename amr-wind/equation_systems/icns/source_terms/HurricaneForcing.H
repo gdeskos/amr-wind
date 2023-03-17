@@ -58,7 +58,13 @@ private:
     amrex::Real m_Vzh{18000.};
 
     //! Eye-wall radial distance
-    amrex::Real m_R{40000.0}; // 40km is taken as the default value
+    amrex::Vector<amrex::Real> m_X{
+        {-40000.0, 0.0,
+         0.0}}; // 40km to the west is taken as the default value. The wind farm
+                // is assumed to start at (0,0,0)
+
+    //! Relative angle theta
+    amrex::Real  m_theta{0.0};
 
     //! Coriolis factor
     amrex::Real m_coriolis_factor{0.0005};

@@ -19,7 +19,7 @@ time.checkpoint_interval      =  5       # Steps between checkpoint files
 #¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨#
 #               PHYSICS                 #
 #.......................................#
-incflo.verbose = 3
+incflo.verbose = 2
 incflo.use_godunov                       = true                
 incflo.godunov_type                      = weno_z              
 incflo.diffusion_type                    = 0                   # Type of diffusion scheme used.  0 = explicit diffusion, 1 = Crank-Nicolson, 2 = fully implicit
@@ -62,7 +62,9 @@ CoriolisForcing.north_vector             = 0.0 1.0 0.0
 CoriolisForcing.east_vector              = 1.0 0.0 0.0   
 
 HurricaneForcing.gradient_wind=40.
-HurricaneForcing.eyewall_radial_distance=40000.
+HurricaneForcing.gradient_wind_radial_decay=-1e-3
+HurricaneForcing.gradient_wind_zero_height=18000
+HurricaneForcing.hurricane_center = -40000 0. 0.
 
 incflo.velocity = 0.0 40.0 0.0
 

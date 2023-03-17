@@ -32,13 +32,17 @@ HurricaneForcing::HurricaneForcing(const CFDSim& sim) : m_mesh(sim.mesh())
     }
 
     {
-        // Read the geostrophic wind speed vector (in m/s)
+        // Read the hurricane wind speed vector (in m/s)
         amrex::ParmParse pp("HurricaneForcing");
         pp.query("gradient_wind", m_V);
         pp.query("gradient_wind_radial_decay", m_dVdR);
         pp.query("gradient_wind_zero_height", m_Vzh);
-        pp.query("eyewall_radial_distance", m_R);
+        pp.queryarr("hurricane_center", m_X);
     }
+
+    // Compute relative angle from the hurricane theta
+    m_theta =
+        std::atan(-m_X[1] / -m_X[0]); // the wind farm is supposed to be at zero
 
     mean_velocity_init(abl.abl_statistics().vel_profile_coarse());
 }
@@ -56,11 +60,13 @@ void HurricaneForcing::operator()(
     const auto& problo = m_mesh.Geom(lev).ProbLoArray();
     const auto& dx = m_mesh.Geom(lev).CellSizeArray();
 
-    const amrex::Real R = m_R;
+    const amrex::Real R =
+        std::sqrt(m_X[0] * m_X[0] + m_X[1] * m_X[1] + m_X[2] * m_X[2]);
     const amrex::Real V = m_V;
     const amrex::Real dVdR = m_dVdR;
     const amrex::Real Vzh = m_Vzh;
     const amrex::Real f = m_coriolis_factor;
+    const amrex::Real theta = m_theta;
 
     // Mean velocity profile used to compute background hurricane forcing term
     //
@@ -81,25 +87,32 @@ void HurricaneForcing::operator()(
         const int il = amrex::min(k / lp1, nh_max);
         const int ir = il + 1;
 
-        const amrex::Real umean =
+        // Mean velocities
+        const amrex::Real ux =
             vals[3 * il + 0] + ((vals[3 * ir + 0] - vals[3 * il + 0]) /
                                 (heights[ir] - heights[il])) *
                                    (ht - heights[il]);
-        const amrex::Real vmean =
+        const amrex::Real uy =
             vals[3 * il + 1] + ((vals[3 * ir + 1] - vals[3 * il + 1]) /
                                 (heights[ir] - heights[il])) *
                                    (ht - heights[il]);
+        // Rotate velocities to get to cylindrical coordinates
+        const amrex::Real ur = ux * std::cos(theta) + uy * std::sin(theta);
+        const amrex::Real uphi = -ux * std::sin(theta) + uy * cos(theta);
 
         // Gradient velocities varying with height
         const amrex::Real V_z = V * (Vzh - ht) / Vzh;
         const amrex::Real dVdR_z = dVdR * (Vzh - ht) / Vzh;
-        // Compute the LES terms as presented in George Bryan's paper
-        const amrex::Real M1LES =
-            umean * umean / R + vmean * V_z / R - (f * V_z + V_z * V_z / R);
-        const amrex::Real M2LES = -umean * dVdR_z - umean * V_z / R;
 
-        src_term(i, j, k, 0) += M1LES;
-        src_term(i, j, k, 1) += M2LES;
+        // Compute the mesoscale tendency terms as presented in George Bryan's
+        // paper
+        const amrex::Real Mr =
+            ur * ur / R + uphi * V_z / R - (f * V_z + V_z * V_z / R);
+        const amrex::Real Mphi = -ur * dVdR_z - ur * V_z / R;
+
+        // Compute final source terms by rotating the source terms
+        src_term(i, j, k, 0) += Mr * std::cos(theta) - Mphi * std::sin(theta);
+        src_term(i, j, k, 1) += Mr * std::sin(theta) + Mphi * std::cos(theta);
         src_term(i, j, k, 2) += 0.0;
     });
 }
