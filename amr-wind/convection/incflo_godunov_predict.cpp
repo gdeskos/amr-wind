@@ -194,8 +194,7 @@ void godunov::predict_godunov(
 
             Real st = (uad >= 0.) ? lo : hi;
             Real fu = (std::abs(uad) < small_vel) ? 0.0 : 1.0;
-            Imx(i, j, k, n) =
-                fu * st + (1.0 - fu) * 0.5 * (hi + lo); // store xedge
+            Imx(i, j, k, n) = 0.5 * (hi + lo); // store xedge
         },
         yebox, ncomp,
         [=] AMREX_GPU_DEVICE(int i, int j, int k, int n) noexcept {
@@ -221,8 +220,7 @@ void godunov::predict_godunov(
 
             Real st = (vad >= 0.) ? lo : hi;
             Real fu = (std::abs(vad) < small_vel) ? 0.0 : 1.0;
-            Imy(i, j, k, n) =
-                fu * st + (1.0 - fu) * 0.5 * (hi + lo); // store yedge
+            Imy(i, j, k, n) = 0.5 * (hi + lo); // store yedge
         },
         zebox, ncomp,
         [=] AMREX_GPU_DEVICE(int i, int j, int k, int n) noexcept {
@@ -248,8 +246,7 @@ void godunov::predict_godunov(
 
             Real st = (wad >= 0.) ? lo : hi;
             Real fu = (std::abs(wad) < small_vel) ? 0.0 : 1.0;
-            Imz(i, j, k, n) =
-                fu * st + (1.0 - fu) * 0.5 * (hi + lo); // store zedge
+            Imz(i, j, k, n) = 0.5 * (hi + lo); // store zedge
         });
 
     Array4<Real> xedge = Imx;
@@ -289,7 +286,7 @@ void godunov::predict_godunov(
 
             Real st = (wad >= 0.) ? l_zylo : l_zyhi;
             Real fu = (std::abs(wad) < small_vel) ? 0.0 : 1.0;
-            zylo(i, j, k) = fu * st + (1.0 - fu) * 0.5 * (l_zyhi + l_zylo);
+            zylo(i, j, k) = 0.5 * (l_zyhi + l_zylo);
         },
         [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
             constexpr int n = 0;
@@ -308,7 +305,7 @@ void godunov::predict_godunov(
 
             Real st = (vad >= 0.) ? l_yzlo : l_yzhi;
             Real fu = (std::abs(vad) < small_vel) ? 0.0 : 1.0;
-            yzlo(i, j, k) = fu * st + (1.0 - fu) * 0.5 * (l_yzhi + l_yzlo);
+            yzlo(i, j, k) = 0.5 * (l_yzhi + l_yzlo);
         });
     //
     amrex::ParallelFor(xbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
@@ -373,7 +370,7 @@ void godunov::predict_godunov(
 
             Real st = (uad >= 0.) ? l_xzlo : l_xzhi;
             Real fu = (std::abs(uad) < small_vel) ? 0.0 : 1.0;
-            xzlo(i, j, k) = fu * st + (1.0 - fu) * 0.5 * (l_xzhi + l_xzlo);
+            xzlo(i, j, k) = 0.5 * (l_xzhi + l_xzlo);
         },
         [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
             constexpr int n = 1;
@@ -392,7 +389,7 @@ void godunov::predict_godunov(
 
             Real st = (wad >= 0.) ? l_zxlo : l_zxhi;
             Real fu = (std::abs(wad) < small_vel) ? 0.0 : 1.0;
-            zxlo(i, j, k) = fu * st + (1.0 - fu) * 0.5 * (l_zxhi + l_zxlo);
+            zxlo(i, j, k) = 0.5 * (l_zxhi + l_zxlo);
         });
     //
     amrex::ParallelFor(ybx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
@@ -457,7 +454,7 @@ void godunov::predict_godunov(
 
             Real st = (uad >= 0.) ? l_xylo : l_xyhi;
             Real fu = (std::abs(uad) < small_vel) ? 0.0 : 1.0;
-            xylo(i, j, k) = fu * st + (1.0 - fu) * 0.5 * (l_xyhi + l_xylo);
+            xylo(i, j, k) = 0.5 * (l_xyhi + l_xylo);
         },
         //
         // Add d/dx term to y-faces
@@ -480,7 +477,7 @@ void godunov::predict_godunov(
 
             Real st = (vad >= 0.) ? l_yxlo : l_yxhi;
             Real fu = (std::abs(vad) < small_vel) ? 0.0 : 1.0;
-            yxlo(i, j, k) = fu * st + (1.0 - fu) * 0.5 * (l_yxhi + l_yxlo);
+            yxlo(i, j, k) = 0.5 * (l_yxhi + l_yxlo);
         });
     //
     amrex::ParallelFor(zbx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
